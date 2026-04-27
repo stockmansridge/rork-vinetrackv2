@@ -305,7 +305,7 @@ returns setof public.vineyards
 language plpgsql
 security definer
 set search_path = public
-as $
+as $function$
 declare
   v_vineyard public.vineyards%rowtype;
   v_user_id uuid;
@@ -338,7 +338,7 @@ begin
 
   return next v_vineyard;
 end;
-$;
+$function$;
 
 revoke all on function public.create_vineyard_with_owner(text, text) from public;
 grant execute on function public.create_vineyard_with_owner(text, text) to authenticated;
@@ -348,7 +348,7 @@ returns void
 language plpgsql
 security definer
 set search_path = public
-as $
+as $function$
 declare
   v_invitation public.invitations%rowtype;
   v_user_id uuid;
@@ -395,4 +395,4 @@ begin
   set status = 'accepted'
   where id = p_invitation_id;
 end;
-$;
+$function$;
