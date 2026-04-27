@@ -174,6 +174,15 @@ struct BackendDiagnosticView: View {
                 Text("Loaded vineyards: \(vineyards.count)")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
+                ForEach(vineyards) { vineyard in
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(vineyard.name)
+                            .font(.subheadline.weight(.semibold))
+                        Text("\(vineyard.country ?? "no country") • \(vineyard.id.uuidString)")
+                            .font(.caption2.monospaced())
+                            .foregroundStyle(.secondary)
+                    }
+                }
             }
         }
         .disabled(isRunning)
@@ -210,11 +219,29 @@ struct BackendDiagnosticView: View {
                 Text("Pending invitations loaded: \(pendingInvitations.count)")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
+                ForEach(pendingInvitations) { invitation in
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(invitation.email)
+                            .font(.subheadline.weight(.semibold))
+                        Text("\(invitation.role.rawValue) • \(invitation.status)")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                }
             }
             if !members.isEmpty {
                 Text("Members loaded: \(members.count)")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
+                ForEach(members, id: \.userId) { member in
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(member.displayName ?? "(no display name)")
+                            .font(.subheadline.weight(.semibold))
+                        Text("\(member.role.rawValue) • \(member.userId.uuidString)")
+                            .font(.caption2.monospaced())
+                            .foregroundStyle(.secondary)
+                    }
+                }
             }
         }
         .disabled(isRunning)
@@ -421,7 +448,7 @@ struct BackendDiagnosticView: View {
         await perform("List Members For Current Vineyard") {
             let vineyardId = try requireCurrentVineyardId()
             members = try await teamRepository.listMembers(vineyardId: vineyardId)
-            return members.isEmpty ? "no members returned" : members.map { "\($0.userId.uuidString) / \($0.role.rawValue)" }.joined(separator: ", ")
+            return members.isEmpty ? "no members returned" : members.map { "\($0.displayName ?? "(no name)") / \($0.role.rawValue) / \($0.userId.uuidString)" }.joined(separator: ", ")
         }
     }
 
