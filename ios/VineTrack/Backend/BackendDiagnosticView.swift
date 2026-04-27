@@ -1,0 +1,443 @@
+#if DEBUG
+import Foundation
+import SwiftUI
+import Supabase
+
+struct BackendDiagnosticView: View {
+    private let provider: SupabaseClientProvider = .shared
+    private let authRepository = SupabaseAuthRepository()
+    private let profileRepository = SupabaseProfileRepository()
+    private let vineyardRepository = SupabaseVineyardRepository()
+    private let teamRepository = SupabaseTeamRepository()
+    private let auditRepository = SupabaseAuditRepository()
+
+    @State private var name: String = ""
+    @State private var email: String = ""
+    @State private var password: String = ""
+    @State private var vineyardName: String = "Test Vineyard"
+    @State private var country: String = ""
+    @State private var invitedEmail: String = ""
+    @State private var selectedRoleValue: String = "operator"
+    @State private var disclaimerVersion: String = "1.0"
+    @State private var currentUserId: UUID?
+    @State private var currentEmail: String?
+    @State private var currentVineyardId: UUID?
+    @State private var vineyards: [BackendVineyard] = []
+    @State private var pendingInvitations: [BackendInvitation] = []
+    @State private var members: [BackendVineyardMember] = []
+    @State private var logMessages: [String] = []
+    @State private var isRunning: Bool = false
+
+    private var selectedRole: BackendRole {
+        BackendRole(rawValue: selectedRoleValue) ?? .owner
+    }
+
+    private var logText: String {
+        logMessages.joined(separator: "\n")
+    }
+
+    var body: some View {
+        Form {
+            connectionSection
+            authSection
+            profileSection
+            vineyardSection
+            teamSection
+            disclaimerSection
+            auditSection
+            outputSection
+        }
+        .navigationTitle("Backend Diagnostic")
+        .navigationBarTitleDisplayMode(.inline)
+        .task {
+            refreshAuthState()
+            if logMessages.isEmpty {
+                appendLog("READY Supabase configured: \(provider.isConfigured)")
+            }
+        }
+    }
+
+    private var connectionSection: some View {
+        Section("Supabase Connection") {
+            LabeledContent("URL", value: provider.supabaseURL.absoluteString)
+            LabeledContent("Configured", value: provider.isConfigured ? "true" : "false")
+            LabeledContent("Current User ID", value: currentUserId?.uuidString ?? "Not signed in")
+            LabeledContent("Current Email", value: currentEmail ?? "Not available")
+            if let currentVineyardId {
+                LabeledContent("Current Vineyard ID", value: currentVineyardId.uuidString)
+            }
+            Button("Refresh Status", systemImage: "arrow.clockwise") {
+                Task {
+                    await perform("Refresh Status") {
+                        refreshAuthState()
+                        return "configured=\(provider.isConfigured), user=\(currentUserId?.uuidString ?? "none")"
+                    }
+                }
+            }
+        }
+    }
+
+    private var authSection: some View {
+        Section("Email / Password") {
+            TextField("Name", text: $name)
+                .textContentType(.name)
+            TextField("Email", text: $email)
+                .textContentType(.emailAddress)
+                .textInputAutocapitalization(.never)
+                .keyboardType(.emailAddress)
+                .autocorrectionDisabled()
+            SecureField("Password", text: $password)
+                .textContentType(.password)
+            HStack {
+                Button("Sign Up") {
+                    Task { await signUp() }
+                }
+                Button("Sign In") {
+                    Task { await signIn() }
+                }
+                Button("Sign Out", role: .destructive) {
+                    Task { await signOut() }
+                }
+            }
+            Button("Restore Session") {
+                Task { await restoreSession() }
+            }
+        }
+        .disabled(isRunning)
+    }
+
+    private var profileSection: some View {
+        Section("Profile Tests") {
+            Button("Get My Profile") {
+                Task { await getMyProfile() }
+            }
+            Button("Upsert My Profile") {
+                Task { await upsertMyProfile() }
+            }
+        }
+        .disabled(isRunning)
+    }
+
+    private var vineyardSection: some View {
+        Section("Vineyard Tests") {
+            TextField("Vineyard Name", text: $vineyardName)
+                .textContentType(.organizationName)
+            TextField("Country", text: $country)
+                .textContentType(.countryName)
+            Button("Create Vineyard") {
+                Task { await createVineyard() }
+            }
+            Button("List My Vineyards") {
+                Task { await listMyVineyards() }
+            }
+            if !vineyards.isEmpty {
+                Text("Loaded vineyards: \(vineyards.count)")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .disabled(isRunning)
+    }
+
+    private var teamSection: some View {
+        Section("Team / Invitation Tests") {
+            TextField("Invited Email", text: $invitedEmail)
+                .textContentType(.emailAddress)
+                .textInputAutocapitalization(.never)
+                .keyboardType(.emailAddress)
+                .autocorrectionDisabled()
+            Picker("Role", selection: $selectedRoleValue) {
+                ForEach(BackendRole.allCases, id: \.rawValue) { role in
+                    Text(role.rawValue.capitalized).tag(role.rawValue)
+                }
+            }
+            Button("Invite Member") {
+                Task { await inviteMember() }
+            }
+            Button("List Pending Invitations") {
+                Task { await listPendingInvitations() }
+            }
+            Button("Accept First Pending Invitation") {
+                Task { await acceptFirstPendingInvitation() }
+            }
+            Button("Decline First Pending Invitation") {
+                Task { await declineFirstPendingInvitation() }
+            }
+            Button("List Members For Current Vineyard") {
+                Task { await listMembersForCurrentVineyard() }
+            }
+            if !pendingInvitations.isEmpty {
+                Text("Pending invitations loaded: \(pendingInvitations.count)")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+            if !members.isEmpty {
+                Text("Members loaded: \(members.count)")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .disabled(isRunning)
+    }
+
+    private var disclaimerSection: some View {
+        Section("Disclaimer Tests") {
+            TextField("Disclaimer Version", text: $disclaimerVersion)
+            Button("Check Disclaimer Acceptance") {
+                Task { await checkDisclaimerAcceptance() }
+            }
+            Button("Accept Disclaimer") {
+                Task { await acceptDisclaimer() }
+            }
+        }
+        .disabled(isRunning)
+    }
+
+    private var auditSection: some View {
+        Section("Audit Test") {
+            Button("Write Test Audit Event") {
+                Task { await writeTestAuditEvent() }
+            }
+        }
+        .disabled(isRunning)
+    }
+
+    private var outputSection: some View {
+        Section("Output Log") {
+            if isRunning {
+                ProgressView("Running test…")
+            }
+            ScrollView {
+                Text(logText.isEmpty ? "No diagnostic output yet." : logText)
+                    .font(.footnote.monospaced())
+                    .foregroundStyle(logText.isEmpty ? .secondary : .primary)
+                    .textSelection(.enabled)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.vertical, 4)
+            }
+            .frame(minHeight: 220)
+            Button("Clear Log", role: .destructive) {
+                logMessages.removeAll()
+            }
+        }
+    }
+
+    private func signUp() async {
+        await perform("Sign Up") {
+            let user = try await authRepository.signUpWithEmail(name: trimmed(name), email: trimmed(email), password: password)
+            refreshAuthState()
+            guard let user else { return "sign-up returned no user; check email confirmation settings" }
+            currentUserId = user.id
+            currentEmail = user.email
+            return describe(user)
+        }
+    }
+
+    private func signIn() async {
+        await perform("Sign In") {
+            let user = try await authRepository.signInWithEmail(email: trimmed(email), password: password)
+            refreshAuthState()
+            currentUserId = user.id
+            currentEmail = user.email
+            return describe(user)
+        }
+    }
+
+    private func signOut() async {
+        await perform("Sign Out") {
+            try await authRepository.signOut()
+            refreshAuthState()
+            return "signed out"
+        }
+    }
+
+    private func restoreSession() async {
+        await perform("Restore Session") {
+            let user = try await authRepository.restoreSession()
+            refreshAuthState()
+            guard let user else { return "no saved session" }
+            currentUserId = user.id
+            currentEmail = user.email
+            return describe(user)
+        }
+    }
+
+    private func getMyProfile() async {
+        await perform("Get My Profile") {
+            let profile = try await profileRepository.getMyProfile()
+            guard let profile else { return "profile not found" }
+            return describe(profile)
+        }
+    }
+
+    private func upsertMyProfile() async {
+        await perform("Upsert My Profile") {
+            try await profileRepository.upsertMyProfile(fullName: trimmed(name).nilIfEmpty, email: trimmed(email).nilIfEmpty)
+            return "profile upserted"
+        }
+    }
+
+    private func createVineyard() async {
+        await perform("Create Vineyard") {
+            let vineyard = try await vineyardRepository.createVineyard(name: trimmed(vineyardName), country: trimmed(country).nilIfEmpty)
+            currentVineyardId = vineyard.id
+            return describe(vineyard)
+        }
+    }
+
+    private func listMyVineyards() async {
+        await perform("List My Vineyards") {
+            vineyards = try await vineyardRepository.listMyVineyards()
+            if currentVineyardId == nil {
+                currentVineyardId = vineyards.first?.id
+            }
+            return vineyards.isEmpty ? "no vineyards returned" : vineyards.map { "\($0.name) (\($0.id.uuidString))" }.joined(separator: ", ")
+        }
+    }
+
+    private func inviteMember() async {
+        await perform("Invite Member") {
+            let vineyardId = try requireCurrentVineyardId()
+            let invitation = try await teamRepository.inviteMember(vineyardId: vineyardId, email: trimmed(invitedEmail), role: selectedRole)
+            pendingInvitations.insert(invitation, at: 0)
+            return describe(invitation)
+        }
+    }
+
+    private func listPendingInvitations() async {
+        await perform("List Pending Invitations") {
+            pendingInvitations = try await teamRepository.listPendingInvitations()
+            return pendingInvitations.isEmpty ? "no pending invitations" : pendingInvitations.map { "\($0.email) / \($0.role.rawValue) / \($0.id.uuidString)" }.joined(separator: ", ")
+        }
+    }
+
+    private func acceptFirstPendingInvitation() async {
+        await perform("Accept First Pending Invitation") {
+            guard let invitation = pendingInvitations.first else { throw BackendDiagnosticError.missingPendingInvitation }
+            try await teamRepository.acceptInvitation(invitationId: invitation.id)
+            pendingInvitations.removeFirst()
+            return "accepted invitation \(invitation.id.uuidString)"
+        }
+    }
+
+    private func declineFirstPendingInvitation() async {
+        await perform("Decline First Pending Invitation") {
+            guard let invitation = pendingInvitations.first else { throw BackendDiagnosticError.missingPendingInvitation }
+            try await teamRepository.declineInvitation(invitationId: invitation.id)
+            pendingInvitations.removeFirst()
+            return "declined invitation \(invitation.id.uuidString)"
+        }
+    }
+
+    private func listMembersForCurrentVineyard() async {
+        await perform("List Members For Current Vineyard") {
+            let vineyardId = try requireCurrentVineyardId()
+            members = try await teamRepository.listMembers(vineyardId: vineyardId)
+            return members.isEmpty ? "no members returned" : members.map { "\($0.userId.uuidString) / \($0.role.rawValue)" }.joined(separator: ", ")
+        }
+    }
+
+    private func checkDisclaimerAcceptance() async {
+        await perform("Check Disclaimer Acceptance") {
+            let repository = SupabaseDisclaimerRepository(currentVersion: trimmed(disclaimerVersion))
+            let accepted = try await repository.hasAcceptedCurrentDisclaimer()
+            return "accepted=\(accepted) for version \(trimmed(disclaimerVersion))"
+        }
+    }
+
+    private func acceptDisclaimer() async {
+        await perform("Accept Disclaimer") {
+            try await SupabaseDisclaimerRepository(currentVersion: trimmed(disclaimerVersion)).acceptCurrentDisclaimer(version: trimmed(disclaimerVersion), displayName: trimmed(name).nilIfEmpty, email: trimmed(email).nilIfEmpty)
+            return "accepted version \(trimmed(disclaimerVersion))"
+        }
+    }
+
+    private func writeTestAuditEvent() async {
+        await perform("Write Test Audit Event") {
+            await auditRepository.log(vineyardId: currentVineyardId, action: "backend_diagnostic_test", entityType: "diagnostic", entityId: currentVineyardId, details: "Backend diagnostic audit event from DEBUG screen")
+            return "audit event write requested"
+        }
+    }
+
+    private func perform(_ title: String, operation: () async throws -> String) async {
+        guard !isRunning else {
+            appendLog("SKIPPED \(title): another diagnostic action is running")
+            return
+        }
+        isRunning = true
+        appendLog("START \(title)")
+        do {
+            let message = try await operation()
+            appendLog("SUCCESS \(title): \(message)")
+        } catch {
+            appendLog("ERROR \(title): \(error.localizedDescription)")
+        }
+        refreshAuthState()
+        isRunning = false
+    }
+
+    private func refreshAuthState() {
+        let user = provider.client.auth.currentUser
+        currentUserId = authRepository.currentUserId ?? user?.id
+        currentEmail = user?.email
+    }
+
+    private func requireCurrentVineyardId() throws -> UUID {
+        guard let currentVineyardId else { throw BackendDiagnosticError.missingCurrentVineyard }
+        return currentVineyardId
+    }
+
+    private func appendLog(_ message: String) {
+        let timestamp = Date().formatted(.dateTime.hour().minute().second())
+        logMessages.append("[\(timestamp)] \(message)")
+    }
+
+    private func trimmed(_ value: String) -> String {
+        value.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private func describe(_ user: AppUser) -> String {
+        "user id=\(user.id.uuidString), email=\(user.email), displayName=\(user.displayName)"
+    }
+
+    private func describe(_ profile: BackendProfile) -> String {
+        "profile id=\(profile.id.uuidString), email=\(profile.email), fullName=\(profile.fullName ?? "nil")"
+    }
+
+    private func describe(_ vineyard: BackendVineyard) -> String {
+        "vineyard id=\(vineyard.id.uuidString), name=\(vineyard.name), country=\(vineyard.country ?? "nil")"
+    }
+
+    private func describe(_ invitation: BackendInvitation) -> String {
+        "invitation id=\(invitation.id.uuidString), email=\(invitation.email), role=\(invitation.role.rawValue), status=\(invitation.status)"
+    }
+}
+
+struct BackendDiagnosticHostView: View {
+    var body: some View {
+        NavigationStack {
+            BackendDiagnosticView()
+        }
+    }
+}
+
+nonisolated private enum BackendDiagnosticError: LocalizedError, Sendable {
+    case missingCurrentVineyard
+    case missingPendingInvitation
+
+    var errorDescription: String? {
+        switch self {
+        case .missingCurrentVineyard:
+            "Create or list a vineyard first so there is a current vineyard ID."
+        case .missingPendingInvitation:
+            "List pending invitations first, or create an invitation before accepting or declining one."
+        }
+    }
+}
+
+nonisolated private extension String {
+    var nilIfEmpty: String? {
+        isEmpty ? nil : self
+    }
+}
+#endif

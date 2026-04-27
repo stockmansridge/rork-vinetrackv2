@@ -5,11 +5,13 @@ final class SupabaseClientProvider: Sendable {
     static let shared = SupabaseClientProvider()
 
     let client: SupabaseClient
+    let supabaseURL: URL
     let isConfigured: Bool
 
     private init() {
         let configuration = SupabaseBackendConfiguration.current
         isConfigured = configuration.isConfigured
+        supabaseURL = configuration.url
         client = SupabaseClient(
             supabaseURL: configuration.url,
             supabaseKey: configuration.anonKey

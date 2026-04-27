@@ -11,6 +11,9 @@ import SwiftData
 struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
     @Query private var items: [Item]
+    #if DEBUG
+    @State private var isShowingBackendDiagnostic: Bool = false
+    #endif
 
     var body: some View {
         NavigationSplitView {
@@ -25,7 +28,14 @@ struct ContentView: View {
                 .onDelete(perform: deleteItems)
             }
             .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
+                #if DEBUG
+                ToolbarItem(placement: .topBarLeading) {
+                    Button("Backend Diagnostic", systemImage: "stethoscope") {
+                        isShowingBackendDiagnostic = true
+                    }
+                }
+                #endif
+                ToolbarItem(placement: .topBarTrailing) {
                     EditButton()
                 }
                 ToolbarItem {
@@ -37,6 +47,11 @@ struct ContentView: View {
         } detail: {
             Text("Select an item")
         }
+        #if DEBUG
+        .sheet(isPresented: $isShowingBackendDiagnostic) {
+            BackendDiagnosticHostView()
+        }
+        #endif
     }
 
     private func addItem() {
