@@ -112,6 +112,7 @@ struct BackendDiagnosticView: View {
                     Task { await signOut() }
                 }
             }
+            .buttonStyle(.bordered)
             Text(lastStatus)
                 .font(.footnote)
                 .foregroundStyle(.secondary)
@@ -266,13 +267,27 @@ struct BackendDiagnosticView: View {
             let trimmedName = trimmed(name)
             let trimmedEmail = trimmed(email)
             try validateAuthFields(email: trimmedEmail, password: password)
-            let user = try await authRepository.signUpWithEmail(name: trimmedName, email: trimmedEmail, password: password)
-            refreshAuthState()
-            guard let user else { return "sign-up returned no user; check email confirmation settings" }
-            currentUserId = user.id
-            currentEmail = user.email
-            let hasSession = provider.client.auth.currentSession != nil
-            return "\(describe(user)); session=\(hasSession ? "yes" : "no"); if session=no, Supabase still requires email confirmation"
+            do {
+                let user = try await authRepository.signUpWithEmail(name: trimmedName, email: trimmedEmail, password: password)
+                refreshAuthState()
+                guard let user else { return "sign-up returned no user; check email confirmation settings" }
+                currentUserId = user.id
+                currentEmail = user.email
+                let hasSession = provider.client.auth.currentSession != nil
+                return "\(describe(user)); session=\(hasSession ? "yes" : "no"); if session=no, Supabase still requires email confirmation"
+            } catch {
+                guard isAlreadyRegisteredError(error) else { throw error }
+                appendLog("INFO Sign Up: account already exists; attempting Sign In with the same email/password")
+                do {
+                    let user = try await authRepository.signInWithEmail(email: trimmedEmail, password: password)
+                    refreshAuthState()
+                    currentUserId = user.id
+                    currentEmail = user.email
+                    return "account already existed; signed in instead. \(describe(user))"
+                } catch {
+                    throw BackendDiagnosticError.alreadyRegisteredSignInFailed(detailedErrorMessage(error))
+                }
+            }
         }
     }
 
@@ -481,6 +496,11 @@ struct BackendDiagnosticView: View {
         return "\(localizedDescription) — \(reflectedDescription)"
     }
 
+    private func isAlreadyRegisteredError(_ error: Error) -> Bool {
+        let message = detailedErrorMessage(error).lowercased()
+        return message.contains("user already registered") || message.contains("already registered")
+    }
+
     private func appendLog(_ message: String) {
         let timestamp = Date().formatted(.dateTime.hour().minute().second())
         logMessages.append("[\(timestamp)] \(message)")
@@ -520,6 +540,7 @@ nonisolated private enum BackendDiagnosticError: LocalizedError, Sendable {
     case missingPendingInvitation
     case missingEmail
     case missingPassword
+    case alreadyRegisteredSignInFailed(String)
 
     var errorDescription: String? {
         switch self {
@@ -531,6 +552,8 @@ nonisolated private enum BackendDiagnosticError: LocalizedError, Sendable {
             "Enter an email address before running this auth test."
         case .missingPassword:
             "Enter a password before running this auth test."
+        case .alreadyRegisteredSignInFailed(let message):
+            "This email is already registered, but automatic sign-in failed. Check the password or use the reset PIN flow. Sign-in error: \(message)"
         }
     }
 }
