@@ -52,7 +52,7 @@ struct BackendDiagnosticView: View {
         .task {
             refreshAuthState()
             if logMessages.isEmpty {
-                appendLog("READY Supabase configured: \(provider.isConfigured)")
+                appendLog("READY Supabase configured: \(provider.isConfigured) — \(provider.configurationSummary)")
             }
         }
     }
@@ -61,6 +61,10 @@ struct BackendDiagnosticView: View {
         Section("Supabase Connection") {
             LabeledContent("URL", value: provider.supabaseURL.absoluteString)
             LabeledContent("Configured", value: provider.isConfigured ? "true" : "false")
+            Text(provider.configurationSummary)
+                .font(.footnote.monospaced())
+                .foregroundStyle(.secondary)
+                .textSelection(.enabled)
             LabeledContent("Current User ID", value: currentUserId?.uuidString ?? "Not signed in")
             LabeledContent("Current Email", value: currentEmail ?? "Not available")
             if let currentVineyardId {
@@ -70,7 +74,7 @@ struct BackendDiagnosticView: View {
                 Task {
                     await perform("Refresh Status") {
                         refreshAuthState()
-                        return "configured=\(provider.isConfigured), user=\(currentUserId?.uuidString ?? "none")"
+                        return "configured=\(provider.isConfigured), \(provider.configurationSummary), user=\(currentUserId?.uuidString ?? "none")"
                     }
                 }
             }
