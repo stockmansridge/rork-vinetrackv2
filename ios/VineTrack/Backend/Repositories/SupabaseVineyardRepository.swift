@@ -21,18 +21,12 @@ final class SupabaseVineyardRepository: VineyardRepositoryProtocol {
 
     func createVineyard(name: String, country: String?) async throws -> BackendVineyard {
         guard provider.isConfigured else { throw BackendRepositoryError.missingSupabaseConfiguration }
-        guard let userId = provider.client.auth.currentUser?.id else { throw BackendRepositoryError.missingAuthenticatedUser }
-        let vineyard: BackendVineyard = try await provider.client
-            .from("vineyards")
-            .insert(VineyardInsert(name: name, ownerId: userId, country: country))
-            .select()
-            .single()
+        guard provider.client.auth.currentUser != nil else { throw BackendRepositoryError.missingAuthenticatedUser }
+        let vineyards: [BackendVineyard] = try await provider.client
+            .rpc("create_vineyard_with_owner", params: CreateVineyardRequest(name: name, country: country))
             .execute()
             .value
-        try await provider.client
-            .from("vineyard_members")
-            .insert(VineyardMemberInsert(vineyardId: vineyard.id, userId: userId, role: .owner, displayName: nil))
-            .execute()
+        guard let vineyard = vineyards.first else { throw BackendRepositoryError.emptyResponse }
         return vineyard
     }
 
@@ -55,15 +49,13 @@ final class SupabaseVineyardRepository: VineyardRepositoryProtocol {
     }
 }
 
-nonisolated private struct VineyardInsert: Encodable, Sendable {
+nonisolated private struct CreateVineyardRequest: Encodable, Sendable {
     let name: String
-    let ownerId: UUID
     let country: String?
 
     enum CodingKeys: String, CodingKey {
-        case name
-        case ownerId = "owner_id"
-        case country
+        case name = "p_name"
+        case country = "p_country"
     }
 }
 
@@ -87,16 +79,3 @@ nonisolated private struct VineyardSoftDelete: Encodable, Sendable {
     }
 }
 
-nonisolated private struct VineyardMemberInsert: Encodable, Sendable {
-    let vineyardId: UUID
-    let userId: UUID
-    let role: BackendRole
-    let displayName: String?
-
-    enum CodingKeys: String, CodingKey {
-        case vineyardId = "vineyard_id"
-        case userId = "user_id"
-        case role
-        case displayName = "display_name"
-    }
-}
