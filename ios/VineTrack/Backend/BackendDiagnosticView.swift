@@ -14,6 +14,8 @@ struct BackendDiagnosticView: View {
     @State private var name: String = ""
     @State private var email: String = ""
     @State private var password: String = ""
+    @State private var resetPin: String = ""
+    @State private var resetNewPassword: String = ""
     @State private var vineyardName: String = "Test Vineyard"
     @State private var country: String = ""
     @State private var invitedEmail: String = ""
@@ -40,6 +42,7 @@ struct BackendDiagnosticView: View {
         Form {
             connectionSection
             authSection
+            passwordResetSection
             profileSection
             vineyardSection
             teamSection
@@ -105,6 +108,29 @@ struct BackendDiagnosticView: View {
             }
             Button("Restore Session") {
                 Task { await restoreSession() }
+            }
+        }
+        .disabled(isRunning)
+    }
+
+    private var passwordResetSection: some View {
+        Section("Password Reset PIN") {
+            Text("Reset emails should use the 6-digit {{ .Token }} PIN, not {{ .ConfirmationURL }} links.")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+            TextField("Reset PIN", text: $resetPin)
+                .textContentType(.oneTimeCode)
+                .keyboardType(.numberPad)
+            SecureField("New Password", text: $resetNewPassword)
+                .textContentType(.newPassword)
+            Button("Send Reset PIN Email") {
+                Task { await sendResetPin() }
+            }
+            Button("Verify Reset PIN") {
+                Task { await verifyResetPin() }
+            }
+            Button("Reset Password With PIN") {
+                Task { await resetPasswordWithPin() }
             }
         }
         .disabled(isRunning)
@@ -263,6 +289,33 @@ struct BackendDiagnosticView: View {
             currentUserId = user.id
             currentEmail = user.email
             return describe(user)
+        }
+    }
+
+    private func sendResetPin() async {
+        await perform("Send Reset PIN Email") {
+            try await authRepository.sendPasswordReset(email: trimmed(email))
+            return "reset email requested for \(trimmed(email)); Supabase reset-password template must show {{ .Token }}"
+        }
+    }
+
+    private func verifyResetPin() async {
+        await perform("Verify Reset PIN") {
+            let user = try await authRepository.verifyPasswordResetPin(email: trimmed(email), pin: trimmed(resetPin))
+            refreshAuthState()
+            currentUserId = user.id
+            currentEmail = user.email
+            return describe(user)
+        }
+    }
+
+    private func resetPasswordWithPin() async {
+        await perform("Reset Password With PIN") {
+            let user = try await authRepository.resetPasswordWithPin(email: trimmed(email), pin: trimmed(resetPin), newPassword: resetNewPassword)
+            refreshAuthState()
+            currentUserId = user.id
+            currentEmail = user.email
+            return "password updated for \(user.email)"
         }
     }
 

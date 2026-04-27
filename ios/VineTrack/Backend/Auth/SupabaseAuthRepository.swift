@@ -44,9 +44,22 @@ final class SupabaseAuthRepository: AuthRepository {
         try await provider.client.auth.resetPasswordForEmail(email)
     }
 
+    func verifyPasswordResetPin(email: String, pin: String) async throws -> AppUser {
+        guard provider.isConfigured else { throw BackendRepositoryError.missingSupabaseConfiguration }
+        try await provider.client.auth.verifyOTP(email: email, token: pin, type: .recovery)
+        let session = try await provider.client.auth.session
+        return appUser(from: session.user, fallbackEmail: email)
+    }
+
     func updatePassword(_ newPassword: String) async throws {
         guard provider.isConfigured else { throw BackendRepositoryError.missingSupabaseConfiguration }
         try await provider.client.auth.update(user: UserAttributes(password: newPassword))
+    }
+
+    func resetPasswordWithPin(email: String, pin: String, newPassword: String) async throws -> AppUser {
+        let user = try await verifyPasswordResetPin(email: email, pin: pin)
+        try await updatePassword(newPassword)
+        return user
     }
 
     private func appUser(from user: User, fallbackEmail: String? = nil, fallbackDisplayName: String? = nil) -> AppUser {
