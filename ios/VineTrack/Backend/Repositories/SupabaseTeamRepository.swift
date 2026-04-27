@@ -64,17 +64,24 @@ final class SupabaseTeamRepository: TeamRepositoryProtocol {
 
     func acceptInvitation(invitationId: UUID) async throws {
         guard provider.isConfigured else { throw BackendRepositoryError.missingSupabaseConfiguration }
+        try await ensureCurrentUserProfileExists()
         try await provider.client
             .rpc("accept_invitation", params: AcceptInvitationRequest(invitationId: invitationId))
+            .execute()
+    }
+
+    private func ensureCurrentUserProfileExists() async throws {
+        guard let user = provider.client.auth.currentUser else { throw BackendRepositoryError.missingAuthenticatedUser }
+        try await provider.client
+            .from("profiles")
+            .upsert(InvitationAcceptanceProfileUpsert(id: user.id, email: user.email ?? ""))
             .execute()
     }
 
     func declineInvitation(invitationId: UUID) async throws {
         guard provider.isConfigured else { throw BackendRepositoryError.missingSupabaseConfiguration }
         try await provider.client
-            .from("invitations")
-            .update(InvitationStatusUpdate(status: "declined"))
-            .eq("id", value: invitationId.uuidString)
+            .rpc("decline_invitation", params: DeclineInvitationRequest(invitationId: invitationId))
             .execute()
     }
 }
@@ -97,6 +104,19 @@ nonisolated private struct InvitationInsert: Encodable, Sendable {
 
 nonisolated private struct InvitationStatusUpdate: Encodable, Sendable {
     let status: String
+}
+
+nonisolated private struct DeclineInvitationRequest: Encodable, Sendable {
+    let invitationId: UUID
+
+    enum CodingKeys: String, CodingKey {
+        case invitationId = "p_invitation_id"
+    }
+}
+
+nonisolated private struct InvitationAcceptanceProfileUpsert: Encodable, Sendable {
+    let id: UUID
+    let email: String
 }
 
 nonisolated private struct AcceptInvitationRequest: Encodable, Sendable {

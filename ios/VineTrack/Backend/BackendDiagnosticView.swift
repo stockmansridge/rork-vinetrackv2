@@ -296,6 +296,7 @@ struct BackendDiagnosticView: View {
             let trimmedEmail = trimmed(email)
             try validateAuthFields(email: trimmedEmail, password: password)
             let user = try await authRepository.signInWithEmail(email: trimmedEmail, password: password)
+            clearBackendSessionState()
             refreshAuthState()
             currentUserId = user.id
             currentEmail = user.email
@@ -306,6 +307,7 @@ struct BackendDiagnosticView: View {
     private func signOut() async {
         await perform("Sign Out") {
             try await authRepository.signOut()
+            clearBackendSessionState()
             refreshAuthState()
             return "signed out"
         }
@@ -375,9 +377,7 @@ struct BackendDiagnosticView: View {
     private func listMyVineyards() async {
         await perform("List My Vineyards") {
             vineyards = try await vineyardRepository.listMyVineyards()
-            if currentVineyardId == nil {
-                currentVineyardId = vineyards.first?.id
-            }
+            currentVineyardId = vineyards.first?.id
             return vineyards.isEmpty ? "no vineyards returned" : vineyards.map { "\($0.name) (\($0.id.uuidString))" }.joined(separator: ", ")
         }
     }
@@ -402,8 +402,9 @@ struct BackendDiagnosticView: View {
         await perform("Accept First Pending Invitation") {
             guard let invitation = pendingInvitations.first else { throw BackendDiagnosticError.missingPendingInvitation }
             try await teamRepository.acceptInvitation(invitationId: invitation.id)
+            currentVineyardId = invitation.vineyardId
             pendingInvitations.removeFirst()
-            return "accepted invitation \(invitation.id.uuidString)"
+            return "accepted invitation \(invitation.id.uuidString); current vineyard=\(invitation.vineyardId.uuidString)"
         }
     }
 
@@ -475,6 +476,13 @@ struct BackendDiagnosticView: View {
         let user = provider.client.auth.currentUser
         currentUserId = authRepository.currentUserId ?? user?.id
         currentEmail = user?.email
+    }
+
+    private func clearBackendSessionState() {
+        currentVineyardId = nil
+        vineyards.removeAll()
+        pendingInvitations.removeAll()
+        members.removeAll()
     }
 
     private func requireCurrentVineyardId() throws -> UUID {
