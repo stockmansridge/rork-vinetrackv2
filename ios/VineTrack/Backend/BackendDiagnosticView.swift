@@ -29,6 +29,8 @@ struct BackendDiagnosticView: View {
     @State private var members: [BackendVineyardMember] = []
     @State private var logMessages: [String] = []
     @State private var isRunning: Bool = false
+    @State private var currentAction: String?
+    @State private var lastStatus: String = "Ready"
 
     private var selectedRole: BackendRole {
         BackendRole(rawValue: selectedRoleValue) ?? .owner
@@ -70,6 +72,10 @@ struct BackendDiagnosticView: View {
                 .textSelection(.enabled)
             LabeledContent("Current User ID", value: currentUserId?.uuidString ?? "Not signed in")
             LabeledContent("Current Email", value: currentEmail ?? "Not available")
+            LabeledContent("Last Status", value: lastStatus)
+            if let currentAction {
+                LabeledContent("Running", value: currentAction)
+            }
             if let currentVineyardId {
                 LabeledContent("Current Vineyard ID", value: currentVineyardId.uuidString)
             }
@@ -106,6 +112,9 @@ struct BackendDiagnosticView: View {
                     Task { await signOut() }
                 }
             }
+            Text(lastStatus)
+                .font(.footnote)
+                .foregroundStyle(.secondary)
             Button("Restore Session") {
                 Task { await restoreSession() }
             }
@@ -254,18 +263,24 @@ struct BackendDiagnosticView: View {
 
     private func signUp() async {
         await perform("Sign Up") {
-            let user = try await authRepository.signUpWithEmail(name: trimmed(name), email: trimmed(email), password: password)
+            let trimmedName = trimmed(name)
+            let trimmedEmail = trimmed(email)
+            try validateAuthFields(email: trimmedEmail, password: password)
+            let user = try await authRepository.signUpWithEmail(name: trimmedName, email: trimmedEmail, password: password)
             refreshAuthState()
             guard let user else { return "sign-up returned no user; check email confirmation settings" }
             currentUserId = user.id
             currentEmail = user.email
-            return describe(user)
+            let hasSession = provider.client.auth.currentSession != nil
+            return "\(describe(user)); session=\(hasSession ? "yes" : "no"); if session=no, Supabase still requires email confirmation"
         }
     }
 
     private func signIn() async {
         await perform("Sign In") {
-            let user = try await authRepository.signInWithEmail(email: trimmed(email), password: password)
+            let trimmedEmail = trimmed(email)
+            try validateAuthFields(email: trimmedEmail, password: password)
+            let user = try await authRepository.signInWithEmail(email: trimmedEmail, password: password)
             refreshAuthState()
             currentUserId = user.id
             currentEmail = user.email
@@ -418,18 +433,26 @@ struct BackendDiagnosticView: View {
 
     private func perform(_ title: String, operation: () async throws -> String) async {
         guard !isRunning else {
-            appendLog("SKIPPED \(title): another diagnostic action is running")
+            let message = "SKIPPED \(title): another diagnostic action is running"
+            lastStatus = message
+            appendLog(message)
             return
         }
         isRunning = true
+        currentAction = title
+        lastStatus = "Running \(title)…"
         appendLog("START \(title)")
         do {
             let message = try await operation()
+            lastStatus = "SUCCESS \(title)"
             appendLog("SUCCESS \(title): \(message)")
         } catch {
-            appendLog("ERROR \(title): \(error.localizedDescription)")
+            let message = detailedErrorMessage(error)
+            lastStatus = "ERROR \(title): \(error.localizedDescription)"
+            appendLog("ERROR \(title): \(message)")
         }
         refreshAuthState()
+        currentAction = nil
         isRunning = false
     }
 
@@ -442,6 +465,20 @@ struct BackendDiagnosticView: View {
     private func requireCurrentVineyardId() throws -> UUID {
         guard let currentVineyardId else { throw BackendDiagnosticError.missingCurrentVineyard }
         return currentVineyardId
+    }
+
+    private func validateAuthFields(email: String, password: String) throws {
+        guard !email.isEmpty else { throw BackendDiagnosticError.missingEmail }
+        guard !password.isEmpty else { throw BackendDiagnosticError.missingPassword }
+    }
+
+    private func detailedErrorMessage(_ error: Error) -> String {
+        let localizedDescription = error.localizedDescription
+        let reflectedDescription = String(reflecting: error)
+        if localizedDescription == reflectedDescription {
+            return localizedDescription
+        }
+        return "\(localizedDescription) — \(reflectedDescription)"
     }
 
     private func appendLog(_ message: String) {
@@ -481,6 +518,8 @@ struct BackendDiagnosticHostView: View {
 nonisolated private enum BackendDiagnosticError: LocalizedError, Sendable {
     case missingCurrentVineyard
     case missingPendingInvitation
+    case missingEmail
+    case missingPassword
 
     var errorDescription: String? {
         switch self {
@@ -488,6 +527,10 @@ nonisolated private enum BackendDiagnosticError: LocalizedError, Sendable {
             "Create or list a vineyard first so there is a current vineyard ID."
         case .missingPendingInvitation:
             "List pending invitations first, or create an invitation before accepting or declining one."
+        case .missingEmail:
+            "Enter an email address before running this auth test."
+        case .missingPassword:
+            "Enter a password before running this auth test."
         }
     }
 }

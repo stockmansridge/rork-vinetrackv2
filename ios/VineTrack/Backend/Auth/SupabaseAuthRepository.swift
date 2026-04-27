@@ -28,10 +28,7 @@ final class SupabaseAuthRepository: AuthRepository {
     func signUpWithEmail(name: String, email: String, password: String) async throws -> AppUser? {
         guard provider.isConfigured else { throw BackendRepositoryError.missingSupabaseConfiguration }
         let response = try await provider.client.auth.signUp(email: email, password: password)
-        let user = response.user
-        let profileRepository = SupabaseProfileRepository(provider: provider)
-        try? await profileRepository.upsertMyProfile(fullName: name, email: email)
-        return appUser(from: user, fallbackEmail: email, fallbackDisplayName: name)
+        return appUser(from: response.user, fallbackEmail: email, fallbackDisplayName: name)
     }
 
     func signOut() async throws {
