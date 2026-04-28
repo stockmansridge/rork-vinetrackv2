@@ -24,7 +24,7 @@ struct AddEditMaintenanceLogView: View {
 
     private var isEditing: Bool { existingLog != nil }
     private var canViewFinancials: Bool { accessControl?.canViewFinancials ?? false }
-    private var canDelete: Bool { accessControl?.canDelete ?? true }
+    private var canDelete: Bool { accessControl?.canDelete ?? false }
 
     init(existingLog: MaintenanceLog? = nil) {
         self.existingLog = existingLog

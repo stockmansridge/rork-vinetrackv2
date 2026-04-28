@@ -318,7 +318,7 @@ struct SprayProgramView: View {
             .contentShape(Rectangle())
         }
         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-            if accessControl?.canDelete ?? true {
+            if accessControl?.canDelete ?? false {
                 Button(role: .destructive) {
                     recordToDelete = record
                 } label: {

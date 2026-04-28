@@ -24,7 +24,7 @@ struct AddEditWorkTaskView: View {
     }
 
     private var isEditing: Bool { existingTask != nil }
-    private var canDelete: Bool { accessControl?.canDelete ?? true }
+    private var canDelete: Bool { accessControl?.canDelete ?? false }
 
     private var currencyCode: String {
         Locale.current.currency?.identifier ?? "USD"
