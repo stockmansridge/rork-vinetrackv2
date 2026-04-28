@@ -61,6 +61,12 @@ final class MigratedDataStore {
     /// Called when a paddock is deleted locally.
     var onPaddockDeleted: ((UUID) -> Void)?
 
+    /// Called when a trip is started/updated/ended locally. Sync services observe
+    /// this to mark the trip as dirty for upload.
+    var onTripChanged: ((UUID) -> Void)?
+    /// Called when a trip is deleted locally.
+    var onTripDeleted: ((UUID) -> Void)?
+
     // MARK: - Repositories
 
     let vineyardRepo: VineyardRepository
@@ -446,6 +452,7 @@ final class MigratedDataStore {
         item.isActive = true
         trips.append(item)
         tripRepo.saveSlice(trips, for: vineyardId)
+        onTripChanged?(item.id)
     }
 
     func updateTrip(_ trip: Trip) {
@@ -453,6 +460,7 @@ final class MigratedDataStore {
         guard let index = trips.firstIndex(where: { $0.id == trip.id }) else { return }
         trips[index] = trip
         tripRepo.saveSlice(trips, for: vineyardId)
+        onTripChanged?(trip.id)
     }
 
     func endTrip(_ tripId: UUID) {
@@ -463,12 +471,52 @@ final class MigratedDataStore {
         trip.endTime = Date()
         trips[index] = trip
         tripRepo.saveSlice(trips, for: vineyardId)
+        onTripChanged?(tripId)
     }
 
     func deleteTrip(_ tripId: UUID) {
         guard let vineyardId = selectedVineyardId else { return }
         trips.removeAll { $0.id == tripId }
         tripRepo.saveSlice(trips, for: vineyardId)
+        onTripDeleted?(tripId)
+    }
+
+    /// Apply a trip upsert that originated from a remote sync pull. Does NOT
+    /// trigger `onTripChanged` (avoids re-marking the trip dirty).
+    func applyRemoteTripUpsert(_ trip: Trip) {
+        if selectedVineyardId == trip.vineyardId {
+            if let idx = trips.firstIndex(where: { $0.id == trip.id }) {
+                trips[idx] = trip
+            } else {
+                trips.append(trip)
+            }
+            if let vineyardId = selectedVineyardId {
+                tripRepo.saveSlice(trips, for: vineyardId)
+            }
+        } else {
+            // Persist into the on-disk slice for the trip's vineyard so it
+            // surfaces when switching vineyards.
+            var all = tripRepo.loadAll()
+            if let idx = all.firstIndex(where: { $0.id == trip.id }) {
+                all[idx] = trip
+            } else {
+                all.append(trip)
+            }
+            tripRepo.replace(all.filter { $0.vineyardId == trip.vineyardId }, for: trip.vineyardId)
+        }
+    }
+
+    /// Apply a trip deletion that originated from a remote sync pull.
+    func applyRemoteTripDelete(_ tripId: UUID) {
+        if let vineyardId = selectedVineyardId {
+            trips.removeAll { $0.id == tripId }
+            tripRepo.saveSlice(trips, for: vineyardId)
+        }
+        var all = tripRepo.loadAll()
+        if let removed = all.first(where: { $0.id == tripId }) {
+            all.removeAll { $0.id == tripId }
+            tripRepo.replace(all.filter { $0.vineyardId == removed.vineyardId }, for: removed.vineyardId)
+        }
     }
 
     // MARK: - SprayRecord CRUD

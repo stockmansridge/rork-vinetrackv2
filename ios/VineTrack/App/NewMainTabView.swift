@@ -9,6 +9,7 @@ struct NewMainTabView: View {
     @Environment(TripTrackingService.self) private var tripTracking
     @Environment(PinSyncService.self) private var pinSync
     @Environment(PaddockSyncService.self) private var paddockSync
+    @Environment(TripSyncService.self) private var tripSync
     @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
@@ -45,17 +46,20 @@ struct NewMainTabView: View {
             tripTracking.configure(store: store, locationService: locationService)
             pinSync.configure(store: store, auth: auth)
             paddockSync.configure(store: store, auth: auth)
+            tripSync.configure(store: store, auth: auth)
         }
         .task(id: store.selectedVineyardId) {
             await accessControl.refresh(for: store.selectedVineyardId, auth: auth)
             await pinSync.syncPinsForSelectedVineyard()
             await paddockSync.syncPaddocksForSelectedVineyard()
+            await tripSync.syncTripsForSelectedVineyard()
         }
         .onChange(of: scenePhase) { _, newPhase in
             if newPhase == .active {
                 Task {
                     await pinSync.syncPinsForSelectedVineyard()
                     await paddockSync.syncPaddocksForSelectedVineyard()
+                    await tripSync.syncTripsForSelectedVineyard()
                 }
             }
         }

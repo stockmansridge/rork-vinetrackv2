@@ -6,6 +6,7 @@ struct BackendSettingsView: View {
     @Environment(BackendAccessControl.self) private var accessControl
     @Environment(PinSyncService.self) private var pinSync
     @Environment(PaddockSyncService.self) private var paddockSync
+    @Environment(TripSyncService.self) private var tripSync
 
     @State private var showVineyardSwitcher: Bool = false
     @State private var showVineyardDetail: Bool = false
@@ -243,6 +244,22 @@ struct BackendSettingsView: View {
             .disabled({ if case .syncing = paddockSync.syncStatus { return true } else { return false } }())
 
             syncStatusLine(label: "paddocks", status: paddockSync.syncStatus, lastSync: paddockSync.lastSyncDate)
+
+            Button {
+                Task { await tripSync.syncTripsForSelectedVineyard() }
+            } label: {
+                HStack {
+                    Label("Sync Trips", systemImage: "map")
+                        .foregroundStyle(.primary)
+                    Spacer()
+                    if case .syncing = tripSync.syncStatus {
+                        ProgressView()
+                    }
+                }
+            }
+            .disabled({ if case .syncing = tripSync.syncStatus { return true } else { return false } }())
+
+            syncStatusLine(label: "trips", status: tripSync.syncStatus, lastSync: tripSync.lastSyncDate)
         } header: {
             HStack(spacing: 6) {
                 Image(systemName: "icloud.and.arrow.up")
@@ -251,12 +268,34 @@ struct BackendSettingsView: View {
                 Text("Sync")
             }
         } footer: {
-            Text("Pins and paddocks sync to Supabase. Other data stays on this device for now.")
+            Text("Pins, paddocks, and trips sync to Supabase. Other data stays on this device for now.")
         }
     }
 
     @ViewBuilder
     private func syncStatusLine(label: String, status: PinSyncService.Status, lastSync: Date?) -> some View {
+        switch status {
+        case .idle:
+            EmptyView()
+        case .syncing:
+            Text("Syncing \(label)\u{2026}")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        case .success:
+            if let lastSync {
+                Text("Last synced \(lastSync.formatted(date: .abbreviated, time: .shortened))")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        case .failure(let message):
+            Text(message)
+                .font(.caption)
+                .foregroundStyle(.red)
+        }
+    }
+
+    @ViewBuilder
+    private func syncStatusLine(label: String, status: TripSyncService.Status, lastSync: Date?) -> some View {
         switch status {
         case .idle:
             EmptyView()
