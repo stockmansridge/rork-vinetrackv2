@@ -163,6 +163,18 @@ private struct NewHomeTabView: View {
                 .padding(.horizontal, 24)
 
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+                NavigationLink {
+                    PinDropView(mode: .repairs)
+                } label: {
+                    quickActionLabel(title: "Repairs", icon: "wrench.and.screwdriver.fill", tint: VineyardTheme.earthBrown)
+                }
+                .buttonStyle(.plain)
+                NavigationLink {
+                    PinDropView(mode: .growth)
+                } label: {
+                    quickActionLabel(title: "Growth", icon: "leaf.fill", tint: VineyardTheme.leafGreen)
+                }
+                .buttonStyle(.plain)
                 quickActionTile(title: "Drop Pin", icon: "mappin.and.ellipse", tint: VineyardTheme.olive) {
                     showQuickPin = true
                 }
