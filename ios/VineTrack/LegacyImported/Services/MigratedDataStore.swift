@@ -73,6 +73,13 @@ final class MigratedDataStore {
     /// Called when a spray record is deleted locally.
     var onSprayRecordDeleted: ((UUID) -> Void)?
 
+    /// Called when repair buttons change locally. The Date passed is the
+    /// `clientUpdatedAt` to use for sync — `Date.distantPast` indicates a
+    /// freshly-generated default that should not override remote config.
+    var onRepairButtonsChanged: ((Date) -> Void)?
+    /// Called when growth buttons change locally.
+    var onGrowthButtonsChanged: ((Date) -> Void)?
+
     // MARK: - Repositories
 
     let vineyardRepo: VineyardRepository
@@ -90,6 +97,9 @@ final class MigratedDataStore {
 
     private enum Keys {
         static let paddocks = "vinetrack_paddocks"
+        // Legacy global keys (pre-Phase 10F). Kept here so deleteAllLocalData
+        // continues to wipe them. New code uses per-vineyard keys via
+        // `MigratedDataStore.repairButtonsKey(for:)` / `growthButtonsKey(for:)`.
         static let repairButtons = "vinetrack_repair_buttons"
         static let growthButtons = "vinetrack_growth_buttons"
         static let savedCustomPatterns = "vinetrack_saved_custom_patterns"
@@ -128,8 +138,6 @@ final class MigratedDataStore {
             selectedVineyardId = first.id
         }
 
-        repairButtons = persistence.load(key: Keys.repairButtons) ?? []
-        growthButtons = persistence.load(key: Keys.growthButtons) ?? []
         savedCustomPatterns = persistence.load(key: Keys.savedCustomPatterns) ?? []
         tractors = persistence.load(key: Keys.tractors) ?? []
         fuelPurchases = persistence.load(key: Keys.fuelPurchases) ?? []
@@ -179,6 +187,8 @@ final class MigratedDataStore {
 
         let allPaddocks: [Paddock] = persistence.load(key: Keys.paddocks) ?? []
         paddocks = allPaddocks.filter { $0.vineyardId == vineyardId }
+
+        loadButtonsForCurrentVineyard()
     }
 
     /// Clear in-memory state without touching disk.
@@ -212,6 +222,11 @@ final class MigratedDataStore {
 
     /// Wipe all locally persisted data and reset in-memory state.
     func deleteAllLocalData() {
+        // Per-vineyard button config keys must be removed for every known vineyard.
+        for vineyard in vineyards {
+            persistence.remove(key: Self.repairButtonsKey(for: vineyard.id))
+            persistence.remove(key: Self.growthButtonsKey(for: vineyard.id))
+        }
         let keys: [String] = [
             VineyardRepository.storageKey,
             PinRepository.storageKey,

@@ -11,6 +11,7 @@ struct NewMainTabView: View {
     @Environment(PaddockSyncService.self) private var paddockSync
     @Environment(TripSyncService.self) private var tripSync
     @Environment(SprayRecordSyncService.self) private var sprayRecordSync
+    @Environment(ButtonConfigSyncService.self) private var buttonConfigSync
     @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
@@ -49,6 +50,7 @@ struct NewMainTabView: View {
             paddockSync.configure(store: store, auth: auth)
             tripSync.configure(store: store, auth: auth)
             sprayRecordSync.configure(store: store, auth: auth)
+            buttonConfigSync.configure(store: store, auth: auth)
         }
         .task(id: store.selectedVineyardId) {
             await accessControl.refresh(for: store.selectedVineyardId, auth: auth)
@@ -56,6 +58,7 @@ struct NewMainTabView: View {
             await paddockSync.syncPaddocksForSelectedVineyard()
             await tripSync.syncTripsForSelectedVineyard()
             await sprayRecordSync.syncSprayRecordsForSelectedVineyard()
+            await buttonConfigSync.syncButtonConfigForSelectedVineyard()
         }
         .onChange(of: scenePhase) { _, newPhase in
             if newPhase == .active {
@@ -64,6 +67,7 @@ struct NewMainTabView: View {
                     await paddockSync.syncPaddocksForSelectedVineyard()
                     await tripSync.syncTripsForSelectedVineyard()
                     await sprayRecordSync.syncSprayRecordsForSelectedVineyard()
+                    await buttonConfigSync.syncButtonConfigForSelectedVineyard()
                 }
             }
         }

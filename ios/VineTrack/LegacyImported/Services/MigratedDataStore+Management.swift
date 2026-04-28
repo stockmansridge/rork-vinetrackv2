@@ -193,11 +193,9 @@ extension MigratedDataStore {
         let configs = template.toButtonConfigs(for: vineyardId)
         switch template.mode {
         case .repairs:
-            repairButtons = configs
-            persistenceStore.save(repairButtons, key: "vinetrack_repair_buttons")
+            updateRepairButtons(configs)
         case .growth:
-            growthButtons = configs
-            persistenceStore.save(growthButtons, key: "vinetrack_growth_buttons")
+            updateGrowthButtons(configs)
         }
     }
 

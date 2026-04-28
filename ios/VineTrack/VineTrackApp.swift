@@ -20,6 +20,7 @@ struct VineTrackApp: App {
     @State private var paddockSyncService = PaddockSyncService()
     @State private var tripSyncService = TripSyncService()
     @State private var sprayRecordSyncService = SprayRecordSyncService()
+    @State private var buttonConfigSyncService = ButtonConfigSyncService()
 
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([Item.self])
@@ -46,6 +47,7 @@ struct VineTrackApp: App {
                         .environment(paddockSyncService)
                         .environment(tripSyncService)
                         .environment(sprayRecordSyncService)
+                        .environment(buttonConfigSyncService)
                 } else {
                     ContentView()
                 }

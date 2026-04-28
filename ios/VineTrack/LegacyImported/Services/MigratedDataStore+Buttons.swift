@@ -3,23 +3,76 @@ import CoreLocation
 
 extension MigratedDataStore {
 
-    private enum ButtonKeys {
-        static let repairButtons = "vinetrack_repair_buttons"
-        static let growthButtons = "vinetrack_growth_buttons"
+    private var btnPersistence: PersistenceStore { .shared }
+
+    // MARK: - Per-vineyard storage keys
+
+    static func repairButtonsKey(for vineyardId: UUID) -> String {
+        "vinetrack_repair_buttons_v_\(vineyardId.uuidString)"
     }
 
-    private var btnPersistence: PersistenceStore { .shared }
+    static func growthButtonsKey(for vineyardId: UUID) -> String {
+        "vinetrack_growth_buttons_v_\(vineyardId.uuidString)"
+    }
+
+    // MARK: - Loading per-vineyard buttons
+
+    /// Load repair/growth buttons for the currently selected vineyard. If no
+    /// configuration exists for this vineyard, generate and persist defaults
+    /// (with a very old `clientUpdatedAt` so a real remote configuration wins
+    /// once the device syncs).
+    func loadButtonsForCurrentVineyard() {
+        guard let vineyardId = selectedVineyardId else {
+            repairButtons = []
+            growthButtons = []
+            return
+        }
+        if let stored: [ButtonConfig] = btnPersistence.load(key: Self.repairButtonsKey(for: vineyardId)),
+           !stored.isEmpty {
+            repairButtons = stored
+        } else {
+            let defaults = ButtonConfig.defaultRepairButtons(for: vineyardId)
+            repairButtons = defaults
+            btnPersistence.save(defaults, key: Self.repairButtonsKey(for: vineyardId))
+            // Mark dirty using the distant past so any real remote config wins.
+            onRepairButtonsChanged?(.distantPast)
+        }
+
+        if let stored: [ButtonConfig] = btnPersistence.load(key: Self.growthButtonsKey(for: vineyardId)),
+           !stored.isEmpty {
+            growthButtons = stored
+        } else {
+            let defaults = ButtonConfig.defaultGrowthButtons(for: vineyardId)
+            growthButtons = defaults
+            btnPersistence.save(defaults, key: Self.growthButtonsKey(for: vineyardId))
+            onGrowthButtonsChanged?(.distantPast)
+        }
+    }
 
     // MARK: - Active button sets
 
     func updateRepairButtons(_ buttons: [ButtonConfig]) {
-        repairButtons = buttons
-        btnPersistence.save(repairButtons, key: ButtonKeys.repairButtons)
+        guard let vineyardId = selectedVineyardId else { return }
+        let scoped = buttons.map { config -> ButtonConfig in
+            var c = config
+            c.vineyardId = vineyardId
+            return c
+        }
+        repairButtons = scoped
+        btnPersistence.save(scoped, key: Self.repairButtonsKey(for: vineyardId))
+        onRepairButtonsChanged?(Date())
     }
 
     func updateGrowthButtons(_ buttons: [ButtonConfig]) {
-        growthButtons = buttons
-        btnPersistence.save(growthButtons, key: ButtonKeys.growthButtons)
+        guard let vineyardId = selectedVineyardId else { return }
+        let scoped = buttons.map { config -> ButtonConfig in
+            var c = config
+            c.vineyardId = vineyardId
+            return c
+        }
+        growthButtons = scoped
+        btnPersistence.save(scoped, key: Self.growthButtonsKey(for: vineyardId))
+        onGrowthButtonsChanged?(Date())
     }
 
     func resetRepairButtonsToDefault() {
@@ -32,6 +85,34 @@ extension MigratedDataStore {
         guard let vineyardId = selectedVineyardId else { return }
         let defaults = ButtonConfig.defaultGrowthButtons(for: vineyardId)
         updateGrowthButtons(defaults)
+    }
+
+    // MARK: - Remote-apply (sync pull)
+
+    /// Apply a remote repair-button configuration without re-marking it dirty.
+    func applyRemoteRepairButtons(_ buttons: [ButtonConfig], vineyardId: UUID) {
+        let scoped = buttons.map { config -> ButtonConfig in
+            var c = config
+            c.vineyardId = vineyardId
+            return c
+        }
+        btnPersistence.save(scoped, key: Self.repairButtonsKey(for: vineyardId))
+        if selectedVineyardId == vineyardId {
+            repairButtons = scoped
+        }
+    }
+
+    /// Apply a remote growth-button configuration without re-marking it dirty.
+    func applyRemoteGrowthButtons(_ buttons: [ButtonConfig], vineyardId: UUID) {
+        let scoped = buttons.map { config -> ButtonConfig in
+            var c = config
+            c.vineyardId = vineyardId
+            return c
+        }
+        btnPersistence.save(scoped, key: Self.growthButtonsKey(for: vineyardId))
+        if selectedVineyardId == vineyardId {
+            growthButtons = scoped
+        }
     }
 
     // MARK: - Quick pin creation from a button

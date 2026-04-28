@@ -8,6 +8,7 @@ struct BackendSettingsView: View {
     @Environment(PaddockSyncService.self) private var paddockSync
     @Environment(TripSyncService.self) private var tripSync
     @Environment(SprayRecordSyncService.self) private var sprayRecordSync
+    @Environment(ButtonConfigSyncService.self) private var buttonConfigSync
 
     @State private var showVineyardSwitcher: Bool = false
     @State private var showVineyardDetail: Bool = false
@@ -338,6 +339,22 @@ struct BackendSettingsView: View {
             .disabled({ if case .syncing = sprayRecordSync.syncStatus { return true } else { return false } }())
 
             syncStatusLine(label: "spray records", status: sprayRecordSync.syncStatus, lastSync: sprayRecordSync.lastSyncDate)
+
+            Button {
+                Task { await buttonConfigSync.syncButtonConfigForSelectedVineyard() }
+            } label: {
+                HStack {
+                    Label("Sync Button Config", systemImage: "square.grid.2x2")
+                        .foregroundStyle(.primary)
+                    Spacer()
+                    if case .syncing = buttonConfigSync.syncStatus {
+                        ProgressView()
+                    }
+                }
+            }
+            .disabled({ if case .syncing = buttonConfigSync.syncStatus { return true } else { return false } }())
+
+            syncStatusLine(label: "button config", status: buttonConfigSync.syncStatus, lastSync: buttonConfigSync.lastSyncDate)
         } header: {
             HStack(spacing: 6) {
                 Image(systemName: "icloud.and.arrow.up")
@@ -391,6 +408,17 @@ struct BackendSettingsView: View {
         }
     }
     private func sprayStateFrom(_ status: SprayRecordSyncService.Status, lastSync: Date?) -> VineyardSyncState {
+        switch status {
+        case .idle: return .idle
+        case .syncing: return .syncing
+        case .success: return .success(lastSync)
+        case .failure(let m): return .failure(m)
+        }
+    }
+    private func syncStatusLine(label: String, status: ButtonConfigSyncService.Status, lastSync: Date?) -> some View {
+        VineyardSyncStatusRow(label: label, state: buttonConfigStateFrom(status, lastSync: lastSync))
+    }
+    private func buttonConfigStateFrom(_ status: ButtonConfigSyncService.Status, lastSync: Date?) -> VineyardSyncState {
         switch status {
         case .idle: return .idle
         case .syncing: return .syncing
