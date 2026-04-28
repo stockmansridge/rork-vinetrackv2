@@ -26,7 +26,7 @@ struct NewMainTabView: View {
             NewWorkTabView()
                 .tabItem { Label("Work", systemImage: "checklist") }
 
-            NewSettingsTabView()
+            BackendSettingsView()
                 .tabItem { Label("Settings", systemImage: "gearshape.fill") }
         }
         .tint(VineyardTheme.leafGreen)
