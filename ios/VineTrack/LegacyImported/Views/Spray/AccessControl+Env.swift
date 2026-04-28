@@ -9,6 +9,8 @@ struct LegacyAccessControl {
     var canExport: Bool = false
     var canExportFinancialPDF: Bool = false
     var canViewFinancials: Bool = true
+    var canFinalizeRecords: Bool = false
+    var canReopenRecords: Bool = false
 }
 
 private struct LegacyAccessControlKey: EnvironmentKey {

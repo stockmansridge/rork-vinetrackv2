@@ -23,6 +23,9 @@ struct NewMainTabView: View {
             SprayProgramView()
                 .tabItem { Label("Program", systemImage: "drop.fill") }
 
+            NewWorkTabView()
+                .tabItem { Label("Work", systemImage: "checklist") }
+
             NewSettingsTabView()
                 .tabItem { Label("Settings", systemImage: "gearshape.fill") }
         }
@@ -213,6 +216,42 @@ private struct NewPaddocksTabView: View {
         for index in offsets {
             let paddock = store.paddocks[index]
             store.deletePaddock(paddock.id)
+        }
+    }
+}
+
+// MARK: - Work Tab
+
+private struct NewWorkTabView: View {
+    enum Segment: String, CaseIterable, Identifiable {
+        case tasks = "Tasks"
+        case maintenance = "Maintenance"
+        var id: String { rawValue }
+    }
+
+    @State private var segment: Segment = .tasks
+
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 0) {
+                Picker("Section", selection: $segment) {
+                    ForEach(Segment.allCases) { s in
+                        Text(s.rawValue).tag(s)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .padding(.horizontal)
+                .padding(.top, 8)
+                .padding(.bottom, 4)
+
+                switch segment {
+                case .tasks:
+                    WorkTasksHubView()
+                case .maintenance:
+                    MaintenanceLogListView()
+                }
+            }
+            .background(Color(.systemGroupedBackground))
         }
     }
 }
