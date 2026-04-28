@@ -20,6 +20,9 @@ struct NewMainTabView: View {
             TripView()
                 .tabItem { Label("Trip", systemImage: "road.lanes") }
 
+            SprayProgramView()
+                .tabItem { Label("Program", systemImage: "drop.fill") }
+
             NewSettingsTabView()
                 .tabItem { Label("Settings", systemImage: "gearshape.fill") }
         }
