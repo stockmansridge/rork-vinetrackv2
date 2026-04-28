@@ -23,6 +23,8 @@ struct TripView: View {
     @State private var tripToDelete: Trip?
     @State private var showDeleteConfirmation: Bool = false
     @State private var showStartTrip: Bool = false
+    @State private var showTripChoice: Bool = false
+    @State private var showSpraySetup: Bool = false
 
     var body: some View {
         NavigationStack {
@@ -57,7 +59,7 @@ struct TripView: View {
                         ActiveTripCard()
                     } else {
                         Button {
-                            showStartTrip = true
+                            showTripChoice = true
                         } label: {
                             Label("Start Trip", systemImage: "play.fill")
                                 .font(.headline)
@@ -72,8 +74,24 @@ struct TripView: View {
                 .padding()
                 .background(.bar)
             }
+            .sheet(isPresented: $showTripChoice) {
+                TripTypeChoiceSheet { type in
+                    showTripChoice = false
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                        switch type {
+                        case .maintenance:
+                            showStartTrip = true
+                        case .spray:
+                            showSpraySetup = true
+                        }
+                    }
+                }
+            }
             .sheet(isPresented: $showStartTrip) {
                 StartTripSheet()
+            }
+            .sheet(isPresented: $showSpraySetup) {
+                SprayTripSetupSheet()
             }
             .alert("Delete Trip", isPresented: $showDeleteConfirmation) {
                 Button("Delete", role: .destructive) {

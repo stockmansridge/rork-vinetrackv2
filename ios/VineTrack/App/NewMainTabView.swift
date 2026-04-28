@@ -82,7 +82,9 @@ private struct NewHomeTabView: View {
     @Environment(TripTrackingService.self) private var tripTracking
 
     @State private var showQuickPin: Bool = false
+    @State private var showTripChoice: Bool = false
     @State private var showStartTrip: Bool = false
+    @State private var showSpraySetup: Bool = false
     #if DEBUG
     @State private var showBackendDiagnostic: Bool = false
     @State private var showStoreDiagnostic: Bool = false
@@ -115,8 +117,24 @@ private struct NewHomeTabView: View {
             .sheet(isPresented: $showQuickPin) {
                 QuickPinSheet()
             }
+            .sheet(isPresented: $showTripChoice) {
+                TripTypeChoiceSheet { type in
+                    showTripChoice = false
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                        switch type {
+                        case .maintenance:
+                            showStartTrip = true
+                        case .spray:
+                            showSpraySetup = true
+                        }
+                    }
+                }
+            }
             .sheet(isPresented: $showStartTrip) {
                 StartTripSheet()
+            }
+            .sheet(isPresented: $showSpraySetup) {
+                SprayTripSetupSheet()
             }
             #if DEBUG
             .sheet(isPresented: $showBackendDiagnostic) {
@@ -179,7 +197,7 @@ private struct NewHomeTabView: View {
                 }
                 .buttonStyle(.plain)
                 Button {
-                    showStartTrip = true
+                    showTripChoice = true
                 } label: {
                     quickActionTileLabel(title: "Start Trip", icon: "steeringwheel", colors: [.blue, Color.blue.opacity(0.75)])
                 }
