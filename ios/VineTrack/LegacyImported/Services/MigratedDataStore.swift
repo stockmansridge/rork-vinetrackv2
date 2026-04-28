@@ -55,6 +55,12 @@ final class MigratedDataStore {
     /// Called when a pin is deleted locally.
     var onPinDeleted: ((UUID) -> Void)?
 
+    /// Called when a paddock is added/updated locally. Sync services observe
+    /// this to mark the paddock as dirty for upload.
+    var onPaddockChanged: ((UUID) -> Void)?
+    /// Called when a paddock is deleted locally.
+    var onPaddockDeleted: ((UUID) -> Void)?
+
     // MARK: - Repositories
 
     let vineyardRepo: VineyardRepository
@@ -381,17 +387,54 @@ final class MigratedDataStore {
         item.vineyardId = vineyardId
         paddocks.append(item)
         savePaddocksToDisk()
+        onPaddockChanged?(item.id)
     }
 
     func updatePaddock(_ paddock: Paddock) {
         guard let index = paddocks.firstIndex(where: { $0.id == paddock.id }) else { return }
         paddocks[index] = paddock
         savePaddocksToDisk()
+        onPaddockChanged?(paddock.id)
     }
 
     func deletePaddock(_ paddockId: UUID) {
         paddocks.removeAll { $0.id == paddockId }
         savePaddocksToDisk()
+        onPaddockDeleted?(paddockId)
+    }
+
+    /// Apply a paddock upsert that originated from a remote sync pull. Does NOT
+    /// trigger `onPaddockChanged` (avoids re-marking the paddock dirty).
+    func applyRemotePaddockUpsert(_ paddock: Paddock) {
+        if selectedVineyardId == paddock.vineyardId {
+            if let idx = paddocks.firstIndex(where: { $0.id == paddock.id }) {
+                paddocks[idx] = paddock
+            } else {
+                paddocks.append(paddock)
+            }
+            savePaddocksToDisk()
+        } else {
+            // Persist into the on-disk slice so it surfaces when switching vineyards.
+            var all: [Paddock] = persistence.load(key: Keys.paddocks) ?? []
+            if let idx = all.firstIndex(where: { $0.id == paddock.id }) {
+                all[idx] = paddock
+            } else {
+                all.append(paddock)
+            }
+            persistence.save(all, key: Keys.paddocks)
+        }
+    }
+
+    /// Apply a paddock deletion that originated from a remote sync pull.
+    func applyRemotePaddockDelete(_ paddockId: UUID) {
+        paddocks.removeAll { $0.id == paddockId }
+        if selectedVineyardId != nil {
+            savePaddocksToDisk()
+        } else {
+            var all: [Paddock] = persistence.load(key: Keys.paddocks) ?? []
+            all.removeAll { $0.id == paddockId }
+            persistence.save(all, key: Keys.paddocks)
+        }
     }
 
     // MARK: - Trip CRUD

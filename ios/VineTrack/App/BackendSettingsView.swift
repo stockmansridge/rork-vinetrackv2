@@ -5,6 +5,7 @@ struct BackendSettingsView: View {
     @Environment(MigratedDataStore.self) private var store
     @Environment(BackendAccessControl.self) private var accessControl
     @Environment(PinSyncService.self) private var pinSync
+    @Environment(PaddockSyncService.self) private var paddockSync
 
     @State private var showVineyardSwitcher: Bool = false
     @State private var showVineyardDetail: Bool = false
@@ -225,24 +226,23 @@ struct BackendSettingsView: View {
             }
             .disabled({ if case .syncing = pinSync.syncStatus { return true } else { return false } }())
 
-            switch pinSync.syncStatus {
-            case .idle:
-                EmptyView()
-            case .syncing:
-                Text("Syncing pins\u{2026}")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            case .success:
-                if let lastSync = pinSync.lastSyncDate {
-                    Text("Last synced \(lastSync.formatted(date: .abbreviated, time: .shortened))")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+            syncStatusLine(label: "pins", status: pinSync.syncStatus, lastSync: pinSync.lastSyncDate)
+
+            Button {
+                Task { await paddockSync.syncPaddocksForSelectedVineyard() }
+            } label: {
+                HStack {
+                    Label("Sync Paddocks", systemImage: "square.grid.2x2")
+                        .foregroundStyle(.primary)
+                    Spacer()
+                    if case .syncing = paddockSync.syncStatus {
+                        ProgressView()
+                    }
                 }
-            case .failure(let message):
-                Text(message)
-                    .font(.caption)
-                    .foregroundStyle(.red)
             }
+            .disabled({ if case .syncing = paddockSync.syncStatus { return true } else { return false } }())
+
+            syncStatusLine(label: "paddocks", status: paddockSync.syncStatus, lastSync: paddockSync.lastSyncDate)
         } header: {
             HStack(spacing: 6) {
                 Image(systemName: "icloud.and.arrow.up")
@@ -251,7 +251,51 @@ struct BackendSettingsView: View {
                 Text("Sync")
             }
         } footer: {
-            Text("Pins sync to Supabase. Other data stays on this device for now.")
+            Text("Pins and paddocks sync to Supabase. Other data stays on this device for now.")
+        }
+    }
+
+    @ViewBuilder
+    private func syncStatusLine(label: String, status: PinSyncService.Status, lastSync: Date?) -> some View {
+        switch status {
+        case .idle:
+            EmptyView()
+        case .syncing:
+            Text("Syncing \(label)\u{2026}")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        case .success:
+            if let lastSync {
+                Text("Last synced \(lastSync.formatted(date: .abbreviated, time: .shortened))")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        case .failure(let message):
+            Text(message)
+                .font(.caption)
+                .foregroundStyle(.red)
+        }
+    }
+
+    @ViewBuilder
+    private func syncStatusLine(label: String, status: PaddockSyncService.Status, lastSync: Date?) -> some View {
+        switch status {
+        case .idle:
+            EmptyView()
+        case .syncing:
+            Text("Syncing \(label)\u{2026}")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        case .success:
+            if let lastSync {
+                Text("Last synced \(lastSync.formatted(date: .abbreviated, time: .shortened))")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        case .failure(let message):
+            Text(message)
+                .font(.caption)
+                .foregroundStyle(.red)
         }
     }
 
