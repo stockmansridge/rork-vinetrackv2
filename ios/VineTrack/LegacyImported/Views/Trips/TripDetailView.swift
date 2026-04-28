@@ -8,6 +8,7 @@ struct TripDetailView: View {
     @State private var showSummary: Bool = false
     @State private var showDeleteConfirmation: Bool = false
     @State private var position: MapCameraPosition = .automatic
+    @State private var isExporting: Bool = false
 
     private var sprayRecord: SprayRecord? {
         store.sprayRecords.first { $0.tripId == trip.id }
@@ -134,6 +135,18 @@ struct TripDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    exportTrip()
+                } label: {
+                    if isExporting {
+                        ProgressView()
+                    } else {
+                        Image(systemName: "square.and.arrow.up")
+                    }
+                }
+                .disabled(isExporting)
+            }
+            ToolbarItem(placement: .topBarTrailing) {
                 Button(role: .destructive) {
                     showDeleteConfirmation = true
                 } label: {
@@ -200,5 +213,40 @@ struct TripDetailView: View {
             return "\(Int(meters))m"
         }
         return String(format: "%.1fkm", meters / 1000)
+    }
+
+    private func exportTrip() {
+        guard !isExporting else { return }
+        isExporting = true
+        let vineyardName = store.selectedVineyard?.name ?? "Vineyard"
+        let logoData = store.selectedVineyard?.logoData
+        let paddockName = trip.paddockName
+        let pinCount = pinsForTrip.count
+        let tripCopy = trip
+        let fileName = "TripReport_\(vineyardName)_\(trip.startTime.formatted(date: .numeric, time: .omitted))"
+
+        Task {
+            let snapshot = await TripPDFService.captureMapSnapshot(trip: tripCopy)
+            let pdfData = TripPDFService.generatePDF(
+                trip: tripCopy,
+                vineyardName: vineyardName,
+                paddockName: paddockName,
+                pinCount: pinCount,
+                mapSnapshot: snapshot,
+                logoData: logoData
+            )
+            let url = TripPDFService.savePDFToTemp(data: pdfData, fileName: fileName)
+            isExporting = false
+
+            let activityVC = UIActivityViewController(activityItems: [url], applicationActivities: nil)
+            if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+               let rootVC = windowScene.windows.first?.rootViewController {
+                var presenter = rootVC
+                while let presented = presenter.presentedViewController {
+                    presenter = presented
+                }
+                presenter.present(activityVC, animated: true)
+            }
+        }
     }
 }
