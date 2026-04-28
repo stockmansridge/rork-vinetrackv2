@@ -12,10 +12,8 @@ struct RepairsGrowthView: View {
     @State private var selection: Tab
     @State private var showEditButtons: Bool = false
     @State private var showGrowthPicker: Bool = false
-    @State private var pendingConfirmation: PendingConfirmation?
     @State private var lastGrowthStage: GrowthStage?
-    @State private var feedbackMessage: String?
-    @State private var feedbackKind: VineyardBadgeKind = .success
+    @State private var errorMessage: String?
     @State private var pinToast: PinDroppedToastInfo?
 
     init(initial: Tab = .repairs) {
@@ -65,8 +63,8 @@ struct RepairsGrowthView: View {
             .tabViewStyle(.page(indexDisplayMode: .never))
             .animation(.easeInOut(duration: 0.25), value: selection)
 
-            if let feedbackMessage, feedbackKind != .success {
-                FeedbackBar(message: feedbackMessage, kind: feedbackKind)
+            if let errorMessage {
+                FeedbackBar(message: errorMessage, kind: .destructive)
                     .padding(.bottom, 8)
             }
         }
@@ -91,15 +89,7 @@ struct RepairsGrowthView: View {
         .sheet(isPresented: $showGrowthPicker) {
             GrowthStagePickerSheet { stage in
                 lastGrowthStage = stage
-                pendingConfirmation = PendingConfirmation(kind: .growthStage(stage), side: .right)
-            }
-        }
-        .sheet(item: $pendingConfirmation) { pending in
-            PinDropConfirmationSheet(
-                kind: pending.kind,
-                initialSide: pending.side
-            ) { title, subtitle in
-                showPinToast(title: title, subtitle: subtitle)
+                handleGrowthStageSelected(stage)
             }
         }
     }
@@ -269,20 +259,64 @@ struct RepairsGrowthView: View {
 
     private func handleButtonTap(button: ButtonConfig, side: PinSide) {
         guard canCreate else { return }
-        pendingConfirmation = PendingConfirmation(kind: .button(button), side: side)
+        guard let coord = locationService.location?.coordinate else {
+            showError("Location unavailable \u{2014} enable location services to drop a pin.")
+            return
+        }
+        let heading = locationService.heading?.trueHeading ?? 0
+        let pin = store.createPinFromButton(
+            button: button,
+            coordinate: coord,
+            heading: heading,
+            side: side,
+            paddockId: nil,
+            rowNumber: nil,
+            createdBy: auth.userName
+        )
+        guard pin != nil else {
+            showError("Could not create pin \u{2014} no vineyard selected.")
+            return
+        }
+        let sideLabel = side == .left ? "Left" : "Right"
+        showPinToast(title: "\(button.name) pin dropped", subtitle: "\(sideLabel) side")
+    }
+
+    private func handleGrowthStageSelected(_ stage: GrowthStage) {
+        guard canCreate else { return }
+        guard let coord = locationService.location?.coordinate else {
+            showError("Location unavailable \u{2014} enable location services to drop a pin.")
+            return
+        }
+        let heading = locationService.heading?.trueHeading ?? 0
+        let pin = store.createGrowthStagePin(
+            stageCode: stage.code,
+            stageDescription: stage.description,
+            coordinate: coord,
+            heading: heading,
+            side: .right,
+            paddockId: nil,
+            rowNumber: nil,
+            createdBy: auth.userName
+        )
+        guard pin != nil else {
+            showError("Could not create pin \u{2014} no vineyard selected.")
+            return
+        }
+        showPinToast(title: "Growth stage recorded", subtitle: "EL \(stage.code) \u{2022} \(stage.description)")
     }
 
     private func showPinToast(title: String, subtitle: String) {
         pinToast = PinDroppedToastInfo(title: title, subtitle: subtitle)
+        errorMessage = nil
     }
-}
 
-// MARK: - Pending confirmation wrapper
-
-private struct PendingConfirmation: Identifiable {
-    let id = UUID()
-    let kind: PinDropConfirmationSheet.Kind
-    let side: PinSide
+    private func showError(_ message: String) {
+        errorMessage = message
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(3))
+            if errorMessage == message { errorMessage = nil }
+        }
+    }
 }
 
 // MARK: - Filling tile (uses contextual icon)
