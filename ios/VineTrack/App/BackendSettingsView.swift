@@ -90,9 +90,7 @@ struct BackendSettingsView: View {
                         RoundedRectangle(cornerRadius: 8)
                             .fill(VineyardTheme.leafGreen.gradient)
                             .frame(width: 40, height: 40)
-                        Image(systemName: "leaf.fill")
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(.white)
+                        GrapeLeafIcon(size: 20, color: .white)
                     }
                     VStack(alignment: .leading, spacing: 2) {
                         Text(vineyard.name)
@@ -187,7 +185,7 @@ struct BackendSettingsView: View {
             NavigationLink {
                 GrapeVarietyManagementView()
             } label: {
-                Label("Grape Varieties", systemImage: "leaf.fill")
+                Label { Text("Grape Varieties") } icon: { GrapeLeafIcon(size: 16) }
             }
         } header: {
             HStack(spacing: 6) {
@@ -224,7 +222,7 @@ struct BackendSettingsView: View {
             NavigationLink {
                 GrowthStageReportView()
             } label: {
-                Label("Growth Stage", systemImage: "leaf.arrow.triangle.circlepath")
+                Label { Text("Growth Stage") } icon: { GrapeLeafIcon(size: 16) }
             }
         } header: {
             HStack(spacing: 6) {
@@ -256,7 +254,7 @@ struct BackendSettingsView: View {
             NavigationLink {
                 GrapeVarietyManagementView()
             } label: {
-                Label("Grape Varieties", systemImage: "leaf.fill")
+                Label { Text("Grape Varieties") } icon: { GrapeLeafIcon(size: 16) }
             }
             NavigationLink {
                 ButtonsAndQuickActionsView()
@@ -619,7 +617,7 @@ private struct LocalPreferencesView: View {
                     showGrowthStages = true
                 } label: {
                     HStack {
-                        Label("Enabled E-L Stages", systemImage: "leaf.arrow.triangle.circlepath")
+                        Label { Text("Enabled E-L Stages") } icon: { GrapeLeafIcon(size: 16) }
                             .foregroundStyle(.primary)
                         Spacer()
                         Text("\(store.settings.enabledGrowthStageCodes.count)")

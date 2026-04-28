@@ -124,9 +124,15 @@ struct TripDetailView: View {
                 Section("Pins") {
                     ForEach(pinsForTrip) { pin in
                         HStack {
-                            Image(systemName: pin.mode == .growth ? "leaf.fill" : "wrench.fill")
-                                .foregroundStyle(pin.mode == .growth ? VineyardTheme.leafGreen : .orange)
-                                .frame(width: 24)
+                            Group {
+                                if pin.mode == .growth {
+                                    GrapeLeafIcon(size: 18, color: VineyardTheme.leafGreen)
+                                } else {
+                                    Image(systemName: "wrench.fill")
+                                        .foregroundStyle(.orange)
+                                }
+                            }
+                            .frame(width: 24)
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(pin.buttonName.isEmpty ? "Pin" : pin.buttonName)
                                     .font(.subheadline.weight(.medium))
@@ -242,7 +248,11 @@ struct TripDetailView: View {
 
     private func statRow(_ label: String, value: String, icon: String) -> some View {
         HStack {
-            Label(label, systemImage: icon)
+            if icon.hasPrefix("leaf") {
+                Label { Text(label) } icon: { GrapeLeafIcon(size: 16) }
+            } else {
+                Label(label, systemImage: icon)
+            }
             Spacer()
             Text(value)
                 .font(.body.weight(.medium))

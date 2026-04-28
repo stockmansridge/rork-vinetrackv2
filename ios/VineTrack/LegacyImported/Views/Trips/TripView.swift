@@ -271,7 +271,7 @@ struct TripHistoryRow: View {
                     .foregroundStyle(.secondary)
 
                 if !trip.paddockName.isEmpty {
-                    Label(trip.paddockName, systemImage: "leaf")
+                    Label { Text(trip.paddockName) } icon: { GrapeLeafIcon(size: 12, color: VineyardTheme.olive) }
                         .font(.caption)
                         .foregroundStyle(VineyardTheme.olive)
                 }

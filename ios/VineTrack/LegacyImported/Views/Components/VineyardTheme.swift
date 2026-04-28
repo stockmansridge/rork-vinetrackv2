@@ -197,9 +197,13 @@ struct VineyardEmptyStateView: View {
                 Circle()
                     .fill(VineyardTheme.primaryAccent.opacity(0.12))
                     .frame(width: 96, height: 96)
-                Image(systemName: icon)
-                    .font(.system(size: 44, weight: .semibold))
-                    .foregroundStyle(VineyardTheme.primaryAccent)
+                if icon.hasPrefix("leaf") {
+                    GrapeLeafIcon(size: 48, color: VineyardTheme.primaryAccent)
+                } else {
+                    Image(systemName: icon)
+                        .font(.system(size: 44, weight: .semibold))
+                        .foregroundStyle(VineyardTheme.primaryAccent)
+                }
             }
             Text(title)
                 .font(.title3.weight(.semibold))

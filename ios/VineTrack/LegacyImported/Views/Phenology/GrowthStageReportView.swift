@@ -108,17 +108,17 @@ struct GrowthStageReportView: View {
     var body: some View {
         Group {
             if growthPins.isEmpty {
-                ContentUnavailableView(
-                    "No Growth Data",
-                    systemImage: "leaf.arrow.triangle.circlepath",
-                    description: Text("Drop growth stage pins from the Home tab to build your vintage report.")
-                )
+                ContentUnavailableView {
+                    Label { Text("No Growth Data") } icon: { GrapeLeafIcon(size: 44) }
+                } description: {
+                    Text("Drop growth stage pins from the Home tab to build your vintage report.")
+                }
             } else if availableVintages.isEmpty {
-                ContentUnavailableView(
-                    "No Matching Data",
-                    systemImage: "leaf.arrow.triangle.circlepath",
-                    description: Text("No growth stage entries found for the selected block.")
-                )
+                ContentUnavailableView {
+                    Label { Text("No Matching Data") } icon: { GrapeLeafIcon(size: 44) }
+                } description: {
+                    Text("No growth stage entries found for the selected block.")
+                }
             } else {
                 List {
                     paddockFilterSection
@@ -324,9 +324,7 @@ struct GrowthStageReportView: View {
             }
         } header: {
             HStack(spacing: 6) {
-                Image(systemName: "leaf.arrow.triangle.circlepath")
-                    .foregroundStyle(VineyardTheme.leafGreen)
-                    .font(.caption)
+                GrapeLeafIcon(size: 14, color: VineyardTheme.leafGreen)
                 Text("E-L Growth Stages")
             }
         }

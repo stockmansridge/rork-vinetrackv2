@@ -71,9 +71,7 @@ struct QuickPinSheet: View {
                                     Text(button.name)
                                         .foregroundStyle(.primary)
                                     if button.isGrowthStageButton {
-                                        Image(systemName: "leaf.fill")
-                                            .font(.caption)
-                                            .foregroundStyle(.green)
+                                        GrapeLeafIcon(size: 12, color: .green)
                                     }
                                     Spacer()
                                     if selectedButtonId == button.id {

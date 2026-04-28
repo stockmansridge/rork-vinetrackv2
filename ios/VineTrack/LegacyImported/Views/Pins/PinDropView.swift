@@ -133,8 +133,7 @@ struct PinDropView: View {
             showGrowthPicker = true
         } label: {
             HStack(spacing: 12) {
-                Image(systemName: "leaf.fill")
-                    .font(.title3.weight(.bold))
+                GrapeLeafIcon(size: 22, color: .white)
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Growth Stage")
                         .font(.headline.weight(.bold))

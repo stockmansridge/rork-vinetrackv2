@@ -405,7 +405,7 @@ struct EditPaddockSheet: View {
     private var phenologySection: some View {
         Section {
             Toggle(isOn: $hasBudburstDate) {
-                Label("Budburst Date Set", systemImage: "leaf.arrow.triangle.circlepath")
+                Label { Text("Budburst Date Set") } icon: { GrapeLeafIcon(size: 16) }
             }
             if hasBudburstDate {
                 DatePicker("Budburst", selection: $budburstDate, displayedComponents: .date)
@@ -546,9 +546,7 @@ struct EditPaddockSheet: View {
             }
         } header: {
             HStack(spacing: 6) {
-                Image(systemName: "leaf.circle.fill")
-                    .foregroundStyle(VineyardTheme.leafGreen)
-                    .font(.caption)
+                GrapeLeafIcon(size: 14, color: VineyardTheme.leafGreen)
                 Text("Grape Varieties")
                 Spacer()
                 if !varietyAllocations.isEmpty {

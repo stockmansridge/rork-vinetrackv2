@@ -156,7 +156,7 @@ struct ActiveTripCard: View {
         let paddockName: String? = tracking.currentPaddockName ?? (trip.paddockName.isEmpty ? nil : trip.paddockName)
         VStack(alignment: .leading, spacing: 4) {
             if let paddockName {
-                Label(paddockName, systemImage: "leaf")
+                Label { Text(paddockName) } icon: { GrapeLeafIcon(size: 12) }
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }

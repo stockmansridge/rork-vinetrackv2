@@ -130,9 +130,7 @@ struct GrowthStageImagesSettingsView: View {
                     .fill(Color(.tertiarySystemGroupedBackground))
                     .frame(width: 56, height: 42)
                     .overlay {
-                        Image(systemName: "leaf")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
+                        GrapeLeafIcon(size: 18, color: Color.secondary)
                     }
             }
         }

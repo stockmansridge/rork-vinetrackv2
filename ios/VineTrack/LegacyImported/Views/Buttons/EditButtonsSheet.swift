@@ -133,9 +133,7 @@ struct EditButtonsSheet: View {
                         guard canEdit else { return }
                         entryIsGrowthStage[index].toggle()
                     } label: {
-                        Image(systemName: "leaf.fill")
-                            .font(.caption)
-                            .foregroundStyle(entryIsGrowthStage[index] ? .green : .secondary)
+                        GrapeLeafIcon(size: 14, color: entryIsGrowthStage[index] ? .green : Color.secondary)
                     }
                     .disabled(!canEdit)
                 }
