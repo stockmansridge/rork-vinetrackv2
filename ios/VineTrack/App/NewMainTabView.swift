@@ -1,8 +1,10 @@
 import SwiftUI
+import CoreLocation
 
 struct NewMainTabView: View {
     @Environment(NewBackendAuthService.self) private var auth
     @Environment(MigratedDataStore.self) private var store
+    @Environment(LocationService.self) private var locationService
 
     var body: some View {
         TabView {
@@ -19,6 +21,13 @@ struct NewMainTabView: View {
                 .tabItem { Label("Settings", systemImage: "gearshape.fill") }
         }
         .tint(VineyardTheme.leafGreen)
+        .onAppear {
+            if locationService.authorizationStatus == .notDetermined {
+                locationService.requestPermission()
+            } else if locationService.authorizationStatus == .authorizedWhenInUse || locationService.authorizationStatus == .authorizedAlways {
+                locationService.startUpdating()
+            }
+        }
     }
 }
 

@@ -441,6 +441,7 @@ struct PinsListView: View {
     let pins: [VinePin]
     @Environment(MigratedDataStore.self) private var store
     @Environment(NewBackendAuthService.self) private var auth
+    @Environment(LocationService.self) private var locationService
     private let canDelete: Bool = true
     @State private var selectedPinForMap: VinePin?
     @State private var selectedPinForDirections: VinePin?
@@ -524,8 +525,9 @@ struct PinsListView: View {
     }
 
     private func distanceToPin(_ pin: VinePin) -> Double? {
-        // TODO: re-enable distance calculations once LocationService is migrated.
-        return nil
+        guard let userLocation = locationService.location else { return nil }
+        let pinLocation = CLLocation(latitude: pin.latitude, longitude: pin.longitude)
+        return userLocation.distance(from: pinLocation)
     }
 
     private func toggleCompletion(_ pin: VinePin) {
@@ -825,12 +827,22 @@ struct PinLocationMapSheet: View {
 struct PinDirectionsSheet: View {
     let pin: VinePin
     @Environment(\.dismiss) private var dismiss
+    @Environment(LocationService.self) private var locationService
     @State private var position: MapCameraPosition = .automatic
 
-    // TODO: re-enable user-location based directions once LocationService is migrated.
-    private var userCoordinate: CLLocationCoordinate2D? { nil }
+    private var userCoordinate: CLLocationCoordinate2D? {
+        locationService.location?.coordinate
+    }
 
-    private var distanceText: String { "—" }
+    private var distanceText: String {
+        guard let userLocation = locationService.location else { return "—" }
+        let pinLocation = CLLocation(latitude: pin.latitude, longitude: pin.longitude)
+        let distance = userLocation.distance(from: pinLocation)
+        if distance < 1000 {
+            return "\(Int(distance))m away"
+        }
+        return String(format: "%.1fkm away", distance / 1000)
+    }
 
     var body: some View {
         NavigationStack {
