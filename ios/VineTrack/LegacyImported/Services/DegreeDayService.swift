@@ -52,7 +52,7 @@ class DegreeDayService {
     /// Per-station cache of daily temperatures keyed by yyyyMMdd.
     private var temps: [String: [String: DailyTemp]] = [:]
 
-    private let apiKey: String = UserDefaults.standard.string(forKey: "vinetrack_wunderground_api_key") ?? ""
+    private let apiKey: String = AppConfig.wundergroundAPIKey
     private let baseTemp: Double = 10.0
     private let beddCap: Double = 19.0
 
