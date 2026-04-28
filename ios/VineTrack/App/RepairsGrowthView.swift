@@ -129,8 +129,8 @@ struct RepairsGrowthView: View {
                     .padding(.top, 12)
                 Spacer()
             } else {
-                fillingButtonGrid(buttons: repairButtons) { btn, side in
-                    handleTap(button: btn, side: side)
+                fillingButtonGrid(buttons: repairButtons) { btn in
+                    handleTap(button: btn, side: .right)
                 }
             }
         }
@@ -149,8 +149,8 @@ struct RepairsGrowthView: View {
                     .padding(.horizontal)
                 Spacer()
             } else {
-                fillingButtonGrid(buttons: growthButtons) { btn, side in
-                    handleTap(button: btn, side: side)
+                fillingButtonGrid(buttons: growthButtons) { btn in
+                    handleTap(button: btn, side: .right)
                 }
             }
         }
@@ -202,39 +202,18 @@ struct RepairsGrowthView: View {
 
     // MARK: - Filling grid
 
-    private func fillingButtonGrid(buttons: [ButtonConfig], onTap: @escaping (ButtonConfig, PinSide) -> Void) -> some View {
-        VStack(spacing: 6) {
-            HStack {
-                Text("LEFT")
-                    .font(.caption.weight(.heavy))
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity)
-                Text("RIGHT")
-                    .font(.caption.weight(.heavy))
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity)
-            }
-            .padding(.horizontal)
-
-            HStack(alignment: .top, spacing: 10) {
-                VStack(spacing: 10) {
-                    ForEach(buttons) { btn in
-                        FillingActionTile(button: btn, side: .left, canCreate: canCreate) {
-                            onTap(btn, .left)
-                        }
-                    }
-                }
-                VStack(spacing: 10) {
-                    ForEach(buttons) { btn in
-                        FillingActionTile(button: btn, side: .right, canCreate: canCreate) {
-                            onTap(btn, .right)
-                        }
-                    }
+    private func fillingButtonGrid(buttons: [ButtonConfig], onTap: @escaping (ButtonConfig) -> Void) -> some View {
+        let columns = Array(repeating: GridItem(.flexible(), spacing: 10), count: 4)
+        return LazyVGrid(columns: columns, spacing: 10) {
+            ForEach(buttons) { btn in
+                FillingActionTile(button: btn, side: .right, canCreate: canCreate) {
+                    onTap(btn)
                 }
             }
-            .padding(.horizontal)
-            .padding(.bottom, 12)
         }
+        .padding(.horizontal)
+        .padding(.top, 6)
+        .padding(.bottom, 12)
     }
 
     // MARK: - Actions
