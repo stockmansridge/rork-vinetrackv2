@@ -2,7 +2,7 @@
   "$schema": "https://rork.com/schema/rork.json",
   "apps": [
     {
-      "name": "VineTrack",
+      "name": "Vine Track v2",
       "path": "ios",
       "framework": "swift"
     }
