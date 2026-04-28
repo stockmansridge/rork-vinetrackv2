@@ -4,8 +4,9 @@ import MapKit
 struct PinsView: View {
     @Environment(MigratedDataStore.self) private var store
     @Environment(NewBackendAuthService.self) private var auth
-    private let canDelete: Bool = true
-    private let canExport: Bool = true
+    @Environment(BackendAccessControl.self) private var accessControl
+    private var canDelete: Bool { accessControl.canDeleteOperationalRecords }
+    private var canExport: Bool { accessControl.canExport }
     @State private var viewMode: PinsViewMode = .list
     @State private var filterModes: Set<PinMode> = []
     @State private var completionFilter: PinCompletionFilter = .notDone
@@ -442,7 +443,8 @@ struct PinsListView: View {
     @Environment(MigratedDataStore.self) private var store
     @Environment(NewBackendAuthService.self) private var auth
     @Environment(LocationService.self) private var locationService
-    private let canDelete: Bool = true
+    @Environment(BackendAccessControl.self) private var accessControl
+    private var canDelete: Bool { accessControl.canDeleteOperationalRecords }
     @State private var selectedPinForMap: VinePin?
     @State private var selectedPinForDirections: VinePin?
     @State private var selectedPinForPhoto: VinePin?
@@ -563,7 +565,8 @@ struct PinRowView: View {
     let onComplete: () -> Void
     let onDelete: () -> Void
     let onHeadingTap: () -> Void
-    private let canDelete: Bool = true
+    @Environment(BackendAccessControl.self) private var accessControl
+    private var canDelete: Bool { accessControl.canDeleteOperationalRecords }
     @State private var showFullPhoto: Bool = false
 
     private var headingText: String {
@@ -913,8 +916,9 @@ struct PinDetailSheet: View {
     let pin: VinePin
     @Environment(MigratedDataStore.self) private var store
     @Environment(NewBackendAuthService.self) private var auth
+    @Environment(BackendAccessControl.self) private var accessControl
     @Environment(\.dismiss) private var dismiss
-    private let canDelete: Bool = true
+    private var canDelete: Bool { accessControl.canDeleteOperationalRecords }
     @State private var notesDraft: String = ""
     @State private var showDirections: Bool = false
     @State private var showPhotoPicker: Bool = false

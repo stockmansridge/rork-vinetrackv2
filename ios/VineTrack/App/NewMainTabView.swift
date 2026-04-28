@@ -5,6 +5,7 @@ struct NewMainTabView: View {
     @Environment(NewBackendAuthService.self) private var auth
     @Environment(MigratedDataStore.self) private var store
     @Environment(LocationService.self) private var locationService
+    @Environment(BackendAccessControl.self) private var accessControl
 
     var body: some View {
         TabView {
@@ -30,12 +31,16 @@ struct NewMainTabView: View {
                 .tabItem { Label("Settings", systemImage: "gearshape.fill") }
         }
         .tint(VineyardTheme.leafGreen)
+        .environment(\.accessControl, accessControl.legacyAccessControl)
         .onAppear {
             if locationService.authorizationStatus == .notDetermined {
                 locationService.requestPermission()
             } else if locationService.authorizationStatus == .authorizedWhenInUse || locationService.authorizationStatus == .authorizedAlways {
                 locationService.startUpdating()
             }
+        }
+        .task(id: store.selectedVineyardId) {
+            await accessControl.refresh(for: store.selectedVineyardId, auth: auth)
         }
     }
 }

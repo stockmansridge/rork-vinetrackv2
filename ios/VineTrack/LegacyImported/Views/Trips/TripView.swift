@@ -14,6 +14,7 @@ nonisolated enum TripTypeFilter: String, CaseIterable, Sendable {
 
 struct TripView: View {
     @Environment(MigratedDataStore.self) private var store
+    @Environment(BackendAccessControl.self) private var accessControl
     @State private var tripSortOption: TripSortOption = .date
     @State private var tripTypeFilter: TripTypeFilter = .all
     @State private var tripSearchText: String = ""
@@ -187,11 +188,11 @@ struct TripView: View {
                             )
                         }
                     }
-                    .onDelete { offsets in
+                    .onDelete(perform: accessControl.canDeleteOperationalRecords ? { offsets in
                         let trips = filteredAndSortedTrips
                         tripToDelete = offsets.first.map { trips[$0] }
                         showDeleteConfirmation = true
-                    }
+                    } : nil)
                 } header: {
                     Label("Trip History", systemImage: "road.lanes")
                         .foregroundStyle(Color.accentColor)

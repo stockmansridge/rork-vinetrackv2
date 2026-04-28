@@ -3,6 +3,7 @@ import UIKit
 
 struct GrowthStageReportView: View {
     @Environment(MigratedDataStore.self) private var store
+    @Environment(BackendAccessControl.self) private var accessControl
     @State private var selectedVintages: Set<Int> = []
     @State private var selectedPaddockId: UUID?
     @State private var sharePDFURL: SharePDFURL?
@@ -130,17 +131,19 @@ struct GrowthStageReportView: View {
         .navigationTitle("Growth Stage Report")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Button {
-                    exportPDF()
-                } label: {
-                    if isGeneratingPDF {
-                        ProgressView()
-                    } else {
-                        Image(systemName: "square.and.arrow.up")
+            if accessControl.canExport {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        exportPDF()
+                    } label: {
+                        if isGeneratingPDF {
+                            ProgressView()
+                        } else {
+                            Image(systemName: "square.and.arrow.up")
+                        }
                     }
+                    .disabled(isGeneratingPDF || growthPins.isEmpty || availableVintages.isEmpty)
                 }
-                .disabled(isGeneratingPDF || growthPins.isEmpty || availableVintages.isEmpty)
             }
         }
         .sheet(item: $sharePDFURL) { url in
