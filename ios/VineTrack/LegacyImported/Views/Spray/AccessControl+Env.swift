@@ -1,9 +1,9 @@
 import SwiftUI
 
 /// Lightweight, backend-neutral access control surface used by imported legacy
-/// spray screens. In Phase 6E we default everything to `true` since there is
-/// no role/permission system wired yet. A future phase can replace the env
-/// value with a real implementation backed by Supabase team roles.
+/// spray screens. As of Phase 8A this defaults to a safely locked-down state
+/// (all `false`); the real values are bridged in from `BackendAccessControl`
+/// via `legacyAccessControl` based on the user's `BackendRole`.
 struct LegacyAccessControl {
     var canDelete: Bool = false
     var canExport: Bool = false
