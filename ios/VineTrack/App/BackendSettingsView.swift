@@ -3,6 +3,7 @@ import SwiftUI
 struct BackendSettingsView: View {
     @Environment(NewBackendAuthService.self) private var auth
     @Environment(MigratedDataStore.self) private var store
+    @Environment(BackendAccessControl.self) private var accessControl
 
     @State private var showVineyardSwitcher: Bool = false
     @State private var showVineyardDetail: Bool = false
@@ -23,6 +24,9 @@ struct BackendSettingsView: View {
                 vineyardSection
                 if let vineyard = store.selectedVineyard {
                     teamSection(vineyard: vineyard)
+                }
+                if accessControl.canChangeSettings {
+                    managementSection
                 }
                 appSettingsSection
                 aboutSection
@@ -161,6 +165,50 @@ struct BackendSettingsView: View {
                     .font(.caption)
                 Text("Team")
             }
+        }
+    }
+
+    private var managementSection: some View {
+        Section {
+            NavigationLink {
+                SprayManagementSettingsView()
+            } label: {
+                Label("Spray Management", systemImage: "flask.fill")
+            }
+            NavigationLink {
+                EquipmentManagementView()
+            } label: {
+                Label("Equipment & Tractors", systemImage: "wrench.and.screwdriver")
+            }
+            NavigationLink {
+                OperatorCategoriesView()
+            } label: {
+                Label("Operators & Costs", systemImage: "person.badge.clock")
+            }
+            NavigationLink {
+                GrapeVarietyManagementView()
+            } label: {
+                Label("Grape Varieties", systemImage: "leaf.fill")
+            }
+            NavigationLink {
+                ButtonTemplateListView(mode: .repairs)
+            } label: {
+                Label("Repair Button Templates", systemImage: "square.grid.2x2")
+            }
+            NavigationLink {
+                ButtonTemplateListView(mode: .growth)
+            } label: {
+                Label("Growth Button Templates", systemImage: "square.grid.2x2.fill")
+            }
+        } header: {
+            HStack(spacing: 6) {
+                Image(systemName: "slider.horizontal.below.rectangle")
+                    .foregroundStyle(.orange)
+                    .font(.caption)
+                Text("Management")
+            }
+        } footer: {
+            Text("Manage saved chemicals, equipment, operators, varieties, and button templates.")
         }
     }
 
