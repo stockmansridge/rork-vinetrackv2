@@ -469,7 +469,7 @@ struct BackendSettingsView: View {
 
     private var accountPrivacySection: some View {
         Section {
-            if let url = URL(string: "https://vinetrack.app/privacy") {
+            if let url = URL(string: "https://vinetrack.com.au/privacy") {
                 Link(destination: url) {
                     Label("Privacy Policy", systemImage: "hand.raised.fill")
                         .foregroundStyle(.primary)

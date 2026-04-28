@@ -80,7 +80,7 @@ struct DisclaimerInfoView: View {
 struct AccountDeletionRequestView: View {
     @Environment(NewBackendAuthService.self) private var auth
 
-    private let supportEmail: String = "support@vinetrack.app"
+    private let supportEmail: String = "jonathan@stockmansridge.com.au"
 
     var body: some View {
         ScrollView {
