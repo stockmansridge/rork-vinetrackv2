@@ -47,6 +47,14 @@ final class MigratedDataStore {
 
     var selectedTab: Int = 0
 
+    // MARK: - Sync hooks (Phase 10B)
+
+    /// Called when a pin is added/updated locally. Sync services observe this
+    /// to mark the pin as dirty for upload.
+    var onPinChanged: ((UUID) -> Void)?
+    /// Called when a pin is deleted locally.
+    var onPinDeleted: ((UUID) -> Void)?
+
     // MARK: - Repositories
 
     let vineyardRepo: VineyardRepository
@@ -293,12 +301,12 @@ final class MigratedDataStore {
     // MARK: - Pin CRUD
 
     func addPin(_ pin: VinePin) {
-        // TODO: permission check (no-op in Phase 4)
         guard let vineyardId = selectedVineyardId else { return }
         var item = pin
         item.vineyardId = vineyardId
         pins.append(item)
         pinRepo.saveSlice(pins, for: vineyardId)
+        onPinChanged?(item.id)
     }
 
     func updatePin(_ pin: VinePin) {
@@ -306,12 +314,14 @@ final class MigratedDataStore {
         guard let index = pins.firstIndex(where: { $0.id == pin.id }) else { return }
         pins[index] = pin
         pinRepo.saveSlice(pins, for: vineyardId)
+        onPinChanged?(pin.id)
     }
 
     func deletePin(_ pinId: UUID) {
         guard let vineyardId = selectedVineyardId else { return }
         pins.removeAll { $0.id == pinId }
         pinRepo.saveSlice(pins, for: vineyardId)
+        onPinDeleted?(pinId)
     }
 
     func togglePinCompletion(_ pinId: UUID) {
@@ -321,6 +331,37 @@ final class MigratedDataStore {
         pin.isCompleted.toggle()
         pin.completedAt = pin.isCompleted ? Date() : nil
         pins[index] = pin
+        pinRepo.saveSlice(pins, for: vineyardId)
+        onPinChanged?(pinId)
+    }
+
+    /// Apply a pin upsert that originated from a remote sync pull. Does NOT
+    /// trigger `onPinChanged` (avoids re-marking the pin dirty).
+    func applyRemotePinUpsert(_ pin: VinePin) {
+        guard let vineyardId = selectedVineyardId, pin.vineyardId == vineyardId else {
+            // Still persist into the appropriate slice on disk so it surfaces
+            // when the user switches vineyards.
+            var allPins = pinRepo.loadAll()
+            if let idx = allPins.firstIndex(where: { $0.id == pin.id }) {
+                allPins[idx] = pin
+            } else {
+                allPins.append(pin)
+            }
+            pinRepo.replace(allPins.filter { $0.vineyardId == pin.vineyardId }, for: pin.vineyardId)
+            return
+        }
+        if let idx = pins.firstIndex(where: { $0.id == pin.id }) {
+            pins[idx] = pin
+        } else {
+            pins.append(pin)
+        }
+        pinRepo.saveSlice(pins, for: vineyardId)
+    }
+
+    /// Apply a pin deletion that originated from a remote sync pull.
+    func applyRemotePinDelete(_ pinId: UUID) {
+        guard let vineyardId = selectedVineyardId else { return }
+        pins.removeAll { $0.id == pinId }
         pinRepo.saveSlice(pins, for: vineyardId)
     }
 
