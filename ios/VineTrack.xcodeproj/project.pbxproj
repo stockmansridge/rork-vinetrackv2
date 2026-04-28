@@ -410,7 +410,9 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
-				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "VineTrack uses your location to show your position on vineyard maps and measure distance to pins.";
+				INFOPLIST_KEY_NSCameraUsageDescription = "VineTrack uses the camera to attach photos to vineyard pins, maintenance logs, and observations.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "VineTrack uses your location to show your position on vineyard maps, drop GPS pins for repairs and observations, track trips, and provide row guidance.";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "VineTrack uses your photo library to attach existing photos to vineyard pins, maintenance logs, and observations when the camera is unavailable.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -444,7 +446,9 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
-				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "VineTrack uses your location to show your position on vineyard maps and measure distance to pins.";
+				INFOPLIST_KEY_NSCameraUsageDescription = "VineTrack uses the camera to attach photos to vineyard pins, maintenance logs, and observations.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "VineTrack uses your location to show your position on vineyard maps, drop GPS pins for repairs and observations, track trips, and provide row guidance.";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "VineTrack uses your photo library to attach existing photos to vineyard pins, maintenance logs, and observations when the camera is unavailable.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;

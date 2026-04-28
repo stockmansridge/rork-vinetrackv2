@@ -8,7 +8,6 @@ final class LocationService: NSObject, CLLocationManagerDelegate {
     var heading: CLHeading?
     var authorizationStatus: CLAuthorizationStatus = .notDetermined
     var isUsingMockLocation: Bool = false
-    private var isBackgroundTracking: Bool = false
     private var mockFallbackTask: Task<Void, Never>?
 
     override init() {
@@ -38,10 +37,6 @@ final class LocationService: NSObject, CLLocationManagerDelegate {
         manager.requestWhenInUseAuthorization()
     }
 
-    func requestAlwaysPermission() {
-        manager.requestAlwaysAuthorization()
-    }
-
     func startUpdating() {
         manager.startUpdatingLocation()
         manager.startUpdatingHeading()
@@ -55,29 +50,6 @@ final class LocationService: NSObject, CLLocationManagerDelegate {
     }
 
     func stopUpdating() {
-        if !isBackgroundTracking {
-            manager.stopUpdatingLocation()
-            manager.stopUpdatingHeading()
-        }
-    }
-
-    func startBackgroundUpdating() {
-        isBackgroundTracking = true
-        manager.allowsBackgroundLocationUpdates = true
-        manager.showsBackgroundLocationIndicator = true
-        manager.pausesLocationUpdatesAutomatically = false
-        manager.startUpdatingLocation()
-        manager.startUpdatingHeading()
-        if authorizationStatus == .authorizedWhenInUse {
-            requestAlwaysPermission()
-        }
-    }
-
-    func stopBackgroundUpdating() {
-        isBackgroundTracking = false
-        manager.allowsBackgroundLocationUpdates = false
-        manager.showsBackgroundLocationIndicator = false
-        manager.pausesLocationUpdatesAutomatically = true
         manager.stopUpdatingLocation()
         manager.stopUpdatingHeading()
     }
