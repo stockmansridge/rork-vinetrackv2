@@ -15,6 +15,7 @@ struct RepairsGrowthView: View {
     @State private var lastGrowthStage: GrowthStage?
     @State private var feedbackMessage: String?
     @State private var feedbackKind: VineyardBadgeKind = .success
+    @State private var pinToast: PinDroppedToastInfo?
 
     init(initial: Tab = .repairs) {
         _selection = State(initialValue: initial)
@@ -53,12 +54,13 @@ struct RepairsGrowthView: View {
             .tabViewStyle(.page(indexDisplayMode: .never))
             .animation(.easeInOut(duration: 0.25), value: selection)
 
-            if let feedbackMessage {
+            if let feedbackMessage, feedbackKind != .success {
                 FeedbackBar(message: feedbackMessage, kind: feedbackKind)
                     .padding(.bottom, 8)
             }
         }
         .background(VineyardTheme.appBackground)
+        .pinDroppedToast($pinToast)
         .navigationTitle(store.selectedVineyard?.name ?? "Vineyard")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -236,7 +238,7 @@ struct RepairsGrowthView: View {
             createdBy: auth.userName,
             notes: nil
         )
-        showFeedback("Pin: \(button.name) (\(side == .left ? "L" : "R"))", kind: .success)
+        showPinToast(title: "Pin Dropped", subtitle: "\(button.name) \u{2022} \(side == .left ? "Left" : "Right")")
     }
 
     private func handleGrowthStageSelected(_ stage: GrowthStage) {
@@ -256,7 +258,11 @@ struct RepairsGrowthView: View {
             createdBy: auth.userName,
             notes: nil
         )
-        showFeedback("Growth pin: EL \(stage.code)", kind: .success)
+        showPinToast(title: "Pin Dropped", subtitle: "EL \(stage.code) \u{2022} \(stage.description)")
+    }
+
+    private func showPinToast(title: String, subtitle: String) {
+        pinToast = PinDroppedToastInfo(title: title, subtitle: subtitle)
     }
 
     private func showFeedback(_ message: String, kind: VineyardBadgeKind) {
