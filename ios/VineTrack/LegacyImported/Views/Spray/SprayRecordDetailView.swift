@@ -7,6 +7,8 @@ struct SprayRecordDetailView: View {
     @Environment(\.accessControl) private var accessControl
     @State private var showEditSheet: Bool = false
     @State private var isGeneratingPDF: Bool = false
+    @State private var sharePDFURL: ShareURL?
+    @State private var exportError: String?
     @State private var isMapExpanded: Bool = true
     @State private var isRowsExpanded: Bool = false
     @State private var mapPosition: MapCameraPosition = .automatic
@@ -58,14 +60,33 @@ struct SprayRecordDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
-                Button {
-                    showEditSheet = true
-                } label: {
-                    Label("Edit", systemImage: "pencil")
+                HStack(spacing: 12) {
+                    Button {
+                        exportPDF()
+                    } label: {
+                        if isGeneratingPDF {
+                            ProgressView()
+                        } else {
+                            Image(systemName: "square.and.arrow.up")
+                        }
+                    }
+                    .disabled(isGeneratingPDF)
+                    Button {
+                        showEditSheet = true
+                    } label: {
+                        Label("Edit", systemImage: "pencil")
+                    }
                 }
             }
         }
-
+        .sheet(item: $sharePDFURL) { wrapper in
+            ShareSheet(items: [wrapper.url])
+        }
+        .alert("Export Failed", isPresented: Binding(get: { exportError != nil }, set: { if !$0 { exportError = nil } })) {
+            Button("OK", role: .cancel) { exportError = nil }
+        } message: {
+            Text(exportError ?? "")
+        }
         .sheet(isPresented: $showEditSheet) {
             SprayRecordFormView(
                 tripId: record.tripId,
@@ -471,6 +492,56 @@ struct ShareSheet: UIViewControllerRepresentable {
     }
 
     func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
+}
+
+struct ShareURL: Identifiable {
+    let id = UUID()
+    let url: URL
+}
+
+extension SprayRecordDetailView {
+    fileprivate func exportPDF() {
+        guard !isGeneratingPDF else { return }
+        isGeneratingPDF = true
+        let trip = tripForRecord
+        let vineyardName = store.selectedVineyard?.name ?? "Vineyard"
+        let logoData = store.selectedVineyard?.logoData
+        let paddockName: String = trip?.paddockName ?? ""
+        let personName: String = trip?.personName ?? ""
+        let paddocks = store.paddocks
+        let fuelCost = fuelCostForTrip
+        let operatorCost = operatorCostForTrip
+        let operatorCatName = operatorCategoryNameForTrip
+        let includeCostings = accessControl?.canViewFinancials ?? false
+        let recordCopy = record
+
+        Task {
+            var snapshot: UIImage? = nil
+            if let trip, trip.pathPoints.count > 1 {
+                snapshot = await SprayRecordPDFService.captureMapSnapshot(trip: trip)
+            }
+            let data = SprayRecordPDFService.generatePDF(
+                record: recordCopy,
+                trip: trip,
+                vineyardName: vineyardName,
+                paddockName: paddockName,
+                personName: personName,
+                paddocks: paddocks,
+                mapSnapshot: snapshot,
+                logoData: logoData,
+                fuelCost: fuelCost,
+                operatorCost: operatorCost,
+                operatorCategoryName: operatorCatName,
+                includeCostings: includeCostings
+            )
+            let fileName = "SprayRecord_\(recordCopy.sprayReference.isEmpty ? "Record" : recordCopy.sprayReference)_\(recordCopy.date.formatted(.iso8601.year().month().day()))"
+            let url = SprayRecordPDFService.savePDFToTemp(data: data, fileName: fileName)
+            await MainActor.run {
+                sharePDFURL = ShareURL(url: url)
+                isGeneratingPDF = false
+            }
+        }
+    }
 }
 
 struct SprayRecordBanner: View {

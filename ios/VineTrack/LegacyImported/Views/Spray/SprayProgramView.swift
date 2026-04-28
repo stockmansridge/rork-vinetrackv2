@@ -23,6 +23,9 @@ struct SprayProgramView: View {
     @State private var statusFilter: SprayStatusFilter = .all
     @State private var recordToDelete: SprayRecord?
     @State private var showCreateForm: Bool = false
+    @State private var sharePDFURL: ShareURL?
+    @State private var isExporting: Bool = false
+    @State private var exportError: String?
 
     private func tripForRecord(_ record: SprayRecord) -> Trip? {
         store.trips.first(where: { $0.id == record.tripId })
@@ -134,8 +137,29 @@ struct SprayProgramView: View {
                                             .tag(option)
                                     }
                                 }
+                                Section("Export") {
+                                    Button {
+                                        exportCSV()
+                                    } label: {
+                                        Label("Export CSV", systemImage: "tablecells")
+                                    }
+                                    Button {
+                                        exportProgramPDF()
+                                    } label: {
+                                        Label("Export PDF", systemImage: "doc.richtext")
+                                    }
+                                    Button {
+                                        exportTemplate()
+                                    } label: {
+                                        Label("CSV Template", systemImage: "doc.badge.plus")
+                                    }
+                                }
                             } label: {
-                                Image(systemName: "line.3.horizontal.decrease.circle")
+                                if isExporting {
+                                    ProgressView()
+                                } else {
+                                    Image(systemName: "line.3.horizontal.decrease.circle")
+                                }
                             }
                         }
                     }
@@ -181,6 +205,63 @@ struct SprayProgramView: View {
                     paddockIds: [],
                     existingRecord: nil
                 )
+            }
+            .sheet(item: $sharePDFURL) { wrapper in
+                ShareSheet(items: [wrapper.url])
+            }
+            .alert("Export Failed", isPresented: Binding(get: { exportError != nil }, set: { if !$0 { exportError = nil } })) {
+                Button("OK", role: .cancel) { exportError = nil }
+            } message: {
+                Text(exportError ?? "")
+            }
+        }
+    }
+
+    private func exportCSV() {
+        let vineyardName = store.selectedVineyard?.name ?? "Vineyard"
+        let url = SprayProgramCSVService.exportRecords(
+            records: operationalRecords,
+            trips: store.trips,
+            vineyardName: vineyardName
+        )
+        sharePDFURL = ShareURL(url: url)
+    }
+
+    private func exportTemplate() {
+        let url = SprayProgramCSVService.generateTemplate()
+        sharePDFURL = ShareURL(url: url)
+    }
+
+    private func exportProgramPDF() {
+        guard !isExporting else { return }
+        isExporting = true
+        let vineyardName = store.selectedVineyard?.name ?? "Vineyard"
+        let logoData = store.selectedVineyard?.logoData
+        let records = operationalRecords
+        let trips = store.trips
+        let paddocks = store.paddocks
+        let tractors = store.tractors
+        let fuelCost = store.seasonFuelCostPerLitre
+        let operatorCategories = store.operatorCategories
+        let users = store.selectedVineyard?.users ?? []
+        let includeCostings = accessControl?.canViewFinancials ?? false
+
+        Task.detached {
+            let url = SprayProgramExportService.generateProgramPDF(
+                records: records,
+                trips: trips,
+                paddocks: paddocks,
+                vineyardName: vineyardName,
+                logoData: logoData,
+                tractors: tractors,
+                seasonFuelCostPerLitre: fuelCost,
+                operatorCategories: operatorCategories,
+                vineyardUsers: users,
+                includeCostings: includeCostings
+            )
+            await MainActor.run {
+                sharePDFURL = ShareURL(url: url)
+                isExporting = false
             }
         }
     }
