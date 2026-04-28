@@ -25,34 +25,28 @@ struct RepairsGrowthView: View {
     private var canCreate: Bool { accessControl.canCreateOperationalRecords }
     private var canEdit: Bool { accessControl.canChangeSettings }
 
-    /// De-duplicate the original 8-default buttons by name to show the canonical
-    /// 4 repair tiles (Irrigation, Broken Post, Vine Issue, Other).
+    /// All non-growth-stage repair buttons sorted by index.
     private var repairButtons: [ButtonConfig] {
-        let sorted = store.repairButtons
+        store.repairButtons
             .filter { !$0.isGrowthStageButton }
             .sorted { $0.index < $1.index }
-        return dedupedByName(sorted, limit: 4)
     }
 
-    /// The 3 non-growth-stage observation tiles (Powdery, Downy, Blackberries).
+    /// All non-growth-stage growth observation buttons sorted by index.
     private var growthButtons: [ButtonConfig] {
-        let sorted = store.growthButtons
+        store.growthButtons
             .filter { !$0.isGrowthStageButton }
             .sorted { $0.index < $1.index }
-        return dedupedByName(sorted, limit: 3)
     }
 
-    private func dedupedByName(_ buttons: [ButtonConfig], limit: Int) -> [ButtonConfig] {
-        var seen = Set<String>()
-        var unique: [ButtonConfig] = []
-        for btn in buttons {
-            let key = btn.name.lowercased()
-            if !seen.contains(key) {
-                seen.insert(key)
-                unique.append(btn)
-            }
-        }
-        return Array(unique.prefix(limit))
+    private func leftHalf(_ buttons: [ButtonConfig]) -> [ButtonConfig] {
+        let half = max(buttons.count / 2, 0)
+        return Array(buttons.prefix(half))
+    }
+
+    private func rightHalf(_ buttons: [ButtonConfig]) -> [ButtonConfig] {
+        let half = max(buttons.count / 2, 0)
+        return buttons.count > half ? Array(buttons.dropFirst(half)) : []
     }
 
     var body: some View {
@@ -153,9 +147,7 @@ struct RepairsGrowthView: View {
                     .padding(.top, 12)
                 Spacer()
             } else {
-                fillingButtonGrid(buttons: repairButtons) { btn in
-                    handleButtonTap(button: btn)
-                }
+                leftRightButtonGrid(buttons: repairButtons)
             }
         }
     }
@@ -173,9 +165,7 @@ struct RepairsGrowthView: View {
                     .padding(.horizontal)
                 Spacer()
             } else {
-                fillingButtonGrid(buttons: growthButtons) { btn in
-                    handleButtonTap(button: btn)
-                }
+                leftRightButtonGrid(buttons: growthButtons)
             }
         }
         .padding(.top, 4)
@@ -225,37 +215,61 @@ struct RepairsGrowthView: View {
         .disabled(!canCreate)
     }
 
-    // MARK: - Filling grid
+    // MARK: - Left/Right grid
 
-    private func fillingButtonGrid(buttons: [ButtonConfig], onTap: @escaping (ButtonConfig) -> Void) -> some View {
-        let rows = stride(from: 0, to: buttons.count, by: 2).map {
-            Array(buttons[$0..<min($0 + 2, buttons.count)])
-        }
-        return VStack(spacing: 10) {
-            ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
-                HStack(spacing: 10) {
-                    ForEach(row) { btn in
+    private func leftRightButtonGrid(buttons: [ButtonConfig]) -> some View {
+        let left = leftHalf(buttons)
+        let right = rightHalf(buttons)
+        let rowCount = max(left.count, right.count)
+        return VStack(spacing: 8) {
+            HStack {
+                Text("LEFT")
+                    .font(.caption.weight(.heavy))
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity)
+                Text("RIGHT")
+                    .font(.caption.weight(.heavy))
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity)
+            }
+            .padding(.horizontal)
+
+            HStack(alignment: .top, spacing: 10) {
+                VStack(spacing: 10) {
+                    ForEach(left) { btn in
                         FillingActionTile(button: btn, canCreate: canCreate) {
-                            onTap(btn)
+                            handleButtonTap(button: btn, side: .left)
                         }
                     }
-                    if row.count == 1 {
-                        Color.clear.frame(maxWidth: .infinity)
+                    ForEach(0..<max(rowCount - left.count, 0), id: \.self) { _ in
+                        Color.clear.frame(maxWidth: .infinity, maxHeight: .infinity)
+                    }
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+                VStack(spacing: 10) {
+                    ForEach(right) { btn in
+                        FillingActionTile(button: btn, canCreate: canCreate) {
+                            handleButtonTap(button: btn, side: .right)
+                        }
+                    }
+                    ForEach(0..<max(rowCount - right.count, 0), id: \.self) { _ in
+                        Color.clear.frame(maxWidth: .infinity, maxHeight: .infinity)
                     }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
+            .padding(.horizontal)
+            .padding(.bottom, 12)
         }
-        .padding(.horizontal)
         .padding(.top, 6)
-        .padding(.bottom, 12)
     }
 
     // MARK: - Actions
 
-    private func handleButtonTap(button: ButtonConfig) {
+    private func handleButtonTap(button: ButtonConfig, side: PinSide) {
         guard canCreate else { return }
-        pendingConfirmation = PendingConfirmation(kind: .button(button), side: .right)
+        pendingConfirmation = PendingConfirmation(kind: .button(button), side: side)
     }
 
     private func showPinToast(title: String, subtitle: String) {
