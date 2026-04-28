@@ -35,16 +35,23 @@ struct PinDropView: View {
         return all.sorted { $0.index < $1.index }
     }
 
+    private var gridButtons: [ButtonConfig] {
+        sortedButtons.filter { !$0.isGrowthStageButton }
+    }
+
     private var leftButtons: [ButtonConfig] {
-        Array(sortedButtons.prefix(4))
+        let all = gridButtons
+        let half = max(all.count / 2, 0)
+        return Array(all.prefix(half))
     }
 
     private var rightButtons: [ButtonConfig] {
-        let all = sortedButtons
-        if all.count > 4 {
-            return Array(all.dropFirst(4).prefix(4))
+        let all = gridButtons
+        let half = max(all.count / 2, 0)
+        if all.count > half {
+            return Array(all.dropFirst(half))
         }
-        return Array(all.prefix(4))
+        return Array(all.prefix(half))
     }
 
     var body: some View {
@@ -58,8 +65,6 @@ struct PinDropView: View {
                     growthStageBar
                 }
                 buttonsGrid
-                gpsAndLocationStrip
-                notesField
                 if let feedbackMessage {
                     Label(feedbackMessage, systemImage: feedbackKind == .success ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
                         .font(.subheadline.weight(.semibold))
@@ -228,10 +233,8 @@ struct PinDropView: View {
             handleTap(button: btn, side: side)
         } label: {
             VStack(spacing: 4) {
-                if btn.isGrowthStageButton {
-                    Image(systemName: "leaf.fill")
-                        .font(.title3.weight(.bold))
-                }
+                Image(systemName: "mappin.and.ellipse")
+                    .font(.title3.weight(.semibold))
                 Text(btn.name)
                     .font(.title3.weight(.heavy))
                     .lineLimit(2)
@@ -370,9 +373,8 @@ struct PinDropView: View {
             paddockId: selectedPaddockId,
             rowNumber: rowNumber,
             createdBy: auth.userName,
-            notes: notes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : notes
+            notes: nil
         )
-        notes = ""
         showFeedback("Pin: \(button.name) (\(side == .left ? "L" : "R"))", kind: .success)
     }
 
@@ -392,9 +394,8 @@ struct PinDropView: View {
             paddockId: selectedPaddockId,
             rowNumber: rowNumber,
             createdBy: auth.userName,
-            notes: notes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : notes
+            notes: nil
         )
-        notes = ""
         showFeedback("Growth pin: EL \(stage.code)", kind: .success)
     }
 
