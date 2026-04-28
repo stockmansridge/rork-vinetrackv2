@@ -12,6 +12,9 @@ struct NewMainTabView: View {
             NewPaddocksTabView()
                 .tabItem { Label("Paddocks", systemImage: "square.grid.2x2.fill") }
 
+            PinsView()
+                .tabItem { Label("Pins", systemImage: "mappin.and.ellipse") }
+
             NewSettingsTabView()
                 .tabItem { Label("Settings", systemImage: "gearshape.fill") }
         }
