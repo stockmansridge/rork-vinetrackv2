@@ -29,6 +29,8 @@ struct BackendSettingsView: View {
                 if let vineyard = store.selectedVineyard {
                     teamSection(vineyard: vineyard)
                 }
+                vineyardSetupSection
+                operationsSection
                 if accessControl.canChangeSettings {
                     managementSection
                 }
@@ -169,6 +171,65 @@ struct BackendSettingsView: View {
                     .foregroundStyle(.purple)
                     .font(.caption)
                 Text("Team")
+            }
+        }
+    }
+
+    private var vineyardSetupSection: some View {
+        Section {
+            NavigationLink {
+                BlocksHubView()
+            } label: {
+                Label("Blocks / Paddocks", systemImage: "square.grid.2x2.fill")
+            }
+            NavigationLink {
+                GrapeVarietyManagementView()
+            } label: {
+                Label("Grape Varieties", systemImage: "leaf.fill")
+            }
+        } header: {
+            HStack(spacing: 6) {
+                Image(systemName: "square.grid.2x2.fill")
+                    .foregroundStyle(VineyardTheme.leafGreen)
+                    .font(.caption)
+                Text("Vineyard Setup")
+            }
+        }
+    }
+
+    private var operationsSection: some View {
+        Section {
+            NavigationLink {
+                OperationsHubView()
+            } label: {
+                Label("Operations Hub", systemImage: "rectangle.stack.fill")
+            }
+            NavigationLink {
+                WorkTasksHubView()
+            } label: {
+                Label("Work Tasks", systemImage: "checklist")
+            }
+            NavigationLink {
+                MaintenanceLogListView()
+            } label: {
+                Label("Maintenance", systemImage: "wrench.and.screwdriver.fill")
+            }
+            NavigationLink {
+                YieldHubView()
+            } label: {
+                Label("Yield & Damage", systemImage: "scalemass.fill")
+            }
+            NavigationLink {
+                GrowthStageReportView()
+            } label: {
+                Label("Growth Stage", systemImage: "leaf.arrow.triangle.circlepath")
+            }
+        } header: {
+            HStack(spacing: 6) {
+                Image(systemName: "wrench.and.screwdriver.fill")
+                    .foregroundStyle(VineyardTheme.earthBrown)
+                    .font(.caption)
+                Text("Operations")
             }
         }
     }

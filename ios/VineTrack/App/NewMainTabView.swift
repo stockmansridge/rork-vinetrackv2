@@ -18,25 +18,25 @@ struct NewMainTabView: View {
             NewHomeTabView()
                 .tabItem { Label("Home", systemImage: "house.fill") }
 
-            NewPaddocksTabView()
-                .tabItem { Label("Paddocks", systemImage: "square.grid.2x2.fill") }
+            NavigationStack {
+                PinsView()
+            }
+            .tabItem { Label("Pins", systemImage: "mappin.and.ellipse") }
 
-            PinsView()
-                .tabItem { Label("Pins", systemImage: "mappin.and.ellipse") }
+            NavigationStack {
+                TripView()
+            }
+            .tabItem { Label("Trip", systemImage: "steeringwheel") }
 
-            TripView()
-                .tabItem { Label("Trip", systemImage: "road.lanes") }
-
-            SprayProgramView()
-                .tabItem { Label("Program", systemImage: "drop.fill") }
-
-            NewWorkTabView()
-                .tabItem { Label("Work", systemImage: "checklist") }
+            NavigationStack {
+                SprayProgramView()
+            }
+            .tabItem { Label("Program", systemImage: "sprinkler.and.droplets.fill") }
 
             BackendSettingsView()
                 .tabItem { Label("Settings", systemImage: "gearshape.fill") }
         }
-        .tint(VineyardTheme.leafGreen)
+        .tint(VineyardTheme.olive)
         .environment(\.accessControl, accessControl.legacyAccessControl)
         .onAppear {
             if locationService.authorizationStatus == .notDetermined {
@@ -77,7 +77,9 @@ private struct NewHomeTabView: View {
     @Environment(MigratedDataStore.self) private var store
     @Environment(BackendAccessControl.self) private var accessControl
     @Environment(TripTrackingService.self) private var tripTracking
+
     @State private var showQuickPin: Bool = false
+    @State private var showStartTrip: Bool = false
     #if DEBUG
     @State private var showBackendDiagnostic: Bool = false
     @State private var showStoreDiagnostic: Bool = false
@@ -85,65 +87,34 @@ private struct NewHomeTabView: View {
 
     var body: some View {
         NavigationStack {
-            List {
-                Section {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text(store.selectedVineyard?.name ?? "No Vineyard")
-                            .font(.title2.weight(.semibold))
-                            .foregroundStyle(VineyardTheme.olive)
-                        if let country = store.selectedVineyard?.country, !country.isEmpty {
-                            Label(country, systemImage: "globe")
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
-                        }
+            ScrollView {
+                VStack(spacing: 16) {
+                    headerCard
+                    if tripTracking.activeTrip != nil {
+                        ActiveTripCard()
+                            .padding(.horizontal)
                     }
-                    .padding(.vertical, 4)
-                } header: {
-                    Text("Selected Vineyard")
-                }
-
-                if accessControl.canCreateOperationalRecords {
-                    Section("Quick Actions") {
-                        Button {
-                            showQuickPin = true
-                        } label: {
-                            Label("Drop Quick Pin", systemImage: "mappin.and.ellipse")
-                        }
+                    if accessControl.canCreateOperationalRecords {
+                        quickActionsSection
                     }
+                    setupSection
+                    operationsSection
+                    summarySection
+                    #if DEBUG
+                    debugSection
+                    #endif
+                    Spacer(minLength: 24)
                 }
-
-                Section("Account") {
-                    LabeledContent("Name", value: auth.userName ?? "—")
-                    LabeledContent("Email", value: auth.userEmail ?? "—")
-                }
-
-                Section("Counts") {
-                    countRow("Paddocks", value: store.paddocks.count, icon: "square.grid.2x2")
-                    countRow("Pins", value: store.pins.count, icon: "mappin.circle")
-                    countRow("Trips", value: store.trips.count, icon: "map")
-                    countRow("Spray records", value: store.sprayRecords.count, icon: "drop.fill")
-                    countRow("Work tasks", value: store.workTasks.count, icon: "checklist")
-                }
-
-                #if DEBUG
-                Section("Debug") {
-                    Button {
-                        showBackendDiagnostic = true
-                    } label: {
-                        Label("Backend Diagnostic", systemImage: "stethoscope")
-                    }
-                    Button {
-                        showStoreDiagnostic = true
-                    } label: {
-                        Label("MigratedDataStore Diagnostic", systemImage: "tray.full")
-                    }
-                }
-                #endif
+                .padding(.vertical)
             }
+            .background(VineyardTheme.appBackground)
             .navigationTitle("Home")
             .sheet(isPresented: $showQuickPin) {
                 QuickPinSheet()
             }
+            .sheet(isPresented: $showStartTrip) {
+                StartTripSheet()
+            }
             #if DEBUG
             .sheet(isPresented: $showBackendDiagnostic) {
                 BackendDiagnosticHostView()
@@ -155,236 +126,260 @@ private struct NewHomeTabView: View {
         }
     }
 
-    private func countRow(_ label: String, value: Int, icon: String) -> some View {
-        HStack {
-            Label(label, systemImage: icon)
-            Spacer()
-            Text("\(value)")
-                .font(.body.monospacedDigit().weight(.semibold))
-                .foregroundStyle(VineyardTheme.leafGreen)
-        }
-    }
-}
+    // MARK: Header
 
-// MARK: - Paddocks Tab
-
-private struct NewPaddocksTabView: View {
-    @Environment(MigratedDataStore.self) private var store
-    @State private var showAddPaddock: Bool = false
-    @State private var paddockToEdit: Paddock?
-
-    var body: some View {
-        NavigationStack {
-            Group {
-                if store.paddocks.isEmpty {
-                    emptyState
-                } else {
-                    paddockList
+    private var headerCard: some View {
+        VineyardCard {
+            HStack(spacing: 12) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 10)
+                        .fill(VineyardTheme.leafGreen.gradient)
+                        .frame(width: 44, height: 44)
+                    Image(systemName: "leaf.fill")
+                        .foregroundStyle(.white)
+                }
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(store.selectedVineyard?.name ?? "No Vineyard")
+                        .font(.headline)
+                        .foregroundStyle(VineyardTheme.textPrimary)
+                    Text(auth.userName ?? auth.userEmail ?? "Signed in")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+                if let role = accessControl.currentRole {
+                    VineyardStatusBadge(text: role.rawValue.capitalized, kind: .info)
                 }
             }
-            .navigationTitle("Paddocks")
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        showAddPaddock = true
-                    } label: {
-                        Image(systemName: "plus")
-                    }
+        }
+        .padding(.horizontal)
+    }
+
+    // MARK: Quick Actions
+
+    private var quickActionsSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            VineyardSectionHeader(title: "Quick Actions", icon: "bolt.fill", iconColor: .orange)
+                .padding(.horizontal, 24)
+
+            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+                quickActionTile(title: "Drop Pin", icon: "mappin.and.ellipse", tint: VineyardTheme.olive) {
+                    showQuickPin = true
                 }
+                quickActionTile(title: "Start Trip", icon: "steeringwheel", tint: VineyardTheme.leafGreen) {
+                    showStartTrip = true
+                }
+                NavigationLink {
+                    SprayProgramView()
+                } label: {
+                    quickActionLabel(title: "Spray Program", icon: "sprinkler.and.droplets.fill", tint: VineyardTheme.info)
+                }
+                .buttonStyle(.plain)
+                NavigationLink {
+                    WorkTasksHubView()
+                } label: {
+                    quickActionLabel(title: "Work Tasks", icon: "checklist", tint: VineyardTheme.warning)
+                }
+                .buttonStyle(.plain)
             }
-            .sheet(isPresented: $showAddPaddock) {
-                EditPaddockSheet(paddock: nil)
-            }
-            .sheet(item: $paddockToEdit) { paddock in
-                EditPaddockSheet(paddock: paddock)
-            }
+            .padding(.horizontal)
         }
     }
 
-    private var emptyState: some View {
-        VineyardEmptyStateView(
-            icon: "square.grid.2x2",
-            title: "No paddocks yet",
-            message: "Create your first block to start mapping rows.",
-            actionTitle: "Add Paddock",
-            action: { showAddPaddock = true }
+    private func quickActionTile(title: String, icon: String, tint: Color, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            quickActionLabel(title: title, icon: icon, tint: tint)
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func quickActionLabel(title: String, icon: String, tint: Color) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            ZStack {
+                Circle()
+                    .fill(tint.opacity(0.15))
+                    .frame(width: 36, height: 36)
+                Image(systemName: icon)
+                    .foregroundStyle(tint)
+                    .font(.headline)
+            }
+            Text(title)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(VineyardTheme.textPrimary)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(14)
+        .background(VineyardTheme.cardBackground, in: .rect(cornerRadius: 14))
+        .overlay(
+            RoundedRectangle(cornerRadius: 14)
+                .stroke(VineyardTheme.cardBorder, lineWidth: 0.5)
         )
     }
 
-    private var paddockList: some View {
-        List {
-            ForEach(store.paddocks) { paddock in
-                Button {
-                    paddockToEdit = paddock
-                } label: {
-                    HStack(spacing: 12) {
-                        Image(systemName: "square.grid.2x2.fill")
-                            .foregroundStyle(VineyardTheme.leafGreen)
-                            .frame(width: 28)
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(paddock.name)
-                                .font(.headline)
-                                .foregroundStyle(.primary)
-                            Text("\(paddock.rows.count) rows")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                        Spacer()
-                        Image(systemName: "chevron.right")
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(.tertiary)
+    // MARK: Setup
+
+    private var setupSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            VineyardSectionHeader(title: "Vineyard Setup", icon: "square.grid.2x2.fill", iconColor: VineyardTheme.leafGreen)
+                .padding(.horizontal, 24)
+
+            VineyardCard(padding: 0) {
+                VStack(spacing: 0) {
+                    NavigationLink {
+                        BlocksHubView()
+                    } label: {
+                        hubRow(title: "Blocks", subtitle: "\(store.paddocks.count) paddocks", icon: "square.grid.2x2.fill", tint: VineyardTheme.leafGreen)
                     }
+                    .buttonStyle(.plain)
+                    Divider().padding(.leading, 60)
+                    NavigationLink {
+                        GrapeVarietyManagementView()
+                    } label: {
+                        hubRow(title: "Grape Varieties", subtitle: "Variety library", icon: "leaf.fill", tint: VineyardTheme.olive)
+                    }
+                    .buttonStyle(.plain)
                 }
             }
-            .onDelete(perform: deletePaddocks)
-        }
-        .listStyle(.insetGrouped)
-    }
-
-    private func deletePaddocks(at offsets: IndexSet) {
-        for index in offsets {
-            let paddock = store.paddocks[index]
-            store.deletePaddock(paddock.id)
+            .padding(.horizontal)
         }
     }
-}
 
-// MARK: - Work Tab
+    // MARK: Operations
 
-private struct NewWorkTabView: View {
-    enum Segment: String, CaseIterable, Identifiable {
-        case tasks = "Tasks"
-        case maintenance = "Maintenance"
-        case yield = "Yield"
-        var id: String { rawValue }
-    }
+    private var operationsSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            VineyardSectionHeader(title: "Operations", icon: "wrench.and.screwdriver.fill", iconColor: VineyardTheme.earthBrown)
+                .padding(.horizontal, 24)
 
-    @State private var segment: Segment = .tasks
-
-    var body: some View {
-        NavigationStack {
-            VStack(spacing: 0) {
-                Picker("Section", selection: $segment) {
-                    ForEach(Segment.allCases) { s in
-                        Text(s.rawValue).tag(s)
+            VineyardCard(padding: 0) {
+                VStack(spacing: 0) {
+                    NavigationLink {
+                        OperationsHubView()
+                    } label: {
+                        hubRow(title: "Operations Hub", subtitle: "Work, maintenance, yield", icon: "rectangle.stack.fill", tint: VineyardTheme.olive)
                     }
-                }
-                .pickerStyle(.segmented)
-                .padding(.horizontal)
-                .padding(.top, 8)
-                .padding(.bottom, 4)
-
-                switch segment {
-                case .tasks:
-                    WorkTasksHubView()
-                case .maintenance:
-                    MaintenanceLogListView()
-                case .yield:
-                    YieldHubView()
+                    .buttonStyle(.plain)
+                    Divider().padding(.leading, 60)
+                    NavigationLink {
+                        WorkTasksHubView()
+                    } label: {
+                        hubRow(title: "Work Tasks", subtitle: "\(store.workTasks.count) tasks", icon: "checklist", tint: VineyardTheme.warning)
+                    }
+                    .buttonStyle(.plain)
+                    Divider().padding(.leading, 60)
+                    NavigationLink {
+                        MaintenanceLogListView()
+                    } label: {
+                        hubRow(title: "Maintenance", subtitle: "\(store.maintenanceLogs.count) logs", icon: "wrench.and.screwdriver.fill", tint: VineyardTheme.earthBrown)
+                    }
+                    .buttonStyle(.plain)
+                    Divider().padding(.leading, 60)
+                    NavigationLink {
+                        YieldHubView()
+                    } label: {
+                        hubRow(title: "Yield & Damage", subtitle: "Estimates & harvest", icon: "scalemass.fill", tint: VineyardTheme.vineRed)
+                    }
+                    .buttonStyle(.plain)
+                    Divider().padding(.leading, 60)
+                    NavigationLink {
+                        GrowthStageReportView()
+                    } label: {
+                        hubRow(title: "Growth Stage", subtitle: "Phenology & E-L", icon: "leaf.arrow.triangle.circlepath", tint: VineyardTheme.leafGreen)
+                    }
+                    .buttonStyle(.plain)
                 }
             }
-            .background(Color(.systemGroupedBackground))
+            .padding(.horizontal)
         }
     }
-}
 
-// MARK: - Settings Tab
+    // MARK: Summary
 
-private struct NewSettingsTabView: View {
-    @Environment(NewBackendAuthService.self) private var auth
-    @Environment(MigratedDataStore.self) private var store
-    @State private var showVineyardSwitcher: Bool = false
-    @State private var isRefreshing: Bool = false
-    @State private var refreshMessage: String?
-    private let vineyardRepository: any VineyardRepositoryProtocol = SupabaseVineyardRepository()
+    private var summarySection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            VineyardSectionHeader(title: "Summary", icon: "chart.bar.fill", iconColor: VineyardTheme.info)
+                .padding(.horizontal, 24)
+
+            VineyardCard {
+                VStack(spacing: 10) {
+                    summaryRow("Pins", value: store.pins.count, icon: "mappin.circle.fill", tint: VineyardTheme.olive)
+                    Divider()
+                    summaryRow("Trips", value: store.trips.count, icon: "map.fill", tint: VineyardTheme.leafGreen)
+                    Divider()
+                    summaryRow("Spray records", value: store.sprayRecords.count, icon: "sprinkler.and.droplets.fill", tint: VineyardTheme.info)
+                    Divider()
+                    summaryRow("Paddocks", value: store.paddocks.count, icon: "square.grid.2x2.fill", tint: VineyardTheme.olive)
+                }
+            }
+            .padding(.horizontal)
+        }
+    }
+
+    private func summaryRow(_ label: String, value: Int, icon: String, tint: Color) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: icon)
+                .foregroundStyle(tint)
+                .frame(width: 22)
+            Text(label)
+                .foregroundStyle(VineyardTheme.textPrimary)
+            Spacer()
+            Text("\(value)")
+                .font(.body.monospacedDigit().weight(.semibold))
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    private func hubRow(title: String, subtitle: String, icon: String, tint: Color) -> some View {
+        HStack(spacing: 12) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(tint.opacity(0.15))
+                    .frame(width: 36, height: 36)
+                Image(systemName: icon)
+                    .foregroundStyle(tint)
+            }
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.headline)
+                    .foregroundStyle(VineyardTheme.textPrimary)
+                Text(subtitle)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
+            Image(systemName: "chevron.right")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.tertiary)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .contentShape(Rectangle())
+    }
+
     #if DEBUG
-    @State private var showBackendDiagnostic: Bool = false
-    @State private var showStoreDiagnostic: Bool = false
-    #endif
-
-    var body: some View {
-        NavigationStack {
-            List {
-                Section("Account") {
-                    LabeledContent("Name", value: auth.userName ?? "—")
-                    LabeledContent("Email", value: auth.userEmail ?? "—")
-                }
-
-                Section("Vineyard") {
-                    LabeledContent("Selected", value: store.selectedVineyard?.name ?? "—")
-                    Button {
-                        showVineyardSwitcher = true
-                    } label: {
-                        Label("Change Vineyard", systemImage: "arrow.triangle.2.circlepath")
-                    }
-                    Button {
-                        Task { await refreshVineyards() }
-                    } label: {
-                        HStack {
-                            Label("Refresh Vineyards", systemImage: "arrow.clockwise")
-                            Spacer()
-                            if isRefreshing { ProgressView() }
-                        }
-                    }
-                    .disabled(isRefreshing)
-                    if let refreshMessage {
-                        Text(refreshMessage)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-
-                #if DEBUG
-                Section("Debug") {
+    private var debugSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            VineyardSectionHeader(title: "Debug", icon: "stethoscope", iconColor: .gray)
+                .padding(.horizontal, 24)
+            VineyardCard(padding: 0) {
+                VStack(spacing: 0) {
                     Button {
                         showBackendDiagnostic = true
                     } label: {
-                        Label("Backend Diagnostic", systemImage: "stethoscope")
+                        hubRow(title: "Backend Diagnostic", subtitle: "Inspect Supabase state", icon: "stethoscope", tint: .gray)
                     }
+                    .buttonStyle(.plain)
+                    Divider().padding(.leading, 60)
                     Button {
                         showStoreDiagnostic = true
                     } label: {
-                        Label("MigratedDataStore Diagnostic", systemImage: "tray.full")
+                        hubRow(title: "MigratedDataStore", subtitle: "Local storage", icon: "tray.full", tint: .gray)
                     }
-                }
-                #endif
-
-                Section {
-                    Button(role: .destructive) {
-                        Task {
-                            await auth.signOut()
-                            store.clearInMemoryState()
-                        }
-                    } label: {
-                        Label("Sign Out", systemImage: "rectangle.portrait.and.arrow.right")
-                    }
+                    .buttonStyle(.plain)
                 }
             }
-            .navigationTitle("Settings")
-            .sheet(isPresented: $showVineyardSwitcher) {
-                BackendVineyardListView()
-            }
-            #if DEBUG
-            .sheet(isPresented: $showBackendDiagnostic) {
-                BackendDiagnosticHostView()
-            }
-            .sheet(isPresented: $showStoreDiagnostic) {
-                MigratedDataStoreDiagnosticView()
-            }
-            #endif
+            .padding(.horizontal)
         }
     }
-
-    private func refreshVineyards() async {
-        isRefreshing = true
-        refreshMessage = nil
-        defer { isRefreshing = false }
-        do {
-            let backendVineyards = try await vineyardRepository.listMyVineyards()
-            store.mapBackendVineyardsIntoLocal(backendVineyards)
-            refreshMessage = "Loaded \(backendVineyards.count) vineyard\(backendVineyards.count == 1 ? "" : "s")."
-        } catch {
-            refreshMessage = error.localizedDescription
-        }
-    }
+    #endif
 }
