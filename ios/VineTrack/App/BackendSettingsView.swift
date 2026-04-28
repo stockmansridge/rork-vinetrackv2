@@ -289,91 +289,52 @@ struct BackendSettingsView: View {
         }
     }
 
-    @ViewBuilder
     private func syncStatusLine(label: String, status: PinSyncService.Status, lastSync: Date?) -> some View {
-        switch status {
-        case .idle:
-            EmptyView()
-        case .syncing:
-            Text("Syncing \(label)\u{2026}")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-        case .success:
-            if let lastSync {
-                Text("Last synced \(lastSync.formatted(date: .abbreviated, time: .shortened))")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-        case .failure(let message):
-            Text(message)
-                .font(.caption)
-                .foregroundStyle(.red)
-        }
+        VineyardSyncStatusRow(label: label, state: pinStateFrom(status, lastSync: lastSync))
     }
 
-    @ViewBuilder
     private func syncStatusLine(label: String, status: TripSyncService.Status, lastSync: Date?) -> some View {
-        switch status {
-        case .idle:
-            EmptyView()
-        case .syncing:
-            Text("Syncing \(label)\u{2026}")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-        case .success:
-            if let lastSync {
-                Text("Last synced \(lastSync.formatted(date: .abbreviated, time: .shortened))")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-        case .failure(let message):
-            Text(message)
-                .font(.caption)
-                .foregroundStyle(.red)
-        }
+        VineyardSyncStatusRow(label: label, state: tripStateFrom(status, lastSync: lastSync))
     }
 
-    @ViewBuilder
     private func syncStatusLine(label: String, status: PaddockSyncService.Status, lastSync: Date?) -> some View {
-        switch status {
-        case .idle:
-            EmptyView()
-        case .syncing:
-            Text("Syncing \(label)\u{2026}")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-        case .success:
-            if let lastSync {
-                Text("Last synced \(lastSync.formatted(date: .abbreviated, time: .shortened))")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-        case .failure(let message):
-            Text(message)
-                .font(.caption)
-                .foregroundStyle(.red)
-        }
+        VineyardSyncStatusRow(label: label, state: paddockStateFrom(status, lastSync: lastSync))
     }
 
-    @ViewBuilder
     private func syncStatusLine(label: String, status: SprayRecordSyncService.Status, lastSync: Date?) -> some View {
+        VineyardSyncStatusRow(label: label, state: sprayStateFrom(status, lastSync: lastSync))
+    }
+
+    private func pinStateFrom(_ status: PinSyncService.Status, lastSync: Date?) -> VineyardSyncState {
         switch status {
-        case .idle:
-            EmptyView()
-        case .syncing:
-            Text("Syncing \(label)\u{2026}")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-        case .success:
-            if let lastSync {
-                Text("Last synced \(lastSync.formatted(date: .abbreviated, time: .shortened))")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-        case .failure(let message):
-            Text(message)
-                .font(.caption)
-                .foregroundStyle(.red)
+        case .idle: return .idle
+        case .syncing: return .syncing
+        case .success: return .success(lastSync)
+        case .failure(let m): return .failure(m)
+        }
+    }
+    private func tripStateFrom(_ status: TripSyncService.Status, lastSync: Date?) -> VineyardSyncState {
+        switch status {
+        case .idle: return .idle
+        case .syncing: return .syncing
+        case .success: return .success(lastSync)
+        case .failure(let m): return .failure(m)
+        }
+    }
+    private func paddockStateFrom(_ status: PaddockSyncService.Status, lastSync: Date?) -> VineyardSyncState {
+        switch status {
+        case .idle: return .idle
+        case .syncing: return .syncing
+        case .success: return .success(lastSync)
+        case .failure(let m): return .failure(m)
+        }
+    }
+    private func sprayStateFrom(_ status: SprayRecordSyncService.Status, lastSync: Date?) -> VineyardSyncState {
+        switch status {
+        case .idle: return .idle
+        case .syncing: return .syncing
+        case .success: return .success(lastSync)
+        case .failure(let m): return .failure(m)
         }
     }
 

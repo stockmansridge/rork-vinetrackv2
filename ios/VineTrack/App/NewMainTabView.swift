@@ -202,30 +202,13 @@ private struct NewPaddocksTabView: View {
     }
 
     private var emptyState: some View {
-        VStack(spacing: 16) {
-            Spacer()
-            Image(systemName: "square.grid.2x2")
-                .font(.system(size: 56))
-                .foregroundStyle(VineyardTheme.leafGreen.opacity(0.6))
-            Text("No paddocks yet")
-                .font(.headline)
-            Text("Create your first block to start mapping rows.")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-            Button {
-                showAddPaddock = true
-            } label: {
-                Label("Add Paddock", systemImage: "plus")
-                    .font(.headline)
-            }
-            .buttonStyle(.borderedProminent)
-            .tint(VineyardTheme.olive)
-            .controlSize(.large)
-            .padding(.top, 8)
-            Spacer()
-        }
-        .frame(maxWidth: .infinity)
-        .background(Color(.systemGroupedBackground))
+        VineyardEmptyStateView(
+            icon: "square.grid.2x2",
+            title: "No paddocks yet",
+            message: "Create your first block to start mapping rows.",
+            actionTitle: "Add Paddock",
+            action: { showAddPaddock = true }
+        )
     }
 
     private var paddockList: some View {

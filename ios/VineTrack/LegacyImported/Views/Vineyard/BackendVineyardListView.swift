@@ -80,45 +80,24 @@ struct BackendVineyardListView: View {
     }
 
     private var emptyState: some View {
-        VStack(spacing: 24) {
-            Spacer()
-
-            GrapeLeafIcon(size: 64)
-                .foregroundStyle(VineyardTheme.leafGreen.opacity(0.6))
-
-            VStack(spacing: 8) {
-                Text("Welcome to VineTrack")
-                    .font(.title2.weight(.semibold))
-                Text("Create your first vineyard to get started.")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 40)
-            }
-
-            Button {
-                showAddVineyard = true
-            } label: {
-                Label("Create Vineyard", systemImage: "plus")
-                    .font(.headline)
-                    .frame(maxWidth: .infinity)
-            }
-            .buttonStyle(.borderedProminent)
-            .tint(VineyardTheme.olive)
-            .controlSize(.large)
-            .padding(.horizontal, 40)
-
+        VStack(spacing: 0) {
+            VineyardEmptyStateView(
+                icon: "leaf.fill",
+                title: "Welcome to VineTrack",
+                message: "Create your first vineyard to get started.",
+                actionTitle: "Create Vineyard",
+                action: { showAddVineyard = true }
+            )
             if let errorMessage {
                 Text(errorMessage)
                     .font(.caption)
-                    .foregroundStyle(.red)
+                    .foregroundStyle(VineyardTheme.destructive)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 24)
+                    .padding(.bottom, 16)
             }
-
-            Spacer()
         }
-        .background(Color(.systemGroupedBackground))
+        .background(VineyardTheme.appBackground)
     }
 
     private var vineyardList: some View {

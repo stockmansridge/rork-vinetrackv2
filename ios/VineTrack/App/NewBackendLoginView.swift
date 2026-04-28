@@ -19,12 +19,8 @@ struct NewBackendLoginView: View {
 
     var body: some View {
         ZStack {
-            LinearGradient(
-                colors: [VineyardTheme.cream, VineyardTheme.stone.opacity(0.4)],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-            .ignoresSafeArea()
+            VineyardTheme.appBackground
+                .ignoresSafeArea()
 
             ScrollView {
                 VStack(spacing: 24) {
@@ -107,7 +103,11 @@ struct NewBackendLoginView: View {
             )
         }
         .padding(16)
-        .background(.ultraThinMaterial, in: .rect(cornerRadius: 16))
+        .background(VineyardTheme.cardBackground, in: .rect(cornerRadius: 16))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(VineyardTheme.cardBorder, lineWidth: 0.5)
+        )
     }
 
     private var actionButton: some View {
@@ -121,21 +121,13 @@ struct NewBackendLoginView: View {
                 }
             }
         } label: {
-            HStack {
-                if auth.isLoading {
-                    ProgressView()
-                        .tint(.white)
-                } else {
-                    Text(mode == .signIn ? "Sign In" : "Create Account")
-                        .font(.headline)
-                }
+            if auth.isLoading {
+                ProgressView().tint(.white)
+            } else {
+                Text(mode == .signIn ? "Sign In" : "Create Account")
             }
-            .frame(maxWidth: .infinity)
-            .frame(height: 50)
         }
-        .buttonStyle(.borderedProminent)
-        .tint(VineyardTheme.olive)
-        .controlSize(.large)
+        .buttonStyle(.vineyardPrimary)
         .disabled(auth.isLoading || !canSubmit)
     }
 
