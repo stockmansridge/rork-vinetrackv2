@@ -191,14 +191,9 @@ struct BackendSettingsView: View {
                 Label("Grape Varieties", systemImage: "leaf.fill")
             }
             NavigationLink {
-                ButtonTemplateListView(mode: .repairs)
+                ButtonsAndQuickActionsView()
             } label: {
-                Label("Repair Button Templates", systemImage: "square.grid.2x2")
-            }
-            NavigationLink {
-                ButtonTemplateListView(mode: .growth)
-            } label: {
-                Label("Growth Button Templates", systemImage: "square.grid.2x2.fill")
+                Label("Buttons & Quick Actions", systemImage: "square.grid.2x2")
             }
         } header: {
             HStack(spacing: 6) {
@@ -208,7 +203,7 @@ struct BackendSettingsView: View {
                 Text("Management")
             }
         } footer: {
-            Text("Manage saved chemicals, equipment, operators, varieties, and button templates.")
+            Text("Manage saved chemicals, equipment, operators, varieties, and button workflows.")
         }
     }
 

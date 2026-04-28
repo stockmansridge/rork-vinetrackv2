@@ -50,6 +50,8 @@ struct NewMainTabView: View {
 private struct NewHomeTabView: View {
     @Environment(NewBackendAuthService.self) private var auth
     @Environment(MigratedDataStore.self) private var store
+    @Environment(BackendAccessControl.self) private var accessControl
+    @State private var showQuickPin: Bool = false
     #if DEBUG
     @State private var showBackendDiagnostic: Bool = false
     @State private var showStoreDiagnostic: Bool = false
@@ -72,6 +74,16 @@ private struct NewHomeTabView: View {
                     .padding(.vertical, 4)
                 } header: {
                     Text("Selected Vineyard")
+                }
+
+                if accessControl.canCreateOperationalRecords {
+                    Section("Quick Actions") {
+                        Button {
+                            showQuickPin = true
+                        } label: {
+                            Label("Drop Quick Pin", systemImage: "mappin.and.ellipse")
+                        }
+                    }
                 }
 
                 Section("Account") {
@@ -103,6 +115,9 @@ private struct NewHomeTabView: View {
                 #endif
             }
             .navigationTitle("Home")
+            .sheet(isPresented: $showQuickPin) {
+                QuickPinSheet()
+            }
             #if DEBUG
             .sheet(isPresented: $showBackendDiagnostic) {
                 BackendDiagnosticHostView()
