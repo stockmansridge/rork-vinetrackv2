@@ -324,6 +324,16 @@ private struct LocalPreferencesView: View {
                             .foregroundStyle(.secondary)
                     }
                 }
+                NavigationLink {
+                    GrowthStageImagesSettingsView()
+                } label: {
+                    Label("E-L Stage Images", systemImage: "photo.on.rectangle.angled")
+                }
+                NavigationLink {
+                    GrowthStageReportView()
+                } label: {
+                    Label("Growth Stage Report", systemImage: "chart.bar.doc.horizontal")
+                }
             } header: {
                 Text("Phenology")
             }

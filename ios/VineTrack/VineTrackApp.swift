@@ -13,6 +13,7 @@ struct VineTrackApp: App {
     @State private var auth = NewBackendAuthService()
     @State private var migratedStore = MigratedDataStore()
     @State private var locationService = LocationService()
+    @State private var degreeDayService = DegreeDayService()
 
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([Item.self])
@@ -32,6 +33,7 @@ struct VineTrackApp: App {
                         .environment(auth)
                         .environment(migratedStore)
                         .environment(locationService)
+                        .environment(degreeDayService)
                 } else {
                     ContentView()
                 }
