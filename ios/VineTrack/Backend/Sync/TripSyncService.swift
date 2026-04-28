@@ -109,10 +109,39 @@ final class TripSyncService {
         }
 
         let deletes = metadata.pendingDeletes
+        var deleteFailures: [String] = []
         for (tripId, _) in deletes {
-            try await repository.softDeleteTrip(id: tripId)
-            metadata.clearDeleted([tripId])
+            do {
+                try await repository.softDeleteTrip(id: tripId)
+                metadata.clearDeleted([tripId])
+            } catch {
+                if Self.isMissingRowError(error) {
+                    metadata.clearDeleted([tripId])
+                    #if DEBUG
+                    print("[TripSync] soft delete: remote trip \(tripId) already missing — clearing pending delete")
+                    #endif
+                } else {
+                    #if DEBUG
+                    print("[TripSync] soft delete failed for \(tripId): \(error.localizedDescription)")
+                    #endif
+                    deleteFailures.append(error.localizedDescription)
+                    continue
+                }
+            }
         }
+        if !deleteFailures.isEmpty {
+            errorMessage = "Some trip deletes failed: \(deleteFailures.first ?? "unknown")"
+        }
+    }
+
+    private static func isMissingRowError(_ error: Error) -> Bool {
+        let message = String(describing: error).lowercased()
+        if message.contains("trip not found") { return true }
+        if message.contains("not found") { return true }
+        if message.contains("pgrst116") { return true }
+        if message.contains("no rows") { return true }
+        if message.contains("0 rows") { return true }
+        return false
     }
 
     // MARK: - Pull

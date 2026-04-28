@@ -109,10 +109,39 @@ final class PaddockSyncService {
         }
 
         let deletes = metadata.pendingDeletes
+        var deleteFailures: [String] = []
         for (paddockId, _) in deletes {
-            try await repository.softDeletePaddock(id: paddockId)
-            metadata.clearDeleted([paddockId])
+            do {
+                try await repository.softDeletePaddock(id: paddockId)
+                metadata.clearDeleted([paddockId])
+            } catch {
+                if Self.isMissingRowError(error) {
+                    metadata.clearDeleted([paddockId])
+                    #if DEBUG
+                    print("[PaddockSync] soft delete: remote paddock \(paddockId) already missing — clearing pending delete")
+                    #endif
+                } else {
+                    #if DEBUG
+                    print("[PaddockSync] soft delete failed for \(paddockId): \(error.localizedDescription)")
+                    #endif
+                    deleteFailures.append(error.localizedDescription)
+                    continue
+                }
+            }
         }
+        if !deleteFailures.isEmpty {
+            errorMessage = "Some paddock deletes failed: \(deleteFailures.first ?? "unknown")"
+        }
+    }
+
+    private static func isMissingRowError(_ error: Error) -> Bool {
+        let message = String(describing: error).lowercased()
+        if message.contains("paddock not found") { return true }
+        if message.contains("not found") { return true }
+        if message.contains("pgrst116") { return true }
+        if message.contains("no rows") { return true }
+        if message.contains("0 rows") { return true }
+        return false
     }
 
     // MARK: - Pull

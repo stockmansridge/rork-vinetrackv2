@@ -109,10 +109,40 @@ final class SprayRecordSyncService {
         }
 
         let deletes = metadata.pendingDeletes
+        var deleteFailures: [String] = []
         for (recordId, _) in deletes {
-            try await repository.softDeleteSprayRecord(id: recordId)
-            metadata.clearDeleted([recordId])
+            do {
+                try await repository.softDeleteSprayRecord(id: recordId)
+                metadata.clearDeleted([recordId])
+            } catch {
+                if Self.isMissingRowError(error) {
+                    metadata.clearDeleted([recordId])
+                    #if DEBUG
+                    print("[SprayRecordSync] soft delete: remote record \(recordId) already missing — clearing pending delete")
+                    #endif
+                } else {
+                    #if DEBUG
+                    print("[SprayRecordSync] soft delete failed for \(recordId): \(error.localizedDescription)")
+                    #endif
+                    deleteFailures.append(error.localizedDescription)
+                    continue
+                }
+            }
         }
+        if !deleteFailures.isEmpty {
+            errorMessage = "Some spray record deletes failed: \(deleteFailures.first ?? "unknown")"
+        }
+    }
+
+    private static func isMissingRowError(_ error: Error) -> Bool {
+        let message = String(describing: error).lowercased()
+        if message.contains("spray record not found") { return true }
+        if message.contains("record not found") { return true }
+        if message.contains("not found") { return true }
+        if message.contains("pgrst116") { return true }
+        if message.contains("no rows") { return true }
+        if message.contains("0 rows") { return true }
+        return false
     }
 
     // MARK: - Pull
