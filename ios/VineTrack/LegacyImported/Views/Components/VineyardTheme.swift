@@ -73,8 +73,11 @@ struct GrapeLeafIcon: View {
     var color: Color = VineyardTheme.leafGreen
 
     var body: some View {
-        Image(systemName: "leaf.fill")
-            .font(.system(size: size, weight: .semibold))
+        Image("grape_vine_leaf")
+            .renderingMode(.template)
+            .resizable()
+            .aspectRatio(contentMode: .fit)
+            .frame(width: size, height: size)
             .foregroundStyle(color)
     }
 }
