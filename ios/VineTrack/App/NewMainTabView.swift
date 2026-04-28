@@ -226,6 +226,7 @@ private struct NewWorkTabView: View {
     enum Segment: String, CaseIterable, Identifiable {
         case tasks = "Tasks"
         case maintenance = "Maintenance"
+        case yield = "Yield"
         var id: String { rawValue }
     }
 
@@ -249,6 +250,8 @@ private struct NewWorkTabView: View {
                     WorkTasksHubView()
                 case .maintenance:
                     MaintenanceLogListView()
+                case .yield:
+                    YieldHubView()
                 }
             }
             .background(Color(.systemGroupedBackground))
