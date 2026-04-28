@@ -15,12 +15,14 @@ nonisolated enum TripTypeFilter: String, CaseIterable, Sendable {
 struct TripView: View {
     @Environment(MigratedDataStore.self) private var store
     @Environment(BackendAccessControl.self) private var accessControl
+    @Environment(TripTrackingService.self) private var tracking
+    @Environment(LocationService.self) private var locationService
     @State private var tripSortOption: TripSortOption = .date
     @State private var tripTypeFilter: TripTypeFilter = .all
     @State private var tripSearchText: String = ""
     @State private var tripToDelete: Trip?
     @State private var showDeleteConfirmation: Bool = false
-    @State private var showComingSoon: Bool = false
+    @State private var showStartTrip: Bool = false
 
     var body: some View {
         NavigationStack {
@@ -50,23 +52,28 @@ struct TripView: View {
                 }
             }
             .safeAreaInset(edge: .bottom) {
-                Button {
-                    showComingSoon = true
-                } label: {
-                    Label("Start Trip", systemImage: "play.fill")
-                        .font(.headline)
-                        .frame(maxWidth: .infinity)
+                VStack(spacing: 10) {
+                    if tracking.activeTrip != nil {
+                        ActiveTripCard()
+                    } else {
+                        Button {
+                            showStartTrip = true
+                        } label: {
+                            Label("Start Trip", systemImage: "play.fill")
+                                .font(.headline)
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(VineyardTheme.leafGreen)
+                        .controlSize(.large)
+                        .disabled(!accessControl.canCreateOperationalRecords)
+                    }
                 }
-                .buttonStyle(.borderedProminent)
-                .tint(VineyardTheme.leafGreen)
-                .controlSize(.large)
                 .padding()
                 .background(.bar)
             }
-            .alert("Coming Soon", isPresented: $showComingSoon) {
-                Button("OK", role: .cancel) {}
-            } message: {
-                Text("Live trip tracking will be re-enabled in a future update.")
+            .sheet(isPresented: $showStartTrip) {
+                StartTripSheet()
             }
             .alert("Delete Trip", isPresented: $showDeleteConfirmation) {
                 Button("Delete", role: .destructive) {

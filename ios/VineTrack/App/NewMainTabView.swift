@@ -6,6 +6,7 @@ struct NewMainTabView: View {
     @Environment(MigratedDataStore.self) private var store
     @Environment(LocationService.self) private var locationService
     @Environment(BackendAccessControl.self) private var accessControl
+    @Environment(TripTrackingService.self) private var tripTracking
 
     var body: some View {
         TabView {
@@ -38,6 +39,7 @@ struct NewMainTabView: View {
             } else if locationService.authorizationStatus == .authorizedWhenInUse || locationService.authorizationStatus == .authorizedAlways {
                 locationService.startUpdating()
             }
+            tripTracking.configure(store: store, locationService: locationService)
         }
         .task(id: store.selectedVineyardId) {
             await accessControl.refresh(for: store.selectedVineyardId, auth: auth)
@@ -51,6 +53,7 @@ private struct NewHomeTabView: View {
     @Environment(NewBackendAuthService.self) private var auth
     @Environment(MigratedDataStore.self) private var store
     @Environment(BackendAccessControl.self) private var accessControl
+    @Environment(TripTrackingService.self) private var tripTracking
     @State private var showQuickPin: Bool = false
     #if DEBUG
     @State private var showBackendDiagnostic: Bool = false

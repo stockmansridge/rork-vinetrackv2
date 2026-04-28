@@ -15,6 +15,7 @@ struct VineTrackApp: App {
     @State private var locationService = LocationService()
     @State private var degreeDayService = DegreeDayService()
     @State private var backendAccessControl = BackendAccessControl()
+    @State private var tripTrackingService = TripTrackingService()
 
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([Item.self])
@@ -36,6 +37,7 @@ struct VineTrackApp: App {
                         .environment(locationService)
                         .environment(degreeDayService)
                         .environment(backendAccessControl)
+                        .environment(tripTrackingService)
                 } else {
                     ContentView()
                 }
