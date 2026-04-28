@@ -17,6 +17,21 @@ final class LocationService: NSObject, CLLocationManagerDelegate {
         manager.desiredAccuracy = kCLLocationAccuracyBest
         manager.headingFilter = 5
         authorizationStatus = manager.authorizationStatus
+        applySimulatorMockLocationIfNeeded()
+    }
+
+    private func applySimulatorMockLocationIfNeeded() {
+        #if targetEnvironment(simulator)
+        let mock = CLLocation(
+            coordinate: CLLocationCoordinate2D(latitude: -41.2865, longitude: 174.7762),
+            altitude: 0,
+            horizontalAccuracy: 10,
+            verticalAccuracy: 10,
+            timestamp: Date()
+        )
+        self.location = mock
+        self.isUsingMockLocation = true
+        #endif
     }
 
     func requestPermission() {
@@ -35,22 +50,7 @@ final class LocationService: NSObject, CLLocationManagerDelegate {
 
     private func scheduleSimulatorMockFallback() {
         #if targetEnvironment(simulator)
-        mockFallbackTask?.cancel()
-        mockFallbackTask = Task { @MainActor [weak self] in
-            try? await Task.sleep(for: .seconds(2))
-            guard let self else { return }
-            if self.location == nil {
-                let mock = CLLocation(
-                    coordinate: CLLocationCoordinate2D(latitude: -41.2865, longitude: 174.7762),
-                    altitude: 0,
-                    horizontalAccuracy: 10,
-                    verticalAccuracy: 10,
-                    timestamp: Date()
-                )
-                self.location = mock
-                self.isUsingMockLocation = true
-            }
-        }
+        applySimulatorMockLocationIfNeeded()
         #endif
     }
 
@@ -85,7 +85,9 @@ final class LocationService: NSObject, CLLocationManagerDelegate {
     nonisolated func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
         let last = locations.last
         Task { @MainActor in
+            guard let last else { return }
             self.location = last
+            self.isUsingMockLocation = false
         }
     }
 
