@@ -14,8 +14,7 @@ struct SprayTripSetupSheet: View {
     @Environment(\.dismiss) private var dismiss
 
     @State private var showProgramPicker: Bool = false
-    @State private var showNewSprayForm: Bool = false
-    @State private var pendingNewTripId: UUID = UUID()
+    @State private var showCalculator: Bool = false
 
     var body: some View {
         NavigationStack {
@@ -51,12 +50,11 @@ struct SprayTripSetupSheet: View {
                     SprayTripSetupCard(
                         icon: "plus.rectangle.on.rectangle",
                         title: "Create a New Spray Job",
-                        subtitle: "Configure a new spray record from scratch",
+                        subtitle: "Open the spray calculator to configure a new job",
                         color: VineyardTheme.leafGreen,
                         disabled: false
                     ) {
-                        pendingNewTripId = UUID()
-                        showNewSprayForm = true
+                        showCalculator = true
                     }
                 }
                 .padding(.horizontal)
@@ -88,15 +86,9 @@ struct SprayTripSetupSheet: View {
                     startTripFromRecord(record)
                 }
             }
-            .sheet(isPresented: $showNewSprayForm) {
-                SprayRecordFormView(
-                    tripId: pendingNewTripId,
-                    paddockIds: [],
-                    existingRecord: nil
-                )
-                .onDisappear {
-                    dismiss()
-                }
+            .sheet(isPresented: $showCalculator) {
+                SprayCalculatorView()
+                    .onDisappear { dismiss() }
             }
         }
     }
