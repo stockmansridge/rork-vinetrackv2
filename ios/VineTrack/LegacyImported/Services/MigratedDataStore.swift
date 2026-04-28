@@ -67,6 +67,12 @@ final class MigratedDataStore {
     /// Called when a trip is deleted locally.
     var onTripDeleted: ((UUID) -> Void)?
 
+    /// Called when a spray record is added/updated locally. Sync services observe
+    /// this to mark the record as dirty for upload.
+    var onSprayRecordChanged: ((UUID) -> Void)?
+    /// Called when a spray record is deleted locally.
+    var onSprayRecordDeleted: ((UUID) -> Void)?
+
     // MARK: - Repositories
 
     let vineyardRepo: VineyardRepository
@@ -527,6 +533,7 @@ final class MigratedDataStore {
         item.vineyardId = vineyardId
         sprayRecords.append(item)
         sprayRepo.saveRecordsSlice(sprayRecords, for: vineyardId)
+        onSprayRecordChanged?(item.id)
     }
 
     func updateSprayRecord(_ record: SprayRecord) {
@@ -534,12 +541,50 @@ final class MigratedDataStore {
         guard let index = sprayRecords.firstIndex(where: { $0.id == record.id }) else { return }
         sprayRecords[index] = record
         sprayRepo.saveRecordsSlice(sprayRecords, for: vineyardId)
+        onSprayRecordChanged?(record.id)
     }
 
     func deleteSprayRecord(_ recordId: UUID) {
         guard let vineyardId = selectedVineyardId else { return }
         sprayRecords.removeAll { $0.id == recordId }
         sprayRepo.saveRecordsSlice(sprayRecords, for: vineyardId)
+        onSprayRecordDeleted?(recordId)
+    }
+
+    /// Apply a spray record upsert that originated from a remote sync pull. Does NOT
+    /// trigger `onSprayRecordChanged` (avoids re-marking the record dirty).
+    func applyRemoteSprayRecordUpsert(_ record: SprayRecord) {
+        if selectedVineyardId == record.vineyardId {
+            if let idx = sprayRecords.firstIndex(where: { $0.id == record.id }) {
+                sprayRecords[idx] = record
+            } else {
+                sprayRecords.append(record)
+            }
+            if let vineyardId = selectedVineyardId {
+                sprayRepo.saveRecordsSlice(sprayRecords, for: vineyardId)
+            }
+        } else {
+            var all = sprayRepo.loadAllRecords()
+            if let idx = all.firstIndex(where: { $0.id == record.id }) {
+                all[idx] = record
+            } else {
+                all.append(record)
+            }
+            sprayRepo.replaceRecords(all.filter { $0.vineyardId == record.vineyardId }, for: record.vineyardId)
+        }
+    }
+
+    /// Apply a spray record deletion that originated from a remote sync pull.
+    func applyRemoteSprayRecordDelete(_ recordId: UUID) {
+        if let vineyardId = selectedVineyardId {
+            sprayRecords.removeAll { $0.id == recordId }
+            sprayRepo.saveRecordsSlice(sprayRecords, for: vineyardId)
+        }
+        var all = sprayRepo.loadAllRecords()
+        if let removed = all.first(where: { $0.id == recordId }) {
+            all.removeAll { $0.id == recordId }
+            sprayRepo.replaceRecords(all.filter { $0.vineyardId == removed.vineyardId }, for: removed.vineyardId)
+        }
     }
 
     // MARK: - MaintenanceLog CRUD

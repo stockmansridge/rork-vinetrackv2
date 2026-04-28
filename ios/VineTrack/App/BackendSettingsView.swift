@@ -7,6 +7,7 @@ struct BackendSettingsView: View {
     @Environment(PinSyncService.self) private var pinSync
     @Environment(PaddockSyncService.self) private var paddockSync
     @Environment(TripSyncService.self) private var tripSync
+    @Environment(SprayRecordSyncService.self) private var sprayRecordSync
 
     @State private var showVineyardSwitcher: Bool = false
     @State private var showVineyardDetail: Bool = false
@@ -260,6 +261,22 @@ struct BackendSettingsView: View {
             .disabled({ if case .syncing = tripSync.syncStatus { return true } else { return false } }())
 
             syncStatusLine(label: "trips", status: tripSync.syncStatus, lastSync: tripSync.lastSyncDate)
+
+            Button {
+                Task { await sprayRecordSync.syncSprayRecordsForSelectedVineyard() }
+            } label: {
+                HStack {
+                    Label("Sync Spray Records", systemImage: "drop.fill")
+                        .foregroundStyle(.primary)
+                    Spacer()
+                    if case .syncing = sprayRecordSync.syncStatus {
+                        ProgressView()
+                    }
+                }
+            }
+            .disabled({ if case .syncing = sprayRecordSync.syncStatus { return true } else { return false } }())
+
+            syncStatusLine(label: "spray records", status: sprayRecordSync.syncStatus, lastSync: sprayRecordSync.lastSyncDate)
         } header: {
             HStack(spacing: 6) {
                 Image(systemName: "icloud.and.arrow.up")
@@ -268,7 +285,7 @@ struct BackendSettingsView: View {
                 Text("Sync")
             }
         } footer: {
-            Text("Pins, paddocks, and trips sync to Supabase. Other data stays on this device for now.")
+            Text("Pins, paddocks, trips, and spray records sync to Supabase. Other data stays on this device for now.")
         }
     }
 
@@ -318,6 +335,28 @@ struct BackendSettingsView: View {
 
     @ViewBuilder
     private func syncStatusLine(label: String, status: PaddockSyncService.Status, lastSync: Date?) -> some View {
+        switch status {
+        case .idle:
+            EmptyView()
+        case .syncing:
+            Text("Syncing \(label)\u{2026}")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        case .success:
+            if let lastSync {
+                Text("Last synced \(lastSync.formatted(date: .abbreviated, time: .shortened))")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        case .failure(let message):
+            Text(message)
+                .font(.caption)
+                .foregroundStyle(.red)
+        }
+    }
+
+    @ViewBuilder
+    private func syncStatusLine(label: String, status: SprayRecordSyncService.Status, lastSync: Date?) -> some View {
         switch status {
         case .idle:
             EmptyView()
