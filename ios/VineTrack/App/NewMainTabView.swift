@@ -37,7 +37,6 @@ struct NewMainTabView: View {
             BackendSettingsView()
                 .tabItem { Label("Settings", systemImage: "gearshape.fill") }
         }
-        .tint(VineyardTheme.olive)
         .environment(\.accessControl, accessControl.legacyAccessControl)
         .onAppear {
             if locationService.authorizationStatus == .notDetermined {
@@ -101,8 +100,8 @@ private struct NewHomeTabView: View {
                     if accessControl.canCreateOperationalRecords {
                         quickActionsSection
                     }
-                    setupSection
                     operationsSection
+                    managementSection
                     summarySection
                     #if DEBUG
                     debugSection
@@ -170,31 +169,25 @@ private struct NewHomeTabView: View {
                 NavigationLink {
                     RepairsGrowthView(initial: .repairs)
                 } label: {
-                    quickActionLabel(title: "Repairs", icon: "wrench.and.screwdriver.fill", tint: VineyardTheme.earthBrown)
+                    quickActionTileLabel(title: "Repairs", icon: "wrench.fill", colors: [.orange, Color.orange.opacity(0.75)])
                 }
                 .buttonStyle(.plain)
                 NavigationLink {
                     RepairsGrowthView(initial: .growth)
                 } label: {
-                    quickActionLabel(title: "Growth", icon: "leaf.fill", tint: VineyardTheme.leafGreen)
+                    quickActionTileLabel(title: "Growth", icon: "leaf.fill", colors: [VineyardTheme.leafGreen, VineyardTheme.olive])
                 }
                 .buttonStyle(.plain)
-                quickActionTile(title: "Drop Pin", icon: "mappin.and.ellipse", tint: VineyardTheme.olive) {
-                    showQuickPin = true
-                }
-                quickActionTile(title: "Start Trip", icon: "steeringwheel", tint: VineyardTheme.leafGreen) {
+                Button {
                     showStartTrip = true
+                } label: {
+                    quickActionTileLabel(title: "Start Trip", icon: "steeringwheel", colors: [.blue, Color.blue.opacity(0.75)])
                 }
+                .buttonStyle(.plain)
                 NavigationLink {
                     SprayProgramView()
                 } label: {
-                    quickActionLabel(title: "Spray Program", icon: "sprinkler.and.droplets.fill", tint: VineyardTheme.info)
-                }
-                .buttonStyle(.plain)
-                NavigationLink {
-                    WorkTasksHubView()
-                } label: {
-                    quickActionLabel(title: "Work Tasks", icon: "checklist", tint: VineyardTheme.warning)
+                    quickActionTileLabel(title: "Spray Program", icon: "sprinkler.and.droplets.fill", colors: [.purple, Color.purple.opacity(0.75)])
                 }
                 .buttonStyle(.plain)
             }
@@ -202,110 +195,124 @@ private struct NewHomeTabView: View {
         }
     }
 
-    private func quickActionTile(title: String, icon: String, tint: Color, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            quickActionLabel(title: title, icon: icon, tint: tint)
-        }
-        .buttonStyle(.plain)
-    }
-
-    private func quickActionLabel(title: String, icon: String, tint: Color) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            ZStack {
-                Circle()
-                    .fill(tint.opacity(0.15))
-                    .frame(width: 36, height: 36)
-                Image(systemName: icon)
-                    .foregroundStyle(tint)
-                    .font(.headline)
-            }
+    private func quickActionTileLabel(title: String, icon: String, colors: [Color]) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Image(systemName: icon)
+                .font(.title2.weight(.semibold))
+                .foregroundStyle(.white)
             Text(title)
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(VineyardTheme.textPrimary)
+                .font(.headline)
+                .foregroundStyle(.white)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(14)
-        .background(VineyardTheme.cardBackground, in: .rect(cornerRadius: 14))
-        .overlay(
-            RoundedRectangle(cornerRadius: 14)
-                .stroke(VineyardTheme.cardBorder, lineWidth: 0.5)
+        .frame(maxWidth: .infinity, minHeight: 96, alignment: .leading)
+        .padding(16)
+        .background(
+            LinearGradient(colors: colors, startPoint: .topLeading, endPoint: .bottomTrailing),
+            in: .rect(cornerRadius: 16)
         )
+        .shadow(color: colors.first?.opacity(0.25) ?? .clear, radius: 4, y: 2)
     }
 
-    // MARK: Setup
-
-    private var setupSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            VineyardSectionHeader(title: "Vineyard Setup", icon: "square.grid.2x2.fill", iconColor: VineyardTheme.leafGreen)
-                .padding(.horizontal, 24)
-
-            VineyardCard(padding: 0) {
-                VStack(spacing: 0) {
-                    NavigationLink {
-                        BlocksHubView()
-                    } label: {
-                        hubRow(title: "Blocks", subtitle: "\(store.paddocks.count) paddocks", icon: "square.grid.2x2.fill", tint: VineyardTheme.leafGreen)
-                    }
-                    .buttonStyle(.plain)
-                    Divider().padding(.leading, 60)
-                    NavigationLink {
-                        GrapeVarietyManagementView()
-                    } label: {
-                        hubRow(title: "Grape Varieties", subtitle: "Variety library", icon: "leaf.fill", tint: VineyardTheme.olive)
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-            .padding(.horizontal)
-        }
-    }
-
-    // MARK: Operations
+    // MARK: Operational Tools
 
     private var operationsSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            VineyardSectionHeader(title: "Operations", icon: "wrench.and.screwdriver.fill", iconColor: VineyardTheme.earthBrown)
+            VineyardSectionHeader(title: "Operational Tools", icon: "wrench.and.screwdriver.fill", iconColor: VineyardTheme.earthBrown)
                 .padding(.horizontal, 24)
 
             VineyardCard(padding: 0) {
                 VStack(spacing: 0) {
                     NavigationLink {
-                        OperationsHubView()
-                    } label: {
-                        hubRow(title: "Operations Hub", subtitle: "Work, maintenance, yield", icon: "rectangle.stack.fill", tint: VineyardTheme.olive)
-                    }
-                    .buttonStyle(.plain)
-                    Divider().padding(.leading, 60)
-                    NavigationLink {
                         WorkTasksHubView()
                     } label: {
-                        hubRow(title: "Work Tasks", subtitle: "\(store.workTasks.count) tasks", icon: "checklist", tint: VineyardTheme.warning)
+                        hubRow(title: "Work Tasks", subtitle: "\(store.workTasks.count) tasks", icon: "person.2.badge.gearshape.fill", tint: .indigo)
                     }
                     .buttonStyle(.plain)
                     Divider().padding(.leading, 60)
                     NavigationLink {
                         MaintenanceLogListView()
                     } label: {
-                        hubRow(title: "Maintenance", subtitle: "\(store.maintenanceLogs.count) logs", icon: "wrench.and.screwdriver.fill", tint: VineyardTheme.earthBrown)
-                    }
-                    .buttonStyle(.plain)
-                    Divider().padding(.leading, 60)
-                    NavigationLink {
-                        YieldHubView()
-                    } label: {
-                        hubRow(title: "Yield & Damage", subtitle: "Estimates & harvest", icon: "scalemass.fill", tint: VineyardTheme.vineRed)
+                        hubRow(title: "Maintenance Log", subtitle: "\(store.maintenanceLogs.count) logs", icon: "wrench.and.screwdriver.fill", tint: VineyardTheme.earthBrown)
                     }
                     .buttonStyle(.plain)
                     Divider().padding(.leading, 60)
                     NavigationLink {
                         GrowthStageReportView()
                     } label: {
-                        hubRow(title: "Growth Stage", subtitle: "Phenology & E-L", icon: "leaf.arrow.triangle.circlepath", tint: VineyardTheme.leafGreen)
+                        hubRow(title: "Growth Stage Report", subtitle: "Phenology & E-L", icon: "chart.line.uptrend.xyaxis", tint: VineyardTheme.leafGreen)
+                    }
+                    .buttonStyle(.plain)
+                    Divider().padding(.leading, 60)
+                    NavigationLink {
+                        YieldHubView()
+                    } label: {
+                        hubRow(title: "Yield Estimation", subtitle: "Estimates & harvest", icon: "chart.bar.fill", tint: .orange)
+                    }
+                    .buttonStyle(.plain)
+                    Divider().padding(.leading, 60)
+                    NavigationLink {
+                        OperationsHubView()
+                    } label: {
+                        hubRow(title: "Irrigation Advisor", subtitle: "Water guidance", icon: "drop.fill", tint: .cyan)
+                    }
+                    .buttonStyle(.plain)
+                    Divider().padding(.leading, 60)
+                    NavigationLink {
+                        YieldHubView()
+                    } label: {
+                        hubRow(title: "Yield Determination", subtitle: "Final weight", icon: "scalemass.fill", tint: .purple)
                     }
                     .buttonStyle(.plain)
                 }
             }
             .padding(.horizontal)
+        }
+    }
+
+    // MARK: Management
+
+    @ViewBuilder
+    private var managementSection: some View {
+        if accessControl.canChangeSettings {
+            VStack(alignment: .leading, spacing: 8) {
+                VineyardSectionHeader(title: "Management", icon: "person.2.fill", iconColor: .blue)
+                    .padding(.horizontal, 24)
+
+                VineyardCard(padding: 0) {
+                    VStack(spacing: 0) {
+                        if let vineyard = store.selectedVineyard {
+                            NavigationLink {
+                                BackendTeamAccessView(vineyardId: vineyard.id, vineyardName: vineyard.name)
+                            } label: {
+                                hubRow(title: "Manage Users", subtitle: "Team & roles", icon: "person.2.fill", tint: .blue)
+                            }
+                            .buttonStyle(.plain)
+                            Divider().padding(.leading, 60)
+                        }
+                        NavigationLink {
+                            BlocksHubView()
+                        } label: {
+                            hubRow(title: "Vineyard Setup", subtitle: "Blocks, varieties, settings", icon: "gearshape.2.fill", tint: .gray)
+                        }
+                        .buttonStyle(.plain)
+                        Divider().padding(.leading, 60)
+                        NavigationLink {
+                            OperationsHubView()
+                        } label: {
+                            hubRow(title: "Audit Log", subtitle: "Activity history", icon: "doc.text.magnifyingglass", tint: .pink)
+                        }
+                        .buttonStyle(.plain)
+                        Divider().padding(.leading, 60)
+                        NavigationLink {
+                            OperationsHubView()
+                        } label: {
+                            hubRow(title: "Full Overview", subtitle: "Complete vineyard report", icon: "chart.pie.fill", tint: VineyardTheme.olive)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(.horizontal)
+            }
         }
     }
 
@@ -313,18 +320,18 @@ private struct NewHomeTabView: View {
 
     private var summarySection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            VineyardSectionHeader(title: "Summary", icon: "chart.bar.fill", iconColor: VineyardTheme.info)
+            VineyardSectionHeader(title: "Recent", icon: "clock.fill", iconColor: .secondary)
                 .padding(.horizontal, 24)
 
             VineyardCard {
                 VStack(spacing: 10) {
-                    summaryRow("Pins", value: store.pins.count, icon: "mappin.circle.fill", tint: VineyardTheme.olive)
+                    summaryRow("Pins", value: store.pins.count, icon: "mappin.circle.fill", tint: .red)
                     Divider()
-                    summaryRow("Trips", value: store.trips.count, icon: "map.fill", tint: VineyardTheme.leafGreen)
+                    summaryRow("Trips", value: store.trips.count, icon: "map.fill", tint: .blue)
                     Divider()
-                    summaryRow("Spray records", value: store.sprayRecords.count, icon: "sprinkler.and.droplets.fill", tint: VineyardTheme.info)
+                    summaryRow("Spray records", value: store.sprayRecords.count, icon: "sprinkler.and.droplets.fill", tint: .purple)
                     Divider()
-                    summaryRow("Paddocks", value: store.paddocks.count, icon: "square.grid.2x2.fill", tint: VineyardTheme.olive)
+                    summaryRow("Paddocks", value: store.paddocks.count, icon: "square.grid.2x2.fill", tint: VineyardTheme.leafGreen)
                 }
             }
             .padding(.horizontal)

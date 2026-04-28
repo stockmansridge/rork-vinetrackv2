@@ -4,20 +4,21 @@ import UIKit
 enum VineyardTheme {
     // Brand palette
     static let leafGreen = Color(red: 0.36, green: 0.55, blue: 0.30)
-    static let olive = Color.blue
+    static let olive = Color(red: 0.42, green: 0.45, blue: 0.20)
+    static let darkGreen = Color(red: 0.20, green: 0.40, blue: 0.18)
     static let earthBrown = Color(red: 0.45, green: 0.32, blue: 0.22)
     static let vineRed = Color(red: 0.55, green: 0.18, blue: 0.22)
     static let cream = Color(red: 0.97, green: 0.95, blue: 0.88)
     static let stone = Color(red: 0.78, green: 0.74, blue: 0.66)
 
-    // Semantic roles
-    static let primary = olive
+    // Semantic roles — keep the system blue accent for general UI; olive/leaf are
+    // intentional brand accents used only where the original app used them.
+    static let primary = Color.blue
     static let primaryAccent = leafGreen
     static let success = leafGreen
     static let warning = Color.orange
     static let destructive = Color.red
-    // Info: a vineyard-aligned slate/teal — distinct from olive but never iOS system blue
-    static let info = Color(red: 0.28, green: 0.46, blue: 0.50)
+    static let info = Color.blue
 
     // Surfaces (light/clean look, adapts to dark mode through system colors)
     static let appBackground = Color(.systemGroupedBackground)
@@ -32,11 +33,10 @@ enum VineyardTheme {
     /// Configures UIKit appearance proxies so navigation bars, tab bars, and toolbars
     /// match the VineTrack brand instead of falling back to default iOS system blue.
     static func applyGlobalAppearance() {
-        let oliveUI = UIColor(olive)
-        let leafUI = UIColor(leafGreen)
+        let tintUI = UIColor.systemBlue
         let textUI = UIColor.label
 
-        // Navigation bar — clean white/light with dark titles and olive tint for buttons
+        // Navigation bar — clean white/light with dark titles and system blue tint for buttons
         let navAppearance = UINavigationBarAppearance()
         navAppearance.configureWithOpaqueBackground()
         navAppearance.backgroundColor = UIColor.systemBackground
@@ -49,51 +49,28 @@ enum VineyardTheme {
             .foregroundColor: textUI,
             .font: UIFont.systemFont(ofSize: 34, weight: .bold)
         ]
-        let buttonAppearance = UIBarButtonItemAppearance()
-        buttonAppearance.normal.titleTextAttributes = [.foregroundColor: oliveUI]
-        navAppearance.buttonAppearance = buttonAppearance
-        navAppearance.backButtonAppearance = buttonAppearance
-        navAppearance.doneButtonAppearance = buttonAppearance
 
         UINavigationBar.appearance().standardAppearance = navAppearance
         UINavigationBar.appearance().scrollEdgeAppearance = navAppearance
         UINavigationBar.appearance().compactAppearance = navAppearance
-        UINavigationBar.appearance().tintColor = oliveUI
+        UINavigationBar.appearance().tintColor = tintUI
 
-        // Tab bar — clean white with olive selected items
+        // Tab bar — clean white
         let tabAppearance = UITabBarAppearance()
         tabAppearance.configureWithOpaqueBackground()
         tabAppearance.backgroundColor = UIColor.systemBackground
         tabAppearance.shadowColor = UIColor.separator.withAlphaComponent(0.4)
 
-        let selectedAttrs: [NSAttributedString.Key: Any] = [
-            .foregroundColor: oliveUI,
-            .font: UIFont.systemFont(ofSize: 10, weight: .semibold)
-        ]
-        let unselectedAttrs: [NSAttributedString.Key: Any] = [
-            .foregroundColor: UIColor.secondaryLabel,
-            .font: UIFont.systemFont(ofSize: 10, weight: .medium)
-        ]
-        for item in [tabAppearance.stackedLayoutAppearance, tabAppearance.inlineLayoutAppearance, tabAppearance.compactInlineLayoutAppearance] {
-            item.selected.iconColor = oliveUI
-            item.selected.titleTextAttributes = selectedAttrs
-            item.normal.iconColor = UIColor.secondaryLabel
-            item.normal.titleTextAttributes = unselectedAttrs
-        }
         UITabBar.appearance().standardAppearance = tabAppearance
         UITabBar.appearance().scrollEdgeAppearance = tabAppearance
-        UITabBar.appearance().tintColor = oliveUI
+        UITabBar.appearance().tintColor = tintUI
         UITabBar.appearance().unselectedItemTintColor = UIColor.secondaryLabel
-
-        // Global tints for UIKit-bridged controls (UISwitch, UIRefreshControl, etc.)
-        UISwitch.appearance().onTintColor = leafUI
-        UIRefreshControl.appearance().tintColor = oliveUI
     }
 }
 
 struct GrapeLeafIcon: View {
     var size: CGFloat = 14
-    var color: Color = VineyardTheme.olive
+    var color: Color = VineyardTheme.leafGreen
 
     var body: some View {
         Image(systemName: "leaf.fill")
@@ -124,7 +101,7 @@ struct VineyardCard<Content: View>: View {
 struct VineyardSectionHeader: View {
     let title: String
     var icon: String? = nil
-    var iconColor: Color = VineyardTheme.olive
+    var iconColor: Color = .secondary
 
     var body: some View {
         HStack(spacing: 6) {
@@ -142,7 +119,7 @@ struct VineyardSectionHeader: View {
 }
 
 struct VineyardPrimaryButtonStyle: ButtonStyle {
-    var tint: Color = VineyardTheme.olive
+    var tint: Color = VineyardTheme.primary
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.headline)
@@ -157,7 +134,7 @@ struct VineyardPrimaryButtonStyle: ButtonStyle {
 }
 
 struct VineyardSecondaryButtonStyle: ButtonStyle {
-    var tint: Color = VineyardTheme.olive
+    var tint: Color = VineyardTheme.primary
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.headline)
@@ -311,7 +288,7 @@ struct VineyardFilterChip: View {
             .padding(.vertical, 7)
             .foregroundStyle(isSelected ? .white : VineyardTheme.textPrimary)
             .background(
-                isSelected ? VineyardTheme.olive : Color(.tertiarySystemFill),
+                isSelected ? VineyardTheme.primary : Color(.tertiarySystemFill),
                 in: .capsule
             )
         }
@@ -323,7 +300,7 @@ struct VineyardInfoRow: View {
     let label: String
     let value: String
     var icon: String? = nil
-    var iconColor: Color = VineyardTheme.olive
+    var iconColor: Color = .secondary
 
     var body: some View {
         HStack(spacing: 10) {
