@@ -108,15 +108,43 @@ final class PinSyncService {
         }
 
         let deletes = metadata.pendingDeletes
+        var deleteFailures: [String] = []
         for (pinId, _) in deletes {
             do {
                 try await repository.softDeletePin(id: pinId)
                 metadata.clearDeleted([pinId])
             } catch {
-                // Keep the deletion pending so it retries next sync.
-                throw error
+                if Self.isMissingRowError(error) {
+                    // Remote row already gone — treat as already deleted.
+                    metadata.clearDeleted([pinId])
+                    #if DEBUG
+                    print("[PinSync] soft delete: remote pin \(pinId) already missing — clearing pending delete")
+                    #endif
+                } else {
+                    #if DEBUG
+                    print("[PinSync] soft delete failed for \(pinId): \(error.localizedDescription)")
+                    #endif
+                    deleteFailures.append(error.localizedDescription)
+                    // Keep the deletion pending so it retries next sync, but don't abort.
+                    continue
+                }
             }
         }
+        if !deleteFailures.isEmpty {
+            // Surface a non-fatal warning via errorMessage but don't throw — let pull and
+            // future upserts continue.
+            errorMessage = "Some pin deletes failed: \(deleteFailures.first ?? "unknown")"
+        }
+    }
+
+    private static func isMissingRowError(_ error: Error) -> Bool {
+        let message = String(describing: error).lowercased()
+        if message.contains("pin not found") { return true }
+        if message.contains("not found") { return true }
+        if message.contains("pgrst116") { return true }
+        if message.contains("no rows") { return true }
+        if message.contains("0 rows") { return true }
+        return false
     }
 
     // MARK: - Pull
