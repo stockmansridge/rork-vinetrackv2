@@ -410,6 +410,7 @@
 				DEVELOPMENT_TEAM = "";
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "VineTrackV2-Info.plist";
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_NSCameraUsageDescription = "VineTrack uses the camera to attach photos to vineyard pins, maintenance logs, and observations.";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "VineTrack uses your location to show your position on vineyard maps, drop GPS pins for repairs and observations, track trips, and provide row guidance.";
@@ -446,6 +447,7 @@
 				DEVELOPMENT_TEAM = "";
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "VineTrackV2-Info.plist";
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_NSCameraUsageDescription = "VineTrack uses the camera to attach photos to vineyard pins, maintenance logs, and observations.";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "VineTrack uses your location to show your position on vineyard maps, drop GPS pins for repairs and observations, track trips, and provide row guidance.";

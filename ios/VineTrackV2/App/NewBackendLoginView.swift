@@ -162,7 +162,7 @@ struct NewBackendLoginView: View {
                     Button {
                         Task {
                             await auth.sendPasswordReset(email: resetEmail)
-                            resetSent = auth.errorMessage == nil
+                            resetSent = auth.passwordResetSuccessMessage != nil && auth.errorMessage == nil
                         }
                     } label: {
                         if auth.isLoading {
@@ -174,9 +174,9 @@ struct NewBackendLoginView: View {
                     .disabled(auth.isLoading || resetEmail.trimmingCharacters(in: .whitespaces).isEmpty)
                 }
 
-                if resetSent {
+                if resetSent, let success = auth.passwordResetSuccessMessage {
                     Section {
-                        Label("Reset email sent.", systemImage: "checkmark.circle.fill")
+                        Label(success, systemImage: "checkmark.circle.fill")
                             .foregroundStyle(VineyardTheme.leafGreen)
                     }
                 }

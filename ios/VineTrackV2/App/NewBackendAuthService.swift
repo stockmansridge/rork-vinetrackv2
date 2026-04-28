@@ -11,6 +11,10 @@ final class NewBackendAuthService {
     var userName: String?
     var errorMessage: String?
     var pendingInvitations: [BackendInvitation] = []
+    var isInPasswordRecovery: Bool = false
+    var passwordResetSuccessMessage: String?
+
+    static let passwordResetRedirectURL: URL = URL(string: "vinetrack://reset-password")!
 
     private let authRepository: any AuthRepository
     private let profileRepository: any ProfileRepositoryProtocol
@@ -97,13 +101,58 @@ final class NewBackendAuthService {
     func sendPasswordReset(email: String) async {
         isLoading = true
         errorMessage = nil
+        passwordResetSuccessMessage = nil
         defer { isLoading = false }
         let trimmedEmail = email.trimmingCharacters(in: .whitespacesAndNewlines)
         do {
-            try await authRepository.sendPasswordReset(email: trimmedEmail)
+            try await authRepository.sendPasswordReset(
+                email: trimmedEmail,
+                redirectTo: Self.passwordResetRedirectURL
+            )
+            passwordResetSuccessMessage = "Password reset email sent. Check your inbox."
         } catch {
             errorMessage = error.localizedDescription
         }
+    }
+
+    func handleIncomingURL(_ url: URL) async {
+        guard url.scheme?.lowercased() == "vinetrack" else { return }
+        let host = url.host?.lowercased() ?? ""
+        let path = url.path.lowercased()
+        let isRecovery = host.contains("reset-password") || path.contains("reset-password") || host.contains("reset") || path.contains("reset")
+        guard isRecovery else { return }
+        isLoading = true
+        errorMessage = nil
+        defer { isLoading = false }
+        do {
+            let user = try await authRepository.handlePasswordRecoveryURL(url)
+            applyUser(user)
+            isInPasswordRecovery = true
+        } catch {
+            errorMessage = "This password reset link is invalid or has expired. Please request a new one."
+            isInPasswordRecovery = false
+        }
+    }
+
+    func updatePassword(newPassword: String) async -> Bool {
+        isLoading = true
+        errorMessage = nil
+        passwordResetSuccessMessage = nil
+        defer { isLoading = false }
+        do {
+            try await authRepository.updatePassword(newPassword)
+            passwordResetSuccessMessage = "Password updated successfully."
+            isInPasswordRecovery = false
+            return true
+        } catch {
+            errorMessage = error.localizedDescription
+            return false
+        }
+    }
+
+    func cancelPasswordRecovery() async {
+        isInPasswordRecovery = false
+        await signOut()
     }
 
     func loadPendingInvitations() async {

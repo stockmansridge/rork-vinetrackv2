@@ -57,6 +57,9 @@ struct VineTrackV2App: App {
                 }
             }
             .tint(VineyardTheme.olive)
+            .onOpenURL { url in
+                Task { await auth.handleIncomingURL(url) }
+            }
         }
         .modelContainer(sharedModelContainer)
     }

@@ -353,7 +353,7 @@ struct BackendDiagnosticView: View {
 
     private func sendResetPin() async {
         await perform("Send Reset PIN Email") {
-            try await authRepository.sendPasswordReset(email: trimmed(email))
+            try await authRepository.sendPasswordReset(email: trimmed(email), redirectTo: NewBackendAuthService.passwordResetRedirectURL)
             return "reset email requested for \(trimmed(email)); Supabase reset-password template must show {{ .Token }}"
         }
     }
