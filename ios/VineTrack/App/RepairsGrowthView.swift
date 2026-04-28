@@ -24,25 +24,17 @@ struct RepairsGrowthView: View {
     private var canEdit: Bool { accessControl.canChangeSettings }
 
     private var repairButtons: [ButtonConfig] {
-        store.repairButtons
+        let sorted = store.repairButtons
             .filter { !$0.isGrowthStageButton }
             .sorted { $0.index < $1.index }
+        return Array(sorted.prefix(8))
     }
 
     private var growthButtons: [ButtonConfig] {
-        let nonGrowthStage = store.growthButtons
+        let sorted = store.growthButtons
             .filter { !$0.isGrowthStageButton }
             .sorted { $0.index < $1.index }
-        var seen = Set<String>()
-        var unique: [ButtonConfig] = []
-        for btn in nonGrowthStage {
-            let key = btn.name.lowercased()
-            if !seen.contains(key) {
-                seen.insert(key)
-                unique.append(btn)
-            }
-        }
-        return Array(unique.prefix(3))
+        return Array(sorted.prefix(6))
     }
 
     var body: some View {
@@ -203,12 +195,22 @@ struct RepairsGrowthView: View {
     // MARK: - Filling grid
 
     private func fillingButtonGrid(buttons: [ButtonConfig], onTap: @escaping (ButtonConfig) -> Void) -> some View {
-        let columns = Array(repeating: GridItem(.flexible(), spacing: 10), count: 4)
-        return LazyVGrid(columns: columns, spacing: 10) {
-            ForEach(buttons) { btn in
-                FillingActionTile(button: btn, side: .right, canCreate: canCreate) {
-                    onTap(btn)
+        let rows = stride(from: 0, to: buttons.count, by: 2).map {
+            Array(buttons[$0..<min($0 + 2, buttons.count)])
+        }
+        return VStack(spacing: 10) {
+            ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
+                HStack(spacing: 10) {
+                    ForEach(row) { btn in
+                        FillingActionTile(button: btn, side: .right, canCreate: canCreate) {
+                            onTap(btn)
+                        }
+                    }
+                    if row.count == 1 {
+                        Color.clear.frame(maxWidth: .infinity)
+                    }
                 }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
         .padding(.horizontal)
