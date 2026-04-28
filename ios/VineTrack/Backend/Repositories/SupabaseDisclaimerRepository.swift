@@ -13,7 +13,7 @@ final class SupabaseDisclaimerRepository: DisclaimerRepositoryProtocol {
     func hasAcceptedCurrentDisclaimer() async throws -> Bool {
         guard provider.isConfigured else { throw BackendRepositoryError.missingSupabaseConfiguration }
         guard let userId = provider.client.auth.currentUser?.id else { return false }
-        let acceptances: [DisclaimerAcceptance] = try await provider.client
+        let acceptances: [DisclaimerAcceptanceRow] = try await provider.client
             .from("disclaimer_acceptances")
             .select("id")
             .eq("user_id", value: userId.uuidString)
@@ -34,7 +34,7 @@ final class SupabaseDisclaimerRepository: DisclaimerRepositoryProtocol {
     }
 }
 
-nonisolated private struct DisclaimerAcceptance: Decodable, Sendable {
+nonisolated private struct DisclaimerAcceptanceRow: Decodable, Sendable {
     let id: UUID
 }
 
