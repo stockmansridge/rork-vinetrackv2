@@ -83,6 +83,18 @@ struct TripDetailView: View {
                 }
             }
 
+            if !coveredRowSummary.isEmpty {
+                Section("Row Coverage") {
+                    statRow("Rows covered", value: "\(coveredRowNumbers.count)", icon: "checkmark.circle")
+                    if let paddockName = coverageSourcePaddockName {
+                        statRow("Paddock", value: paddockName, icon: "leaf")
+                    }
+                    Text(coveredRowSummary)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
             if trip.pathPoints.count > 1 {
                 Section("Path") {
                     Map(position: $position) {
@@ -192,6 +204,40 @@ struct TripDetailView: View {
                 }
             }
         }
+    }
+
+    private var coverageSourcePaddock: Paddock? {
+        if let id = trip.paddockId, let p = store.paddocks.first(where: { $0.id == id }) {
+            return p
+        }
+        for id in trip.paddockIds {
+            if let p = store.paddocks.first(where: { $0.id == id }) { return p }
+        }
+        return nil
+    }
+
+    private var coverageSourcePaddockName: String? {
+        coverageSourcePaddock?.name
+    }
+
+    private var coveredRowNumbers: [Double] {
+        if !trip.completedPaths.isEmpty {
+            return trip.completedPaths.sorted()
+        }
+        guard let paddock = coverageSourcePaddock, trip.pathPoints.count > 1 else { return [] }
+        return RowGuidance.coveredRows(for: trip.pathPoints, in: paddock)
+    }
+
+    private var coveredRowSummary: String {
+        let rows = coveredRowNumbers
+        guard !rows.isEmpty else { return "" }
+        let formatted = rows.map { value -> String in
+            if value.truncatingRemainder(dividingBy: 1) == 0 {
+                return String(format: "%.0f", value)
+            }
+            return String(format: "%.1f", value)
+        }
+        return formatted.joined(separator: ", ")
     }
 
     private func statRow(_ label: String, value: String, icon: String) -> some View {

@@ -115,11 +115,7 @@ struct ActiveTripCard: View {
                     stat("Points", value: "\(trip.pathPoints.count)")
                 }
 
-                if !trip.paddockName.isEmpty {
-                    Label(trip.paddockName, systemImage: "leaf")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
+                guidanceSection(trip: trip)
 
                 HStack(spacing: 8) {
                     if tracking.isPaused {
@@ -153,6 +149,46 @@ struct ActiveTripCard: View {
             .background(Color(.secondarySystemGroupedBackground))
             .clipShape(.rect(cornerRadius: 14))
         }
+    }
+
+    @ViewBuilder
+    private func guidanceSection(trip: Trip) -> some View {
+        let paddockName: String? = tracking.currentPaddockName ?? (trip.paddockName.isEmpty ? nil : trip.paddockName)
+        VStack(alignment: .leading, spacing: 4) {
+            if let paddockName {
+                Label(paddockName, systemImage: "leaf")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            if tracking.rowGuidanceAvailable, let row = tracking.currentRowNumber {
+                HStack(spacing: 12) {
+                    Label("Row " + formatRow(row), systemImage: "arrow.left.and.right")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(VineyardTheme.leafGreen)
+                    if let dist = tracking.currentRowDistance {
+                        Text("±\(Int(dist))m")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                    if tracking.rowsCoveredCount > 0 {
+                        Text("\(tracking.rowsCoveredCount) covered")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            } else if paddockName != nil {
+                Text("Row guidance unavailable")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    private func formatRow(_ value: Double) -> String {
+        if value.truncatingRemainder(dividingBy: 1) == 0 {
+            return String(format: "%.0f", value)
+        }
+        return String(format: "%.1f", value)
     }
 
     private func stat(_ label: String, value: String) -> some View {

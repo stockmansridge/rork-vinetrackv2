@@ -17,6 +17,14 @@ final class TripTrackingService {
     var currentSpeed: Double?
     var errorMessage: String?
 
+    // Row guidance / coverage (live)
+    var currentPaddockId: UUID?
+    var currentPaddockName: String?
+    var currentRowNumber: Double?
+    var currentRowDistance: Double?
+    var rowsCoveredCount: Int = 0
+    var rowGuidanceAvailable: Bool = false
+
     // MARK: - Dependencies
 
     private weak var store: MigratedDataStore?
@@ -106,6 +114,12 @@ final class TripTrackingService {
         elapsedTime = 0
         currentSpeed = nil
         lastObservedLocation = nil
+        currentPaddockId = nil
+        currentPaddockName = nil
+        currentRowNumber = nil
+        currentRowDistance = nil
+        rowsCoveredCount = 0
+        rowGuidanceAvailable = false
     }
 
     // MARK: - Manual point
@@ -240,9 +254,63 @@ final class TripTrackingService {
         } else {
             trip.pathPoints.append(newPoint)
         }
+
+        updateRowGuidance(for: location.coordinate, trip: &trip, store: store)
+
         store.updateTrip(trip)
         currentDistance = trip.totalDistance
         currentSpeed = location.speed >= 0 ? location.speed : nil
         lastObservedLocation = location
+    }
+
+    // MARK: - Row guidance / coverage
+
+    private func updateRowGuidance(
+        for coordinate: CLLocationCoordinate2D,
+        trip: inout Trip,
+        store: MigratedDataStore
+    ) {
+        let candidates: [Paddock]
+        if let pinned = trip.paddockId,
+           let paddock = store.paddocks.first(where: { $0.id == pinned }) {
+            candidates = [paddock]
+        } else {
+            candidates = store.paddocks
+        }
+
+        guard let paddock = RowGuidance.paddock(for: coordinate, in: candidates) else {
+            currentPaddockId = trip.paddockId
+            currentPaddockName = trip.paddockName.isEmpty ? nil : trip.paddockName
+            currentRowNumber = nil
+            currentRowDistance = nil
+            rowGuidanceAvailable = false
+            rowsCoveredCount = trip.completedPaths.count
+            return
+        }
+
+        currentPaddockId = paddock.id
+        currentPaddockName = paddock.name
+        if !trip.paddockIds.contains(paddock.id) {
+            trip.paddockIds.append(paddock.id)
+        }
+
+        guard let match = RowGuidance.nearestRow(for: coordinate, in: paddock) else {
+            currentRowNumber = nil
+            currentRowDistance = nil
+            rowGuidanceAvailable = false
+            rowsCoveredCount = trip.completedPaths.count
+            return
+        }
+
+        rowGuidanceAvailable = true
+        currentRowNumber = match.rowNumber
+        currentRowDistance = match.distance
+        trip.currentRowNumber = match.rowNumber
+
+        let threshold = max(0.5, paddock.rowWidth / 2.0)
+        if match.distance <= threshold, !trip.completedPaths.contains(match.rowNumber) {
+            trip.completedPaths.append(match.rowNumber)
+        }
+        rowsCoveredCount = trip.completedPaths.count
     }
 }
