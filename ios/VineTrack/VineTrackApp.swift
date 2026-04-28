@@ -10,12 +10,12 @@ import SwiftData
 
 @main
 struct VineTrackApp: App {
-    var sharedModelContainer: ModelContainer = {
-        let schema = Schema([
-            Item.self,
-        ])
-        let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
+    @State private var auth = NewBackendAuthService()
+    @State private var migratedStore = MigratedDataStore()
 
+    var sharedModelContainer: ModelContainer = {
+        let schema = Schema([Item.self])
+        let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
         do {
             return try ModelContainer(for: schema, configurations: [modelConfiguration])
         } catch {
@@ -25,7 +25,15 @@ struct VineTrackApp: App {
 
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            Group {
+                if AppFeatureFlags.useNewBackendShell {
+                    NewBackendRootView()
+                        .environment(auth)
+                        .environment(migratedStore)
+                } else {
+                    ContentView()
+                }
+            }
         }
         .modelContainer(sharedModelContainer)
     }

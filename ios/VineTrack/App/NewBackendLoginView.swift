@@ -1,0 +1,253 @@
+import SwiftUI
+
+struct NewBackendLoginView: View {
+    @Environment(NewBackendAuthService.self) private var auth
+
+    private enum Mode: String, CaseIterable, Identifiable {
+        case signIn = "Sign In"
+        case signUp = "Sign Up"
+        var id: String { rawValue }
+    }
+
+    @State private var mode: Mode = .signIn
+    @State private var name: String = ""
+    @State private var email: String = ""
+    @State private var password: String = ""
+    @State private var showForgotPassword: Bool = false
+    @State private var resetEmail: String = ""
+    @State private var resetSent: Bool = false
+
+    var body: some View {
+        ZStack {
+            LinearGradient(
+                colors: [VineyardTheme.cream, VineyardTheme.stone.opacity(0.4)],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .ignoresSafeArea()
+
+            ScrollView {
+                VStack(spacing: 24) {
+                    header
+                    modePicker
+                    formCard
+                    actionButton
+                    footerLinks
+                    if let errorMessage = auth.errorMessage {
+                        Text(errorMessage)
+                            .font(.footnote)
+                            .foregroundStyle(.red)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal)
+                    }
+                }
+                .padding()
+                .padding(.top, 24)
+            }
+        }
+        .sheet(isPresented: $showForgotPassword) {
+            forgotPasswordSheet
+        }
+    }
+
+    private var header: some View {
+        VStack(spacing: 12) {
+            ZStack {
+                Circle()
+                    .fill(VineyardTheme.leafGreen.gradient)
+                    .frame(width: 80, height: 80)
+                GrapeLeafIcon(size: 40, color: .white)
+            }
+            Text("VineTrack")
+                .font(.largeTitle.weight(.bold))
+                .foregroundStyle(VineyardTheme.olive)
+            Text("Manage your vineyard, your way.")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    private var modePicker: some View {
+        Picker("Mode", selection: $mode) {
+            ForEach(Mode.allCases) { m in
+                Text(m.rawValue).tag(m)
+            }
+        }
+        .pickerStyle(.segmented)
+        .padding(.horizontal, 8)
+    }
+
+    private var formCard: some View {
+        VStack(spacing: 12) {
+            if mode == .signUp {
+                LoginField(
+                    title: "Name",
+                    text: $name,
+                    icon: "person.fill",
+                    contentType: .name,
+                    keyboard: .default
+                )
+            }
+            LoginField(
+                title: "Email",
+                text: $email,
+                icon: "envelope.fill",
+                contentType: .emailAddress,
+                keyboard: .emailAddress,
+                autocapitalize: false
+            )
+            LoginField(
+                title: "Password",
+                text: $password,
+                icon: "lock.fill",
+                contentType: mode == .signUp ? .newPassword : .password,
+                keyboard: .default,
+                autocapitalize: false,
+                isSecure: true
+            )
+        }
+        .padding(16)
+        .background(.ultraThinMaterial, in: .rect(cornerRadius: 16))
+    }
+
+    private var actionButton: some View {
+        Button {
+            Task {
+                switch mode {
+                case .signIn:
+                    await auth.signIn(email: email, password: password)
+                case .signUp:
+                    await auth.signUp(name: name, email: email, password: password)
+                }
+            }
+        } label: {
+            HStack {
+                if auth.isLoading {
+                    ProgressView()
+                        .tint(.white)
+                } else {
+                    Text(mode == .signIn ? "Sign In" : "Create Account")
+                        .font(.headline)
+                }
+            }
+            .frame(maxWidth: .infinity)
+            .frame(height: 50)
+        }
+        .buttonStyle(.borderedProminent)
+        .tint(VineyardTheme.olive)
+        .controlSize(.large)
+        .disabled(auth.isLoading || !canSubmit)
+    }
+
+    private var footerLinks: some View {
+        VStack(spacing: 8) {
+            if mode == .signIn {
+                Button("Forgot password?") {
+                    resetEmail = email
+                    resetSent = false
+                    showForgotPassword = true
+                }
+                .font(.footnote)
+                .foregroundStyle(VineyardTheme.leafGreen)
+            }
+        }
+    }
+
+    private var forgotPasswordSheet: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    TextField("Email", text: $resetEmail)
+                        .textContentType(.emailAddress)
+                        .keyboardType(.emailAddress)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                } footer: {
+                    Text("We'll email you a link to reset your password.")
+                }
+
+                Section {
+                    Button {
+                        Task {
+                            await auth.sendPasswordReset(email: resetEmail)
+                            resetSent = auth.errorMessage == nil
+                        }
+                    } label: {
+                        if auth.isLoading {
+                            ProgressView()
+                        } else {
+                            Text("Send Reset Email")
+                        }
+                    }
+                    .disabled(auth.isLoading || resetEmail.trimmingCharacters(in: .whitespaces).isEmpty)
+                }
+
+                if resetSent {
+                    Section {
+                        Label("Reset email sent.", systemImage: "checkmark.circle.fill")
+                            .foregroundStyle(VineyardTheme.leafGreen)
+                    }
+                }
+
+                if let errorMessage = auth.errorMessage {
+                    Section {
+                        Text(errorMessage)
+                            .foregroundStyle(.red)
+                    }
+                }
+            }
+            .navigationTitle("Reset Password")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Done") { showForgotPassword = false }
+                }
+            }
+        }
+    }
+
+    private var canSubmit: Bool {
+        let hasEmail = !email.trimmingCharacters(in: .whitespaces).isEmpty
+        let hasPassword = !password.isEmpty
+        if mode == .signUp {
+            return hasEmail && hasPassword && !name.trimmingCharacters(in: .whitespaces).isEmpty
+        }
+        return hasEmail && hasPassword
+    }
+}
+
+private struct LoginField: View {
+    let title: String
+    @Binding var text: String
+    let icon: String
+    let contentType: UITextContentType
+    let keyboard: UIKeyboardType
+    var autocapitalize: Bool = true
+    var isSecure: Bool = false
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: icon)
+                .foregroundStyle(VineyardTheme.olive)
+                .frame(width: 20)
+            Group {
+                if isSecure {
+                    SecureField(title, text: $text)
+                } else {
+                    TextField(title, text: $text)
+                }
+            }
+            .textContentType(contentType)
+            .keyboardType(keyboard)
+            .textInputAutocapitalization(autocapitalize ? .sentences : .never)
+            .autocorrectionDisabled(!autocapitalize)
+        }
+        .padding(.vertical, 12)
+        .padding(.horizontal, 14)
+        .background(Color(.systemBackground), in: .rect(cornerRadius: 10))
+        .overlay(
+            RoundedRectangle(cornerRadius: 10)
+                .stroke(VineyardTheme.stone.opacity(0.4), lineWidth: 1)
+        )
+    }
+}
