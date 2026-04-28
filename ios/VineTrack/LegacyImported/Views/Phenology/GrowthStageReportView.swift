@@ -1,9 +1,18 @@
 import SwiftUI
+import UIKit
 
 struct GrowthStageReportView: View {
     @Environment(MigratedDataStore.self) private var store
     @State private var selectedVintages: Set<Int> = []
     @State private var selectedPaddockId: UUID?
+    @State private var sharePDFURL: SharePDFURL?
+    @State private var isGeneratingPDF: Bool = false
+    @State private var exportError: String?
+
+    private struct SharePDFURL: Identifiable {
+        let id = UUID()
+        let url: URL
+    }
 
     private var seasonStartMonth: Int { store.settings.seasonStartMonth }
     private var seasonStartDay: Int { store.settings.seasonStartDay }
@@ -120,7 +129,119 @@ struct GrowthStageReportView: View {
         }
         .navigationTitle("Growth Stage Report")
         .navigationBarTitleDisplayMode(.inline)
-        // TODO: PDF export deferred to Phase 7.
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    exportPDF()
+                } label: {
+                    if isGeneratingPDF {
+                        ProgressView()
+                    } else {
+                        Image(systemName: "square.and.arrow.up")
+                    }
+                }
+                .disabled(isGeneratingPDF || growthPins.isEmpty || availableVintages.isEmpty)
+            }
+        }
+        .sheet(item: $sharePDFURL) { url in
+            ShareSheet(items: [url.url])
+        }
+        .alert("Export Failed", isPresented: Binding(get: { exportError != nil }, set: { if !$0 { exportError = nil } })) {
+            Button("OK", role: .cancel) { exportError = nil }
+        } message: {
+            Text(exportError ?? "")
+        }
+    }
+
+    private func exportPDF() {
+        guard !isGeneratingPDF else { return }
+        isGeneratingPDF = true
+
+        let vineyardName = store.selectedVineyard?.name ?? "Vineyard"
+        let seasonMonth = seasonStartMonth
+        let seasonDay = seasonStartDay
+
+        let blocks: [GrowthStageReportPDFService.BlockReport] = {
+            let paddocks: [Paddock] = {
+                if let pid = selectedPaddockId, let p = store.paddocks.first(where: { $0.id == pid }) {
+                    return [p]
+                }
+                return store.paddocks
+            }()
+
+            return paddocks.compactMap { paddock in
+                let pinsForPaddock = filteredPins.filter { $0.paddockId == paddock.id }
+                guard !pinsForPaddock.isEmpty else { return nil }
+
+                let vintages = Set(pinsForPaddock.map { vintageYear(for: $0.timestamp) }).sorted(by: >)
+                let usedCodes = Set(pinsForPaddock.compactMap { $0.growthStageCode })
+                let stageCodes = GrowthStage.allStages.map { $0.code }.filter { usedCodes.contains($0) }
+
+                var entries: [Int: [String: Date]] = [:]
+                for vintage in vintages {
+                    let range = vintageRange(for: vintage)
+                    let rangeEnd = endOfDay(range.end)
+                    let pins = pinsForPaddock.filter { $0.timestamp >= range.start && $0.timestamp <= rangeEnd }
+                    var codeMap: [String: Date] = [:]
+                    for pin in pins {
+                        guard let code = pin.growthStageCode else { continue }
+                        if let existing = codeMap[code] {
+                            if pin.timestamp < existing { codeMap[code] = pin.timestamp }
+                        } else {
+                            codeMap[code] = pin.timestamp
+                        }
+                    }
+                    entries[vintage] = codeMap
+                }
+
+                return GrowthStageReportPDFService.BlockReport(
+                    blockName: paddock.name,
+                    vintages: vintages,
+                    stageCodes: stageCodes,
+                    entries: entries
+                )
+            }
+        }()
+
+        guard !blocks.isEmpty else {
+            isGeneratingPDF = false
+            exportError = "No growth stage data available to export."
+            return
+        }
+
+        let vintageColorMap: [Int: UIColor] = {
+            var map: [Int: UIColor] = [:]
+            let allVintagesSorted = Array(Set(blocks.flatMap { $0.vintages })).sorted(by: >)
+            for (idx, vintage) in allVintagesSorted.enumerated() {
+                map[vintage] = uiColor(for: idx)
+            }
+            return map
+        }()
+
+        Task.detached {
+            let data = GrowthStageReportPDFService.generatePDF(
+                blocks: blocks,
+                vineyardName: vineyardName,
+                seasonStartMonth: seasonMonth,
+                seasonStartDay: seasonDay,
+                vintageColors: vintageColorMap,
+                logoData: nil
+            )
+            let fileName = "GrowthStageReport_\(Date().formatted(.iso8601.year().month().day()))"
+            let url = GrowthStageReportPDFService.savePDFToTemp(data: data, fileName: fileName)
+            await MainActor.run {
+                isGeneratingPDF = false
+                sharePDFURL = SharePDFURL(url: url)
+            }
+        }
+    }
+
+    private func uiColor(for index: Int) -> UIColor {
+        let palette: [UIColor] = [
+            .systemBlue, .systemGreen, .systemOrange, .systemPurple, .systemRed,
+            .systemTeal, .systemPink, .systemIndigo, .systemMint, .systemCyan
+        ]
+        return palette[index % palette.count]
     }
 
     private var paddockFilterSection: some View {
