@@ -90,7 +90,6 @@ private struct NewHomeTabView: View {
     @State private var showStoreDiagnostic: Bool = false
     #endif
 
-    @State private var showVineyardDetail: Bool = false
 
     var body: some View {
         NavigationStack {
@@ -119,11 +118,6 @@ private struct NewHomeTabView: View {
             .background(VineyardTheme.appBackground)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar(.hidden, for: .navigationBar)
-            .sheet(isPresented: $showVineyardDetail) {
-                if let vineyard = store.selectedVineyard {
-                    BackendVineyardDetailSheet(vineyard: vineyard)
-                }
-            }
             .sheet(isPresented: $showQuickPin) {
                 QuickPinSheet()
             }
@@ -227,10 +221,8 @@ private struct NewHomeTabView: View {
     private var vineyardOverviewSection: some View {
         VStack(alignment: .leading, spacing: 10) {
             plainSectionHeader("Vineyard Overview")
-            Button {
-                if store.selectedVineyard != nil {
-                    showVineyardDetail = true
-                }
+            NavigationLink {
+                VineyardDetailsView()
             } label: {
                 VineyardCard {
                     HStack(spacing: 14) {
