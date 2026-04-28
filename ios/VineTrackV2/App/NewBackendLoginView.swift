@@ -16,6 +16,11 @@ struct NewBackendLoginView: View {
     @State private var showForgotPassword: Bool = false
     @State private var resetEmail: String = ""
     @State private var resetSent: Bool = false
+    @State private var resetPin: String = ""
+    @State private var resetNewPassword: String = ""
+    @State private var resetConfirmPassword: String = ""
+    @State private var resetCompleted: Bool = false
+    @State private var resetLocalError: String?
 
     var body: some View {
         ZStack {
@@ -148,43 +153,97 @@ struct NewBackendLoginView: View {
     private var forgotPasswordSheet: some View {
         NavigationStack {
             Form {
-                Section {
-                    TextField("Email", text: $resetEmail)
-                        .textContentType(.emailAddress)
-                        .keyboardType(.emailAddress)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
-                } footer: {
-                    Text("We'll email you a link to reset your password.")
-                }
-
-                Section {
-                    Button {
-                        Task {
-                            await auth.sendPasswordReset(email: resetEmail)
-                            resetSent = auth.passwordResetSuccessMessage != nil && auth.errorMessage == nil
-                        }
-                    } label: {
-                        if auth.isLoading {
-                            ProgressView()
-                        } else {
-                            Text("Send Reset Email")
+                if resetCompleted {
+                    Section {
+                        Label(
+                            auth.passwordResetSuccessMessage ?? "Password updated. You can now sign in.",
+                            systemImage: "checkmark.seal.fill"
+                        )
+                        .foregroundStyle(VineyardTheme.leafGreen)
+                    }
+                    Section {
+                        Button("Back to Sign In") {
+                            password = resetNewPassword
+                            email = resetEmail
+                            closeForgotPasswordSheet()
                         }
                     }
-                    .disabled(auth.isLoading || resetEmail.trimmingCharacters(in: .whitespaces).isEmpty)
-                }
-
-                if resetSent, let success = auth.passwordResetSuccessMessage {
+                } else {
                     Section {
-                        Label(success, systemImage: "checkmark.circle.fill")
-                            .foregroundStyle(VineyardTheme.leafGreen)
+                        TextField("Email", text: $resetEmail)
+                            .textContentType(.emailAddress)
+                            .keyboardType(.emailAddress)
+                            .textInputAutocapitalization(.never)
+                            .autocorrectionDisabled()
+                    } header: {
+                        Text("Step 1 — Request Code")
+                    } footer: {
+                        Text("We'll email you a 6-digit code. No links — codes only.")
                     }
-                }
 
-                if let errorMessage = auth.errorMessage {
                     Section {
-                        Text(errorMessage)
-                            .foregroundStyle(.red)
+                        Button {
+                            Task {
+                                resetLocalError = nil
+                                await auth.sendPasswordReset(email: resetEmail)
+                                resetSent = auth.passwordResetSuccessMessage != nil && auth.errorMessage == nil
+                            }
+                        } label: {
+                            if auth.isLoading && !resetSent {
+                                ProgressView()
+                            } else {
+                                Text(resetSent ? "Resend Code" : "Send Code")
+                            }
+                        }
+                        .disabled(auth.isLoading || resetEmail.trimmingCharacters(in: .whitespaces).isEmpty)
+                    }
+
+                    if resetSent {
+                        if let success = auth.passwordResetSuccessMessage {
+                            Section {
+                                Label(success, systemImage: "envelope.badge.fill")
+                                    .foregroundStyle(VineyardTheme.leafGreen)
+                            }
+                        }
+
+                        Section {
+                            TextField("6-digit code", text: $resetPin)
+                                .keyboardType(.numberPad)
+                                .textContentType(.oneTimeCode)
+                                .autocorrectionDisabled()
+                            SecureField("New password", text: $resetNewPassword)
+                                .textContentType(.newPassword)
+                                .textInputAutocapitalization(.never)
+                                .autocorrectionDisabled()
+                            SecureField("Confirm new password", text: $resetConfirmPassword)
+                                .textContentType(.newPassword)
+                                .textInputAutocapitalization(.never)
+                                .autocorrectionDisabled()
+                        } header: {
+                            Text("Step 2 — Enter Code & New Password")
+                        } footer: {
+                            Text("Password must be at least 8 characters.")
+                        }
+
+                        Section {
+                            Button {
+                                Task { await submitPasswordReset() }
+                            } label: {
+                                if auth.isLoading {
+                                    ProgressView()
+                                } else {
+                                    Text("Update Password")
+                                }
+                            }
+                            .disabled(auth.isLoading || !canSubmitReset)
+                        }
+                    }
+
+                    if let message = resetLocalError ?? auth.errorMessage {
+                        Section {
+                            Text(message)
+                                .foregroundStyle(.red)
+                        }
                     }
                 }
             }
@@ -192,10 +251,46 @@ struct NewBackendLoginView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Done") { showForgotPassword = false }
+                    Button("Done") { closeForgotPasswordSheet() }
                 }
             }
         }
+    }
+
+    private var canSubmitReset: Bool {
+        let pinOk = resetPin.trimmingCharacters(in: .whitespaces).count >= 4
+        let pwOk = resetNewPassword.count >= 8 && resetNewPassword == resetConfirmPassword
+        return pinOk && pwOk
+    }
+
+    private func submitPasswordReset() async {
+        resetLocalError = nil
+        guard resetNewPassword.count >= 8 else {
+            resetLocalError = "Password must be at least 8 characters."
+            return
+        }
+        guard resetNewPassword == resetConfirmPassword else {
+            resetLocalError = "Passwords do not match."
+            return
+        }
+        let success = await auth.resetPasswordWithPin(
+            email: resetEmail,
+            pin: resetPin,
+            newPassword: resetNewPassword
+        )
+        if success {
+            resetCompleted = true
+        }
+    }
+
+    private func closeForgotPasswordSheet() {
+        showForgotPassword = false
+        resetSent = false
+        resetCompleted = false
+        resetPin = ""
+        resetNewPassword = ""
+        resetConfirmPassword = ""
+        resetLocalError = nil
     }
 
     private var canSubmit: Bool {

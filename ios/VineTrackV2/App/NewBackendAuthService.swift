@@ -14,8 +14,6 @@ final class NewBackendAuthService {
     var isInPasswordRecovery: Bool = false
     var passwordResetSuccessMessage: String?
 
-    static let passwordResetRedirectURL: URL = URL(string: "vinetrack://reset-password")!
-
     private let authRepository: any AuthRepository
     private let profileRepository: any ProfileRepositoryProtocol
     private let teamRepository: any TeamRepositoryProtocol
@@ -107,30 +105,34 @@ final class NewBackendAuthService {
         do {
             try await authRepository.sendPasswordReset(
                 email: trimmedEmail,
-                redirectTo: Self.passwordResetRedirectURL
+                redirectTo: nil
             )
-            passwordResetSuccessMessage = "Password reset email sent. Check your inbox."
+            passwordResetSuccessMessage = "We emailed you a 6-digit code. Enter it below to reset your password."
         } catch {
             errorMessage = error.localizedDescription
         }
     }
 
-    func handleIncomingURL(_ url: URL) async {
-        guard url.scheme?.lowercased() == "vinetrack" else { return }
-        let host = url.host?.lowercased() ?? ""
-        let path = url.path.lowercased()
-        let isRecovery = host.contains("reset-password") || path.contains("reset-password") || host.contains("reset") || path.contains("reset")
-        guard isRecovery else { return }
+    func resetPasswordWithPin(email: String, pin: String, newPassword: String) async -> Bool {
         isLoading = true
         errorMessage = nil
+        passwordResetSuccessMessage = nil
         defer { isLoading = false }
+        let trimmedEmail = email.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedPin = pin.trimmingCharacters(in: .whitespacesAndNewlines)
         do {
-            let user = try await authRepository.handlePasswordRecoveryURL(url)
-            applyUser(user)
-            isInPasswordRecovery = true
+            _ = try await authRepository.resetPasswordWithPin(
+                email: trimmedEmail,
+                pin: trimmedPin,
+                newPassword: newPassword
+            )
+            try? await authRepository.signOut()
+            applyUser(nil)
+            passwordResetSuccessMessage = "Password updated. You can now sign in with your new password."
+            return true
         } catch {
-            errorMessage = "This password reset link is invalid or has expired. Please request a new one."
-            isInPasswordRecovery = false
+            errorMessage = error.localizedDescription
+            return false
         }
     }
 
