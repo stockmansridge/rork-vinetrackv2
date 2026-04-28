@@ -9,6 +9,7 @@ struct PinDropView: View {
     @Environment(LocationService.self) private var locationService
     @Environment(BackendAccessControl.self) private var accessControl
 
+    @State private var currentMode: PinMode
     @State private var selectedPaddockId: UUID?
     @State private var rowText: String = ""
     @State private var notes: String = ""
@@ -16,54 +17,65 @@ struct PinDropView: View {
     @State private var showGrowthPicker: Bool = false
     @State private var pendingGrowthButton: ButtonConfig?
     @State private var pendingSide: PinSide = .right
+    @State private var lastGrowthStage: GrowthStage?
     @State private var feedbackMessage: String?
     @State private var feedbackKind: VineyardBadgeKind = .success
+    @State private var showLocationOptions: Bool = false
+
+    init(mode: PinMode) {
+        self.mode = mode
+        _currentMode = State(initialValue: mode)
+    }
 
     private var canCreate: Bool { accessControl.canCreateOperationalRecords }
     private var canEdit: Bool { accessControl.canChangeSettings }
 
+    private var sortedButtons: [ButtonConfig] {
+        let all = currentMode == .repairs ? store.repairButtons : store.growthButtons
+        return all.sorted { $0.index < $1.index }
+    }
+
     private var leftButtons: [ButtonConfig] {
-        let all = mode == .repairs ? store.repairButtons : store.growthButtons
-        return Array(all.sorted { $0.index < $1.index }.prefix(4))
+        Array(sortedButtons.prefix(4))
     }
 
-    private var title: String {
-        mode == .repairs ? "Repairs" : "Growth"
-    }
-
-    private var titleIcon: String {
-        mode == .repairs ? "wrench.and.screwdriver.fill" : "leaf.fill"
-    }
-
-    private var titleColor: Color {
-        mode == .repairs ? VineyardTheme.earthBrown : VineyardTheme.leafGreen
+    private var rightButtons: [ButtonConfig] {
+        let all = sortedButtons
+        if all.count > 4 {
+            return Array(all.dropFirst(4).prefix(4))
+        }
+        return Array(all.prefix(4))
     }
 
     var body: some View {
         ScrollView {
-            VStack(spacing: 16) {
+            VStack(spacing: 14) {
+                modeToggle
                 if !canCreate {
                     permissionWarning
                 }
-                gpsCard
-                locationCard
-                buttonsGrid
-                notesCard
-                if let feedbackMessage {
-                    VineyardCard {
-                        Label(feedbackMessage, systemImage: feedbackKind == .success ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(feedbackKind.foreground)
-                    }
-                    .padding(.horizontal)
-                    .transition(.opacity)
+                if currentMode == .growth {
+                    growthStageBar
                 }
-                Spacer(minLength: 24)
+                buttonsGrid
+                gpsAndLocationStrip
+                notesField
+                if let feedbackMessage {
+                    Label(feedbackMessage, systemImage: feedbackKind == .success ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(feedbackKind.foreground)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 10)
+                        .background(feedbackKind.background, in: .rect(cornerRadius: 10))
+                        .padding(.horizontal)
+                        .transition(.opacity)
+                }
+                Spacer(minLength: 16)
             }
-            .padding(.vertical)
+            .padding(.top, 8)
         }
         .background(VineyardTheme.appBackground)
-        .navigationTitle(title)
+        .navigationTitle(currentMode == .repairs ? "Repairs" : "Growth")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             if canEdit {
@@ -71,13 +83,13 @@ struct PinDropView: View {
                     Button {
                         showEditButtons = true
                     } label: {
-                        Label("Configure", systemImage: "slider.horizontal.3")
+                        Image(systemName: "slider.horizontal.3")
                     }
                 }
             }
         }
         .sheet(isPresented: $showEditButtons) {
-            EditButtonsSheet(mode: mode)
+            EditButtonsSheet(mode: currentMode)
         }
         .sheet(isPresented: $showGrowthPicker) {
             GrowthStagePickerSheet { stage in
@@ -86,175 +98,250 @@ struct PinDropView: View {
         }
     }
 
-    // MARK: - Header
+    // MARK: - Mode toggle
 
-    private var permissionWarning: some View {
-        VineyardCard {
-            Label("Read-only — you do not have permission to drop pins.", systemImage: "lock.fill")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+    private var modeToggle: some View {
+        Picker("Mode", selection: $currentMode) {
+            Text("Repairs").tag(PinMode.repairs)
+            Text("Growth").tag(PinMode.growth)
         }
+        .pickerStyle(.segmented)
         .padding(.horizontal)
     }
 
-    private var gpsCard: some View {
-        VineyardCard(padding: 12) {
+    // MARK: - Permission
+
+    private var permissionWarning: some View {
+        Label("Read-only — you do not have permission to drop pins.", systemImage: "lock.fill")
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal)
+    }
+
+    // MARK: - Growth Stage bar
+
+    private var growthStageBar: some View {
+        Button {
+            pendingSide = .right
+            pendingGrowthButton = sortedButtons.first(where: { $0.isGrowthStageButton })
+            showGrowthPicker = true
+        } label: {
             HStack(spacing: 12) {
-                ZStack {
-                    Circle()
-                        .fill(gpsAvailable ? VineyardTheme.success.opacity(0.15) : VineyardTheme.warning.opacity(0.18))
-                        .frame(width: 36, height: 36)
-                    Image(systemName: gpsAvailable ? "location.fill" : "location.slash")
-                        .foregroundStyle(gpsAvailable ? VineyardTheme.success : VineyardTheme.warning)
-                }
+                Image(systemName: "leaf.fill")
+                    .font(.title3.weight(.bold))
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(gpsAvailable ? "GPS Ready" : "Waiting for GPS…")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(VineyardTheme.textPrimary)
-                    if let coord = locationService.location?.coordinate {
-                        Text(String(format: "%.5f, %.5f", coord.latitude, coord.longitude))
-                            .font(.caption.monospacedDigit())
-                            .foregroundStyle(.secondary)
-                    } else {
-                        Text("Pins will use manual paddock/row only.")
+                    Text("Growth Stage")
+                        .font(.headline.weight(.bold))
+                    if let stage = lastGrowthStage {
+                        Text("EL \(stage.code) — \(stage.description)")
                             .font(.caption)
-                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                            .opacity(0.9)
+                    } else {
+                        Text("Tap to select current E-L stage")
+                            .font(.caption)
+                            .opacity(0.9)
                     }
                 }
                 Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.subheadline.weight(.bold))
+                    .opacity(0.85)
             }
+            .foregroundStyle(.white)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 14)
+            .frame(maxWidth: .infinity)
+            .background(
+                LinearGradient(
+                    colors: [Color(red: 0.18, green: 0.55, blue: 0.28), Color(red: 0.12, green: 0.42, blue: 0.20)],
+                    startPoint: .top,
+                    endPoint: .bottom
+                ),
+                in: .rect(cornerRadius: 12)
+            )
         }
-        .padding(.horizontal)
-    }
-
-    private var gpsAvailable: Bool { locationService.location != nil }
-
-    // MARK: - Location selection
-
-    private var locationCard: some View {
-        VineyardCard {
-            VStack(alignment: .leading, spacing: 10) {
-                VineyardSectionHeader(title: "Location", icon: "mappin.circle.fill", iconColor: VineyardTheme.olive)
-                HStack {
-                    Text("Paddock")
-                        .foregroundStyle(VineyardTheme.textSecondary)
-                    Spacer()
-                    Picker("Paddock", selection: $selectedPaddockId) {
-                        Text("None").tag(UUID?.none)
-                        ForEach(store.paddocks) { paddock in
-                            Text(paddock.name).tag(UUID?.some(paddock.id))
-                        }
-                    }
-                    .labelsHidden()
-                    .tint(VineyardTheme.olive)
-                }
-                Divider()
-                HStack {
-                    Text("Row")
-                        .foregroundStyle(VineyardTheme.textSecondary)
-                    Spacer()
-                    TextField("Optional", text: $rowText)
-                        .keyboardType(.numberPad)
-                        .multilineTextAlignment(.trailing)
-                        .frame(width: 100)
-                }
-            }
-        }
+        .buttonStyle(.plain)
+        .disabled(!canCreate)
         .padding(.horizontal)
     }
 
     // MARK: - Buttons grid
 
     private var buttonsGrid: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            VineyardSectionHeader(title: "Tap to Drop Pin", icon: titleIcon, iconColor: titleColor)
-                .padding(.horizontal, 24)
+        VStack(spacing: 8) {
+            HStack {
+                Text("LEFT")
+                    .font(.caption.weight(.heavy))
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity)
+                Text("RIGHT")
+                    .font(.caption.weight(.heavy))
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity)
+            }
+            .padding(.horizontal)
 
-            VineyardCard(padding: 12) {
-                if leftButtons.isEmpty {
-                    VStack(spacing: 8) {
-                        Image(systemName: "square.grid.2x2")
-                            .font(.title)
-                            .foregroundStyle(.secondary)
-                        Text("No buttons configured")
-                            .font(.subheadline.weight(.semibold))
-                        if canEdit {
-                            Button("Configure Buttons") { showEditButtons = true }
-                                .buttonStyle(.vineyardSecondary)
+            if leftButtons.isEmpty {
+                emptyButtonsState
+                    .padding(.horizontal)
+            } else {
+                HStack(alignment: .top, spacing: 10) {
+                    VStack(spacing: 10) {
+                        ForEach(leftButtons) { btn in
+                            buttonTile(btn, side: .left)
                         }
                     }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
-                } else {
-                    HStack(spacing: 10) {
-                        VStack(spacing: 8) {
-                            sideHeader("LEFT")
-                            ForEach(leftButtons) { btn in
-                                buttonTile(btn, side: .left)
-                            }
-                        }
-                        VStack(spacing: 8) {
-                            sideHeader("RIGHT")
-                            ForEach(leftButtons) { btn in
-                                buttonTile(btn, side: .right)
-                            }
+                    VStack(spacing: 10) {
+                        ForEach(rightButtons) { btn in
+                            buttonTile(btn, side: .right)
                         }
                     }
                 }
+                .padding(.horizontal)
             }
-            .padding(.horizontal)
         }
     }
 
-    private func sideHeader(_ text: String) -> some View {
-        Text(text)
-            .font(.caption2.weight(.bold))
-            .foregroundStyle(.secondary)
-            .frame(maxWidth: .infinity)
+    private var emptyButtonsState: some View {
+        VStack(spacing: 8) {
+            Image(systemName: "square.grid.2x2")
+                .font(.title)
+                .foregroundStyle(.secondary)
+            Text("No buttons configured")
+                .font(.subheadline.weight(.semibold))
+            if canEdit {
+                Button("Configure Buttons") { showEditButtons = true }
+                    .buttonStyle(.vineyardSecondary)
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 20)
+        .background(Color.white, in: .rect(cornerRadius: 12))
     }
 
     private func buttonTile(_ btn: ButtonConfig, side: PinSide) -> some View {
         let isLightColor = ["yellow", "white", "cyan"].contains(btn.color.lowercased())
+        let fg: Color = isLightColor ? .black : .white
         return Button {
             handleTap(button: btn, side: side)
         } label: {
-            HStack(spacing: 8) {
+            VStack(spacing: 4) {
                 if btn.isGrowthStageButton {
                     Image(systemName: "leaf.fill")
-                        .font(.subheadline.weight(.bold))
+                        .font(.title3.weight(.bold))
                 }
                 Text(btn.name)
-                    .font(.headline)
+                    .font(.title3.weight(.heavy))
                     .lineLimit(2)
                     .multilineTextAlignment(.center)
-                    .frame(maxWidth: .infinity)
+                    .minimumScaleFactor(0.7)
             }
-            .foregroundStyle(isLightColor ? .black : .white)
+            .foregroundStyle(fg)
             .frame(maxWidth: .infinity)
-            .frame(height: 64)
-            .background(Color.fromString(btn.color).gradient, in: .rect(cornerRadius: 12))
-            .overlay(
-                RoundedRectangle(cornerRadius: 12)
-                    .stroke(.black.opacity(0.08), lineWidth: 1)
+            .frame(height: 88)
+            .background(
+                LinearGradient(
+                    colors: [Color.fromString(btn.color), Color.fromString(btn.color).opacity(0.82)],
+                    startPoint: .top,
+                    endPoint: .bottom
+                ),
+                in: .rect(cornerRadius: 14)
             )
+            .overlay(
+                RoundedRectangle(cornerRadius: 14)
+                    .stroke(.black.opacity(0.10), lineWidth: 1)
+            )
+            .shadow(color: .black.opacity(0.08), radius: 2, y: 1)
         }
         .buttonStyle(.plain)
         .disabled(!canCreate)
         .opacity(canCreate ? 1 : 0.55)
     }
 
-    // MARK: - Notes
+    // MARK: - GPS & Location strip
 
-    private var notesCard: some View {
-        VineyardCard {
-            VStack(alignment: .leading, spacing: 8) {
-                VineyardSectionHeader(title: "Notes", icon: "text.alignleft", iconColor: VineyardTheme.info)
-                TextField("Optional", text: $notes, axis: .vertical)
-                    .lineLimit(2...4)
-                    .textFieldStyle(.plain)
+    private var gpsAndLocationStrip: some View {
+        VStack(spacing: 8) {
+            HStack(spacing: 10) {
+                Image(systemName: gpsAvailable ? "location.fill" : "location.slash")
+                    .foregroundStyle(gpsAvailable ? VineyardTheme.success : VineyardTheme.warning)
+                Text(gpsAvailable ? "GPS Ready" : "Waiting for GPS…")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(VineyardTheme.textPrimary)
+                if let coord = locationService.location?.coordinate {
+                    Text(String(format: "%.5f, %.5f", coord.latitude, coord.longitude))
+                        .font(.caption2.monospacedDigit())
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+                Button {
+                    showLocationOptions.toggle()
+                } label: {
+                    HStack(spacing: 4) {
+                        Text(showLocationOptions ? "Hide" : "Location")
+                            .font(.caption.weight(.semibold))
+                        Image(systemName: showLocationOptions ? "chevron.up" : "chevron.down")
+                            .font(.caption2)
+                    }
+                    .foregroundStyle(VineyardTheme.olive)
+                }
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
+            .background(Color.white, in: .rect(cornerRadius: 10))
+            .padding(.horizontal)
+
+            if showLocationOptions {
+                VStack(spacing: 8) {
+                    HStack {
+                        Text("Paddock")
+                            .font(.subheadline)
+                            .foregroundStyle(VineyardTheme.textSecondary)
+                        Spacer()
+                        Picker("Paddock", selection: $selectedPaddockId) {
+                            Text("None").tag(UUID?.none)
+                            ForEach(store.paddocks) { paddock in
+                                Text(paddock.name).tag(UUID?.some(paddock.id))
+                            }
+                        }
+                        .labelsHidden()
+                        .tint(VineyardTheme.olive)
+                    }
+                    Divider()
+                    HStack {
+                        Text("Row")
+                            .font(.subheadline)
+                            .foregroundStyle(VineyardTheme.textSecondary)
+                        Spacer()
+                        TextField("Optional", text: $rowText)
+                            .keyboardType(.numberPad)
+                            .multilineTextAlignment(.trailing)
+                            .frame(width: 100)
+                    }
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 12)
+                .background(Color.white, in: .rect(cornerRadius: 10))
+                .padding(.horizontal)
+                .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
-        .padding(.horizontal)
+        .animation(.snappy, value: showLocationOptions)
+    }
+
+    private var gpsAvailable: Bool { locationService.location != nil }
+
+    // MARK: - Notes
+
+    private var notesField: some View {
+        TextField("Notes (optional)", text: $notes, axis: .vertical)
+            .lineLimit(1...3)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
+            .background(Color.white, in: .rect(cornerRadius: 10))
+            .padding(.horizontal)
     }
 
     // MARK: - Actions
@@ -262,7 +349,7 @@ struct PinDropView: View {
     private func handleTap(button: ButtonConfig, side: PinSide) {
         guard canCreate else { return }
 
-        if mode == .growth && button.isGrowthStageButton {
+        if currentMode == .growth && button.isGrowthStageButton {
             pendingGrowthButton = button
             pendingSide = side
             showGrowthPicker = true
@@ -286,7 +373,7 @@ struct PinDropView: View {
             notes: notes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : notes
         )
         notes = ""
-        showFeedback("Pin dropped: \(button.name) (\(side == .left ? "Left" : "Right"))", kind: .success)
+        showFeedback("Pin: \(button.name) (\(side == .left ? "L" : "R"))", kind: .success)
     }
 
     private func handleGrowthStageSelected(_ stage: GrowthStage) {
@@ -294,6 +381,7 @@ struct PinDropView: View {
             showFeedback("Waiting for GPS location.", kind: .warning)
             return
         }
+        lastGrowthStage = stage
         let rowNumber = Int(rowText.trimmingCharacters(in: .whitespacesAndNewlines))
         store.createGrowthStagePin(
             stageCode: stage.code,
@@ -316,7 +404,7 @@ struct PinDropView: View {
             feedbackKind = kind
         }
         Task {
-            try? await Task.sleep(for: .seconds(2.5))
+            try? await Task.sleep(for: .seconds(2.0))
             await MainActor.run {
                 withAnimation(.easeOut) { feedbackMessage = nil }
             }
