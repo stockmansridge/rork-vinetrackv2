@@ -7,7 +7,9 @@ final class LocationService: NSObject, CLLocationManagerDelegate {
     var location: CLLocation?
     var heading: CLHeading?
     var authorizationStatus: CLAuthorizationStatus = .notDetermined
+    var isUsingMockLocation: Bool = false
     private var isBackgroundTracking: Bool = false
+    private var mockFallbackTask: Task<Void, Never>?
 
     override init() {
         super.init()
@@ -28,6 +30,28 @@ final class LocationService: NSObject, CLLocationManagerDelegate {
     func startUpdating() {
         manager.startUpdatingLocation()
         manager.startUpdatingHeading()
+        scheduleSimulatorMockFallback()
+    }
+
+    private func scheduleSimulatorMockFallback() {
+        #if targetEnvironment(simulator)
+        mockFallbackTask?.cancel()
+        mockFallbackTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .seconds(2))
+            guard let self else { return }
+            if self.location == nil {
+                let mock = CLLocation(
+                    coordinate: CLLocationCoordinate2D(latitude: -41.2865, longitude: 174.7762),
+                    altitude: 0,
+                    horizontalAccuracy: 10,
+                    verticalAccuracy: 10,
+                    timestamp: Date()
+                )
+                self.location = mock
+                self.isUsingMockLocation = true
+            }
+        }
+        #endif
     }
 
     func stopUpdating() {
