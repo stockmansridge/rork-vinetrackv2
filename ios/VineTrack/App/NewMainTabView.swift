@@ -168,13 +168,13 @@ private struct NewHomeTabView: View {
 
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
                 NavigationLink {
-                    RepairsActionView()
+                    RepairsGrowthView(initial: .repairs)
                 } label: {
                     quickActionLabel(title: "Repairs", icon: "wrench.and.screwdriver.fill", tint: VineyardTheme.earthBrown)
                 }
                 .buttonStyle(.plain)
                 NavigationLink {
-                    GrowthObservationActionView()
+                    RepairsGrowthView(initial: .growth)
                 } label: {
                     quickActionLabel(title: "Growth", icon: "leaf.fill", tint: VineyardTheme.leafGreen)
                 }
