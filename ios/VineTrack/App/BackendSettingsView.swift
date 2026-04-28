@@ -37,6 +37,7 @@ struct BackendSettingsView: View {
                 }
                 syncSection
                 appSettingsSection
+                accountPrivacySection
                 aboutSection
 
                 #if DEBUG
@@ -459,8 +460,47 @@ struct BackendSettingsView: View {
     private var aboutSection: some View {
         Section {
             LabeledContent("Version", value: "\(appVersion) (\(appBuild))")
+            LabeledContent("Disclaimer", value: "v\(DisclaimerInfo.version)")
+            LabeledContent("Backend", value: SupabaseClientProvider.shared.isConfigured ? "Connected" : "Not configured")
         } header: {
             Text("About")
+        }
+    }
+
+    private var accountPrivacySection: some View {
+        Section {
+            if let url = URL(string: "https://vinetrack.app/privacy") {
+                Link(destination: url) {
+                    Label("Privacy Policy", systemImage: "hand.raised.fill")
+                        .foregroundStyle(.primary)
+                }
+            }
+            if let url = URL(string: "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/") {
+                Link(destination: url) {
+                    Label("Terms of Use (EULA)", systemImage: "doc.text.fill")
+                        .foregroundStyle(.primary)
+                }
+            }
+            NavigationLink {
+                DisclaimerInfoView()
+            } label: {
+                Label("Disclaimer", systemImage: "exclamationmark.shield.fill")
+            }
+            NavigationLink {
+                AccountDeletionRequestView()
+            } label: {
+                Label("Request Account Deletion", systemImage: "person.crop.circle.badge.xmark")
+                    .foregroundStyle(.red)
+            }
+        } header: {
+            HStack(spacing: 6) {
+                Image(systemName: "lock.shield.fill")
+                    .foregroundStyle(.pink)
+                    .font(.caption)
+                Text("Account & Privacy")
+            }
+        } footer: {
+            Text("Vineyard data access is controlled through your vineyard team membership.")
         }
     }
 
