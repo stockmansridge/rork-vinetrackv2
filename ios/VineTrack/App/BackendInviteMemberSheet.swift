@@ -51,7 +51,7 @@ struct BackendInviteMemberSheet: View {
                 Section {
                     HStack(alignment: .top, spacing: 10) {
                         Image(systemName: "info.circle")
-                            .foregroundStyle(.blue)
+                            .foregroundStyle(VineyardTheme.info)
                         Text("The invited person will need to sign up or log in with this email to access \(vineyardName).")
                             .font(.caption)
                             .foregroundStyle(.secondary)

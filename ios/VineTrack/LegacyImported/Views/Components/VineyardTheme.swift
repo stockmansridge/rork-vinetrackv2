@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 enum VineyardTheme {
     // Brand palette
@@ -15,7 +16,8 @@ enum VineyardTheme {
     static let success = leafGreen
     static let warning = Color.orange
     static let destructive = Color.red
-    static let info = Color.blue
+    // Info: a vineyard-aligned slate/teal — distinct from olive but never iOS system blue
+    static let info = Color(red: 0.28, green: 0.46, blue: 0.50)
 
     // Surfaces (light/clean look, adapts to dark mode through system colors)
     static let appBackground = Color(.systemGroupedBackground)
@@ -25,6 +27,68 @@ enum VineyardTheme {
     // Text
     static let textPrimary = Color.primary
     static let textSecondary = Color.secondary
+
+    // MARK: - Global Appearance
+    /// Configures UIKit appearance proxies so navigation bars, tab bars, and toolbars
+    /// match the VineTrack brand instead of falling back to default iOS system blue.
+    static func applyGlobalAppearance() {
+        let oliveUI = UIColor(olive)
+        let leafUI = UIColor(leafGreen)
+        let textUI = UIColor.label
+
+        // Navigation bar — clean white/light with dark titles and olive tint for buttons
+        let navAppearance = UINavigationBarAppearance()
+        navAppearance.configureWithOpaqueBackground()
+        navAppearance.backgroundColor = UIColor.systemBackground
+        navAppearance.shadowColor = UIColor.separator.withAlphaComponent(0.4)
+        navAppearance.titleTextAttributes = [
+            .foregroundColor: textUI,
+            .font: UIFont.systemFont(ofSize: 17, weight: .semibold)
+        ]
+        navAppearance.largeTitleTextAttributes = [
+            .foregroundColor: textUI,
+            .font: UIFont.systemFont(ofSize: 34, weight: .bold)
+        ]
+        let buttonAppearance = UIBarButtonItemAppearance()
+        buttonAppearance.normal.titleTextAttributes = [.foregroundColor: oliveUI]
+        navAppearance.buttonAppearance = buttonAppearance
+        navAppearance.backButtonAppearance = buttonAppearance
+        navAppearance.doneButtonAppearance = buttonAppearance
+
+        UINavigationBar.appearance().standardAppearance = navAppearance
+        UINavigationBar.appearance().scrollEdgeAppearance = navAppearance
+        UINavigationBar.appearance().compactAppearance = navAppearance
+        UINavigationBar.appearance().tintColor = oliveUI
+
+        // Tab bar — clean white with olive selected items
+        let tabAppearance = UITabBarAppearance()
+        tabAppearance.configureWithOpaqueBackground()
+        tabAppearance.backgroundColor = UIColor.systemBackground
+        tabAppearance.shadowColor = UIColor.separator.withAlphaComponent(0.4)
+
+        let selectedAttrs: [NSAttributedString.Key: Any] = [
+            .foregroundColor: oliveUI,
+            .font: UIFont.systemFont(ofSize: 10, weight: .semibold)
+        ]
+        let unselectedAttrs: [NSAttributedString.Key: Any] = [
+            .foregroundColor: UIColor.secondaryLabel,
+            .font: UIFont.systemFont(ofSize: 10, weight: .medium)
+        ]
+        for item in [tabAppearance.stackedLayoutAppearance, tabAppearance.inlineLayoutAppearance, tabAppearance.compactInlineLayoutAppearance] {
+            item.selected.iconColor = oliveUI
+            item.selected.titleTextAttributes = selectedAttrs
+            item.normal.iconColor = UIColor.secondaryLabel
+            item.normal.titleTextAttributes = unselectedAttrs
+        }
+        UITabBar.appearance().standardAppearance = tabAppearance
+        UITabBar.appearance().scrollEdgeAppearance = tabAppearance
+        UITabBar.appearance().tintColor = oliveUI
+        UITabBar.appearance().unselectedItemTintColor = UIColor.secondaryLabel
+
+        // Global tints for UIKit-bridged controls (UISwitch, UIRefreshControl, etc.)
+        UISwitch.appearance().onTintColor = leafUI
+        UIRefreshControl.appearance().tintColor = oliveUI
+    }
 }
 
 struct GrapeLeafIcon: View {

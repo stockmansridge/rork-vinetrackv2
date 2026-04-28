@@ -905,7 +905,7 @@ private struct HistoricalYieldDetailSheet: View {
                         HStack(spacing: 10) {
                             Image(systemName: "info.circle.fill")
                                 .font(.body)
-                                .foregroundStyle(.blue)
+                                .foregroundStyle(VineyardTheme.info)
                             VStack(alignment: .leading, spacing: 2) {
                                 Text("Enter Actual Yield")
                                     .font(.subheadline.weight(.semibold))
@@ -916,7 +916,7 @@ private struct HistoricalYieldDetailSheet: View {
                             Spacer(minLength: 0)
                         }
                         .padding(12)
-                        .background(Color.blue.opacity(0.1), in: .rect(cornerRadius: 12))
+                        .background(VineyardTheme.info.opacity(0.1), in: .rect(cornerRadius: 12))
                     }
 
                     VStack(alignment: .leading, spacing: 10) {
@@ -1023,7 +1023,7 @@ private struct HistoricalYieldDetailSheet: View {
                     if let actual = block.actualYieldTonnes {
                         Text(String(format: "%.2f t", actual))
                             .font(.subheadline.weight(.bold))
-                            .foregroundStyle(.blue)
+                            .foregroundStyle(VineyardTheme.info)
                         if let perHa = block.actualYieldPerHectare {
                             Text(String(format: "%.2f t/Ha", perHa))
                                 .font(.caption2)
@@ -1036,7 +1036,7 @@ private struct HistoricalYieldDetailSheet: View {
                             Text("Tap to add")
                                 .font(.subheadline.weight(.medium))
                         }
-                        .foregroundStyle(.blue)
+                        .foregroundStyle(VineyardTheme.info)
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -1162,7 +1162,7 @@ private struct EditActualYieldSheet: View {
                             Text("Yield / Ha")
                             Spacer()
                             Text(String(format: "%.2f t/Ha", parsed / block.areaHectares))
-                                .foregroundStyle(.blue)
+                                .foregroundStyle(VineyardTheme.info)
                         }
                         let variance = parsed - block.yieldTonnes
                         HStack {

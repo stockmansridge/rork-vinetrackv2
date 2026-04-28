@@ -882,7 +882,7 @@ struct PinDirectionsSheet: View {
                     Spacer()
                     Image(systemName: "location.north.line")
                         .font(.title2)
-                        .foregroundStyle(.blue)
+                        .foregroundStyle(VineyardTheme.info)
                         .rotationEffect(.degrees(bearingToPin()))
                 }
                 .padding()

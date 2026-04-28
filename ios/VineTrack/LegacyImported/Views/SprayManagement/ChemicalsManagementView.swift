@@ -101,8 +101,8 @@ struct ChemicalDetailRow: View {
                                 .font(.caption2.weight(.semibold))
                                 .padding(.horizontal, 7)
                                 .padding(.vertical, 3)
-                                .background(Color.blue.opacity(0.12))
-                                .foregroundStyle(.blue)
+                                .background(VineyardTheme.info.opacity(0.12))
+                                .foregroundStyle(VineyardTheme.info)
                                 .clipShape(Capsule())
                         }
                     }

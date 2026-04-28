@@ -455,7 +455,7 @@ struct RecordDamageView: View {
                             .foregroundStyle(.secondary)
                         Text(String(format: "%.2f Ha", paddock.areaHectares))
                             .font(.subheadline.weight(.bold))
-                            .foregroundStyle(.blue)
+                            .foregroundStyle(VineyardTheme.info)
                     }
 
                     Divider().frame(height: 30)

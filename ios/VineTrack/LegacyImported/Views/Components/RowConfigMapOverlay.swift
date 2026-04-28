@@ -94,7 +94,7 @@ struct RowConfigMapOverlay: View {
                 Spacer()
                 Text("\(String(format: "%.1f", rowDirection))\u{00B0}")
                     .font(.system(.subheadline, design: .monospaced).weight(.semibold))
-                    .foregroundStyle(.blue)
+                    .foregroundStyle(VineyardTheme.info)
             }
             HStack(spacing: 12) {
                 Button {
@@ -131,7 +131,7 @@ struct RowConfigMapOverlay: View {
                 } label: {
                     Image(systemName: "minus.circle.fill")
                         .font(.title2)
-                        .foregroundStyle(.blue)
+                        .foregroundStyle(VineyardTheme.info)
                 }
                 .disabled(rowCount <= 0)
 
@@ -144,7 +144,7 @@ struct RowConfigMapOverlay: View {
                 } label: {
                     Image(systemName: "plus.circle.fill")
                         .font(.title2)
-                        .foregroundStyle(.blue)
+                        .foregroundStyle(VineyardTheme.info)
                 }
                 .disabled(rowCount >= 500)
             }
@@ -159,7 +159,7 @@ struct RowConfigMapOverlay: View {
                 Spacer()
                 Text("\(rowWidth, specifier: "%.1f") m")
                     .font(.system(.subheadline, design: .monospaced).weight(.semibold))
-                    .foregroundStyle(.blue)
+                    .foregroundStyle(VineyardTheme.info)
             }
             Slider(value: $rowWidth, in: 0.0...4.0, step: 0.1)
         }
@@ -173,7 +173,7 @@ struct RowConfigMapOverlay: View {
                 Spacer()
                 Text("\(rowOffset, specifier: "%.1f") m")
                     .font(.system(.subheadline, design: .monospaced).weight(.semibold))
-                    .foregroundStyle(.blue)
+                    .foregroundStyle(VineyardTheme.info)
             }
             HStack(spacing: 12) {
                 Button {
@@ -202,7 +202,7 @@ struct RowConfigMapOverlay: View {
                 } label: {
                     Text("Reset")
                         .font(.caption)
-                        .foregroundStyle(.blue)
+                        .foregroundStyle(VineyardTheme.info)
                 }
                 Spacer()
             }
@@ -218,7 +218,7 @@ struct RowConfigMapOverlay: View {
                 Stepper(value: $rowStartNumber, in: 1...9999) {
                     Text("Start: \(rowStartNumber)")
                         .font(.system(.subheadline, design: .monospaced).weight(.semibold))
-                        .foregroundStyle(.blue)
+                        .foregroundStyle(VineyardTheme.info)
                 }
                 .fixedSize()
             }
@@ -233,13 +233,13 @@ struct RowConfigMapOverlay: View {
                             .foregroundStyle(.secondary)
                         Text("Row \(computedFirstRowNumber)")
                             .font(.caption.weight(.semibold))
-                            .foregroundStyle(.blue)
+                            .foregroundStyle(VineyardTheme.info)
                     }
                     .frame(maxWidth: .infinity)
 
                     Image(systemName: "arrow.left.arrow.right")
                         .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(.blue)
+                        .foregroundStyle(VineyardTheme.info)
                         .frame(width: 36, height: 36)
                         .background(Color(.tertiarySystemFill), in: Circle())
 
@@ -249,7 +249,7 @@ struct RowConfigMapOverlay: View {
                             .foregroundStyle(.secondary)
                         Text("Row \(computedLastRowNumber)")
                             .font(.caption.weight(.semibold))
-                            .foregroundStyle(.blue)
+                            .foregroundStyle(VineyardTheme.info)
                     }
                     .frame(maxWidth: .infinity)
                 }

@@ -100,7 +100,7 @@ struct SprayManagementSettingsView: View {
                     } label: {
                         Image(systemName: "info.circle")
                             .font(.subheadline)
-                            .foregroundStyle(.blue)
+                            .foregroundStyle(VineyardTheme.info)
                     }
                 }
             } footer: {

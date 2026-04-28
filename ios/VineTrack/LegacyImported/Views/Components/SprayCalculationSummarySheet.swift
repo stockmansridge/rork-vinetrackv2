@@ -85,7 +85,7 @@ struct SprayCalculationSummarySheet: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 6) {
                 Image(systemName: "drop.fill")
-                    .foregroundStyle(.blue)
+                    .foregroundStyle(VineyardTheme.info)
                 Text("Overview")
                     .font(.subheadline.weight(.semibold))
             }
@@ -132,7 +132,7 @@ struct SprayCalculationSummarySheet: View {
                 HStack(spacing: 8) {
                     Image(systemName: "drop.circle.fill")
                         .font(.title3)
-                        .foregroundStyle(.blue)
+                        .foregroundStyle(VineyardTheme.info)
                     Text("Tank \(tankNumber)")
                         .font(.headline)
                 }

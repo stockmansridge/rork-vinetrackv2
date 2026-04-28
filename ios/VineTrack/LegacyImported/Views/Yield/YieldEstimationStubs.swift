@@ -110,7 +110,7 @@ struct FullScreenPathMapView: View {
 
                 if pathWaypoints.count >= 2 {
                     MapPolyline(coordinates: pathWaypoints.map { $0.coordinate })
-                        .stroke(Color.blue, lineWidth: 3)
+                        .stroke(VineyardTheme.info, lineWidth: 3)
                 }
             }
             .mapStyle(.hybrid)

@@ -108,7 +108,7 @@ struct BoundaryMapEditor: View {
 
                 Image(systemName: "plus")
                     .font(.title3.weight(.bold))
-                    .foregroundStyle(.blue)
+                    .foregroundStyle(VineyardTheme.info)
                     .frame(width: 12, height: 12)
                     .allowsHitTesting(false)
 
@@ -220,7 +220,7 @@ private struct MidpointHandle: View {
                 .shadow(color: .black.opacity(0.2), radius: 3)
             Image(systemName: "plus")
                 .font(.caption2.bold())
-                .foregroundStyle(.blue)
+                .foregroundStyle(VineyardTheme.info)
         }
         .frame(width: 44, height: 44)
         .contentShape(Circle())

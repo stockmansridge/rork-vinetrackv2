@@ -197,7 +197,7 @@ struct EditPaddockSheet: View {
                     Spacer()
                     Text("\(String(format: "%.1f", rowDirection))\u{00B0}")
                         .font(.system(.subheadline, design: .monospaced).weight(.semibold))
-                        .foregroundStyle(.blue)
+                        .foregroundStyle(VineyardTheme.info)
                 }
                 HStack(spacing: 12) {
                     Button {
@@ -205,7 +205,7 @@ struct EditPaddockSheet: View {
                     } label: {
                         Image(systemName: "minus.circle.fill")
                             .font(.title3)
-                            .foregroundStyle(.blue)
+                            .foregroundStyle(VineyardTheme.info)
                     }
                     .buttonStyle(.plain)
 
@@ -216,7 +216,7 @@ struct EditPaddockSheet: View {
                     } label: {
                         Image(systemName: "plus.circle.fill")
                             .font(.title3)
-                            .foregroundStyle(.blue)
+                            .foregroundStyle(VineyardTheme.info)
                     }
                     .buttonStyle(.plain)
                 }
@@ -245,7 +245,7 @@ struct EditPaddockSheet: View {
                     } label: {
                         Image(systemName: "arrow.left.circle.fill")
                             .font(.title3)
-                            .foregroundStyle(.blue)
+                            .foregroundStyle(VineyardTheme.info)
                     }
                     .buttonStyle(.plain)
 
@@ -256,7 +256,7 @@ struct EditPaddockSheet: View {
                     } label: {
                         Image(systemName: "arrow.right.circle.fill")
                             .font(.title3)
-                            .foregroundStyle(.blue)
+                            .foregroundStyle(VineyardTheme.info)
                     }
                     .buttonStyle(.plain)
                 }
@@ -373,11 +373,11 @@ struct EditPaddockSheet: View {
                 HStack {
                     Label("ML/ha/hr", systemImage: "drop.fill")
                         .font(.subheadline)
-                        .foregroundStyle(.blue)
+                        .foregroundStyle(VineyardTheme.info)
                     Spacer()
                     Text(String(format: "%.4f", mlPerHaHr))
                         .font(.system(.subheadline, design: .monospaced).weight(.semibold))
-                        .foregroundStyle(.blue)
+                        .foregroundStyle(VineyardTheme.info)
                 }
 
                 HStack {
@@ -393,7 +393,7 @@ struct EditPaddockSheet: View {
         } header: {
             HStack(spacing: 6) {
                 Image(systemName: "drop.circle.fill")
-                    .foregroundStyle(.blue)
+                    .foregroundStyle(VineyardTheme.info)
                     .font(.caption)
                 Text("Irrigation")
             }
@@ -541,7 +541,7 @@ struct EditPaddockSheet: View {
                     }
                 } label: {
                     Label("Add Variety", systemImage: "plus.circle")
-                        .foregroundStyle(.blue)
+                        .foregroundStyle(VineyardTheme.info)
                 }
             }
         } header: {
@@ -631,7 +631,7 @@ struct EditPaddockSheet: View {
                 Spacer()
                 Text("\(estimatedVines)")
                     .font(.system(.subheadline, design: .monospaced).weight(.semibold))
-                    .foregroundStyle(.blue)
+                    .foregroundStyle(VineyardTheme.info)
             }
 
             VStack(alignment: .leading, spacing: 8) {
@@ -684,7 +684,7 @@ struct EditPaddockSheet: View {
         } header: {
             HStack(spacing: 6) {
                 Image(systemName: "chart.bar.fill")
-                    .foregroundStyle(.blue)
+                    .foregroundStyle(VineyardTheme.info)
                     .font(.caption)
                 Text("Block Summary")
             }

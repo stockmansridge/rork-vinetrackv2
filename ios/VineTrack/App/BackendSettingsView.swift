@@ -358,7 +358,7 @@ struct BackendSettingsView: View {
         } header: {
             HStack(spacing: 6) {
                 Image(systemName: "icloud.and.arrow.up")
-                    .foregroundStyle(.blue)
+                    .foregroundStyle(VineyardTheme.info)
                     .font(.caption)
                 Text("Sync")
             }

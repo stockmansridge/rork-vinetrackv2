@@ -22,6 +22,10 @@ struct VineTrackApp: App {
     @State private var sprayRecordSyncService = SprayRecordSyncService()
     @State private var buttonConfigSyncService = ButtonConfigSyncService()
 
+    init() {
+        VineyardTheme.applyGlobalAppearance()
+    }
+
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([Item.self])
         let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
@@ -52,6 +56,7 @@ struct VineTrackApp: App {
                     ContentView()
                 }
             }
+            .tint(VineyardTheme.olive)
         }
         .modelContainer(sharedModelContainer)
     }
