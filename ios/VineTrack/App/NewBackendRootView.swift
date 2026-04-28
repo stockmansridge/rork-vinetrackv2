@@ -50,6 +50,11 @@ struct NewBackendRootView: View {
                 didCheckDisclaimer = false
             }
         }
+        .task(id: store.selectedVineyardId) {
+            if store.selectedVineyardId != nil {
+                DefaultDataSeeder.seedIfNeeded(store: store)
+            }
+        }
     }
 
     private var loadingView: some View {

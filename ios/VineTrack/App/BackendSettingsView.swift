@@ -30,13 +30,31 @@ struct BackendSettingsView: View {
                 if let vineyard = store.selectedVineyard {
                     teamSection(vineyard: vineyard)
                 }
-                vineyardSetupSection
-                operationsSection
-                if accessControl.canChangeSettings {
-                    managementSection
+
+                Section {
+                    NavigationLink {
+                        SetupManagementHubView()
+                    } label: {
+                        Label("Setup & Management", systemImage: "slider.horizontal.below.rectangle")
+                    }
+                    NavigationLink {
+                        OperationsHubView()
+                    } label: {
+                        Label("Operations", systemImage: "rectangle.stack.fill")
+                    }
+                    NavigationLink {
+                        PreferencesHubView()
+                    } label: {
+                        Label("Preferences", systemImage: "slider.horizontal.3")
+                    }
                 }
-                syncSection
-                appSettingsSection
+
+                NavigationLink {
+                    SyncSettingsView()
+                } label: {
+                    Label("Sync", systemImage: "icloud.and.arrow.up")
+                }
+
                 accountPrivacySection
                 aboutSection
 
@@ -73,12 +91,7 @@ struct BackendSettingsView: View {
             LabeledContent("Name", value: auth.userName ?? "—")
             LabeledContent("Email", value: auth.userEmail ?? "—")
         } header: {
-            HStack(spacing: 6) {
-                Image(systemName: "person.fill")
-                    .foregroundStyle(.gray)
-                    .font(.caption)
-                Text("Account")
-            }
+            Text("Account")
         }
     }
 
@@ -143,12 +156,7 @@ struct BackendSettingsView: View {
                     .foregroundStyle(.secondary)
             }
         } header: {
-            HStack(spacing: 6) {
-                Image(systemName: "building.2.fill")
-                    .foregroundStyle(VineyardTheme.leafGreen)
-                    .font(.caption)
-                Text("Vineyard")
-            }
+            Text("Vineyard")
         }
     }
 
@@ -159,299 +167,13 @@ struct BackendSettingsView: View {
             } label: {
                 Label("Team & Access", systemImage: "person.2.fill")
             }
-
             NavigationLink {
                 RolesPermissionsInfoView()
             } label: {
                 Label("Roles & Permissions", systemImage: "person.badge.shield.checkmark.fill")
             }
         } header: {
-            HStack(spacing: 6) {
-                Image(systemName: "person.2.fill")
-                    .foregroundStyle(.purple)
-                    .font(.caption)
-                Text("Team")
-            }
-        }
-    }
-
-    private var vineyardSetupSection: some View {
-        Section {
-            NavigationLink {
-                BlocksHubView()
-            } label: {
-                Label("Blocks / Paddocks", systemImage: "square.grid.2x2.fill")
-            }
-            NavigationLink {
-                GrapeVarietyManagementView()
-            } label: {
-                Label { Text("Grape Varieties") } icon: { GrapeLeafIcon(size: 16) }
-            }
-        } header: {
-            HStack(spacing: 6) {
-                Image(systemName: "square.grid.2x2.fill")
-                    .foregroundStyle(VineyardTheme.leafGreen)
-                    .font(.caption)
-                Text("Vineyard Setup")
-            }
-        }
-    }
-
-    private var operationsSection: some View {
-        Section {
-            NavigationLink {
-                OperationsHubView()
-            } label: {
-                Label("Operations Hub", systemImage: "rectangle.stack.fill")
-            }
-            NavigationLink {
-                WorkTasksHubView()
-            } label: {
-                Label("Work Tasks", systemImage: "checklist")
-            }
-            NavigationLink {
-                MaintenanceLogListView()
-            } label: {
-                Label("Maintenance", systemImage: "wrench.and.screwdriver.fill")
-            }
-            NavigationLink {
-                YieldHubView()
-            } label: {
-                Label("Yield & Damage", systemImage: "scalemass.fill")
-            }
-            NavigationLink {
-                GrowthStageReportView()
-            } label: {
-                Label { Text("Growth Stage") } icon: { GrapeLeafIcon(size: 16) }
-            }
-        } header: {
-            HStack(spacing: 6) {
-                Image(systemName: "wrench.and.screwdriver.fill")
-                    .foregroundStyle(VineyardTheme.earthBrown)
-                    .font(.caption)
-                Text("Operations")
-            }
-        }
-    }
-
-    private var managementSection: some View {
-        Section {
-            NavigationLink {
-                SprayManagementSettingsView()
-            } label: {
-                Label("Spray Management", systemImage: "flask.fill")
-            }
-            NavigationLink {
-                EquipmentManagementView()
-            } label: {
-                Label("Equipment & Tractors", systemImage: "wrench.and.screwdriver")
-            }
-            NavigationLink {
-                OperatorCategoriesView()
-            } label: {
-                Label("Operators & Costs", systemImage: "person.badge.clock")
-            }
-            NavigationLink {
-                GrapeVarietyManagementView()
-            } label: {
-                Label { Text("Grape Varieties") } icon: { GrapeLeafIcon(size: 16) }
-            }
-            NavigationLink {
-                ButtonsAndQuickActionsView()
-            } label: {
-                Label("Buttons & Quick Actions", systemImage: "square.grid.2x2")
-            }
-        } header: {
-            HStack(spacing: 6) {
-                Image(systemName: "slider.horizontal.below.rectangle")
-                    .foregroundStyle(.orange)
-                    .font(.caption)
-                Text("Management")
-            }
-        } footer: {
-            Text("Manage saved chemicals, equipment, operators, varieties, and button workflows.")
-        }
-    }
-
-    private var syncSection: some View {
-        Section {
-            Button {
-                Task { await pinSync.syncPinsForSelectedVineyard() }
-            } label: {
-                HStack {
-                    Label("Sync Pins", systemImage: "arrow.triangle.2.circlepath")
-                        .foregroundStyle(.primary)
-                    Spacer()
-                    if case .syncing = pinSync.syncStatus {
-                        ProgressView()
-                    }
-                }
-            }
-            .disabled({ if case .syncing = pinSync.syncStatus { return true } else { return false } }())
-
-            syncStatusLine(label: "pins", status: pinSync.syncStatus, lastSync: pinSync.lastSyncDate)
-
-            Button {
-                Task { await paddockSync.syncPaddocksForSelectedVineyard() }
-            } label: {
-                HStack {
-                    Label("Sync Paddocks", systemImage: "square.grid.2x2")
-                        .foregroundStyle(.primary)
-                    Spacer()
-                    if case .syncing = paddockSync.syncStatus {
-                        ProgressView()
-                    }
-                }
-            }
-            .disabled({ if case .syncing = paddockSync.syncStatus { return true } else { return false } }())
-
-            syncStatusLine(label: "paddocks", status: paddockSync.syncStatus, lastSync: paddockSync.lastSyncDate)
-
-            Button {
-                Task { await tripSync.syncTripsForSelectedVineyard() }
-            } label: {
-                HStack {
-                    Label("Sync Trips", systemImage: "map")
-                        .foregroundStyle(.primary)
-                    Spacer()
-                    if case .syncing = tripSync.syncStatus {
-                        ProgressView()
-                    }
-                }
-            }
-            .disabled({ if case .syncing = tripSync.syncStatus { return true } else { return false } }())
-
-            syncStatusLine(label: "trips", status: tripSync.syncStatus, lastSync: tripSync.lastSyncDate)
-
-            Button {
-                Task { await sprayRecordSync.syncSprayRecordsForSelectedVineyard() }
-            } label: {
-                HStack {
-                    Label("Sync Spray Records", systemImage: "drop.fill")
-                        .foregroundStyle(.primary)
-                    Spacer()
-                    if case .syncing = sprayRecordSync.syncStatus {
-                        ProgressView()
-                    }
-                }
-            }
-            .disabled({ if case .syncing = sprayRecordSync.syncStatus { return true } else { return false } }())
-
-            syncStatusLine(label: "spray records", status: sprayRecordSync.syncStatus, lastSync: sprayRecordSync.lastSyncDate)
-
-            Button {
-                Task { await buttonConfigSync.syncButtonConfigForSelectedVineyard() }
-            } label: {
-                HStack {
-                    Label("Sync Button Config", systemImage: "square.grid.2x2")
-                        .foregroundStyle(.primary)
-                    Spacer()
-                    if case .syncing = buttonConfigSync.syncStatus {
-                        ProgressView()
-                    }
-                }
-            }
-            .disabled({ if case .syncing = buttonConfigSync.syncStatus { return true } else { return false } }())
-
-            syncStatusLine(label: "button config", status: buttonConfigSync.syncStatus, lastSync: buttonConfigSync.lastSyncDate)
-        } header: {
-            HStack(spacing: 6) {
-                Image(systemName: "icloud.and.arrow.up")
-                    .foregroundStyle(VineyardTheme.info)
-                    .font(.caption)
-                Text("Sync")
-            }
-        } footer: {
-            Text("Pins, paddocks, trips, and spray records sync to Supabase. Other data stays on this device for now.")
-        }
-    }
-
-    private func syncStatusLine(label: String, status: PinSyncService.Status, lastSync: Date?) -> some View {
-        VineyardSyncStatusRow(label: label, state: pinStateFrom(status, lastSync: lastSync))
-    }
-
-    private func syncStatusLine(label: String, status: TripSyncService.Status, lastSync: Date?) -> some View {
-        VineyardSyncStatusRow(label: label, state: tripStateFrom(status, lastSync: lastSync))
-    }
-
-    private func syncStatusLine(label: String, status: PaddockSyncService.Status, lastSync: Date?) -> some View {
-        VineyardSyncStatusRow(label: label, state: paddockStateFrom(status, lastSync: lastSync))
-    }
-
-    private func syncStatusLine(label: String, status: SprayRecordSyncService.Status, lastSync: Date?) -> some View {
-        VineyardSyncStatusRow(label: label, state: sprayStateFrom(status, lastSync: lastSync))
-    }
-
-    private func pinStateFrom(_ status: PinSyncService.Status, lastSync: Date?) -> VineyardSyncState {
-        switch status {
-        case .idle: return .idle
-        case .syncing: return .syncing
-        case .success: return .success(lastSync)
-        case .failure(let m): return .failure(m)
-        }
-    }
-    private func tripStateFrom(_ status: TripSyncService.Status, lastSync: Date?) -> VineyardSyncState {
-        switch status {
-        case .idle: return .idle
-        case .syncing: return .syncing
-        case .success: return .success(lastSync)
-        case .failure(let m): return .failure(m)
-        }
-    }
-    private func paddockStateFrom(_ status: PaddockSyncService.Status, lastSync: Date?) -> VineyardSyncState {
-        switch status {
-        case .idle: return .idle
-        case .syncing: return .syncing
-        case .success: return .success(lastSync)
-        case .failure(let m): return .failure(m)
-        }
-    }
-    private func sprayStateFrom(_ status: SprayRecordSyncService.Status, lastSync: Date?) -> VineyardSyncState {
-        switch status {
-        case .idle: return .idle
-        case .syncing: return .syncing
-        case .success: return .success(lastSync)
-        case .failure(let m): return .failure(m)
-        }
-    }
-    private func syncStatusLine(label: String, status: ButtonConfigSyncService.Status, lastSync: Date?) -> some View {
-        VineyardSyncStatusRow(label: label, state: buttonConfigStateFrom(status, lastSync: lastSync))
-    }
-    private func buttonConfigStateFrom(_ status: ButtonConfigSyncService.Status, lastSync: Date?) -> VineyardSyncState {
-        switch status {
-        case .idle: return .idle
-        case .syncing: return .syncing
-        case .success: return .success(lastSync)
-        case .failure(let m): return .failure(m)
-        }
-    }
-
-    private var appSettingsSection: some View {
-        Section {
-            NavigationLink {
-                CalculationSettingsView()
-            } label: {
-                Label("Canopy Water Rates", systemImage: "drop.triangle.fill")
-            }
-
-            NavigationLink {
-                YieldSettingsView()
-            } label: {
-                Label("Yield Settings", systemImage: "scalemass")
-            }
-
-            NavigationLink {
-                LocalPreferencesView()
-            } label: {
-                Label("Preferences", systemImage: "slider.horizontal.3")
-            }
-        } header: {
-            HStack(spacing: 6) {
-                Image(systemName: "gearshape.fill")
-                    .foregroundStyle(.indigo)
-                    .font(.caption)
-                Text("App Settings")
-            }
+            Text("Team")
         }
     }
 
@@ -491,14 +213,7 @@ struct BackendSettingsView: View {
                     .foregroundStyle(.red)
             }
         } header: {
-            HStack(spacing: 6) {
-                Image(systemName: "lock.shield.fill")
-                    .foregroundStyle(.pink)
-                    .font(.caption)
-                Text("Account & Privacy")
-            }
-        } footer: {
-            Text("Vineyard data access is controlled through your vineyard team membership.")
+            Text("Account & Privacy")
         }
     }
 
@@ -558,111 +273,118 @@ struct BackendSettingsView: View {
     }
 }
 
-// MARK: - Local Preferences
+// MARK: - Sync Settings (extracted)
 
-private struct LocalPreferencesView: View {
-    @Environment(MigratedDataStore.self) private var store
-    @State private var samplesPerHectareText: String = ""
-    @State private var fillTimerEnabled: Bool = true
-    @State private var elConfirmationEnabled: Bool = true
-    @State private var seasonFuelCostText: String = ""
-    @State private var showGrowthStages: Bool = false
+struct SyncSettingsView: View {
+    @Environment(PinSyncService.self) private var pinSync
+    @Environment(PaddockSyncService.self) private var paddockSync
+    @Environment(TripSyncService.self) private var tripSync
+    @Environment(SprayRecordSyncService.self) private var sprayRecordSync
+    @Environment(ButtonConfigSyncService.self) private var buttonConfigSync
 
     var body: some View {
         Form {
             Section {
-                Toggle("Spray Fill Timer", isOn: $fillTimerEnabled)
-                    .onChange(of: fillTimerEnabled) { _, newValue in
-                        var s = store.settings
-                        s.fillTimerEnabled = newValue
-                        store.updateSettings(s)
-                    }
-
-                Toggle("Confirm E-L Stage", isOn: $elConfirmationEnabled)
-                    .onChange(of: elConfirmationEnabled) { _, newValue in
-                        var s = store.settings
-                        s.elConfirmationEnabled = newValue
-                        store.updateSettings(s)
-                    }
-            } header: {
-                Text("Behaviour")
-            }
-
-            Section {
-                HStack {
-                    Text("Samples per Hectare")
-                    Spacer()
-                    TextField("0", text: $samplesPerHectareText)
-                        .keyboardType(.numberPad)
-                        .multilineTextAlignment(.trailing)
-                        .frame(width: 80)
-                        .onSubmit { saveSamples() }
-                }
-
-                HStack {
-                    Text("Fuel Cost (per L)")
-                    Spacer()
-                    TextField("0", text: $seasonFuelCostText)
-                        .keyboardType(.decimalPad)
-                        .multilineTextAlignment(.trailing)
-                        .frame(width: 80)
-                        .onSubmit { saveFuelCost() }
-                }
-            } header: {
-                Text("Defaults")
-            }
-
-            Section {
                 Button {
-                    showGrowthStages = true
+                    Task { await pinSync.syncPinsForSelectedVineyard() }
                 } label: {
-                    HStack {
-                        Label { Text("Enabled E-L Stages") } icon: { GrapeLeafIcon(size: 16) }
-                            .foregroundStyle(.primary)
-                        Spacer()
-                        Text("\(store.settings.enabledGrowthStageCodes.count)")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
+                    syncButtonLabel(title: "Sync Pins", icon: "mappin.and.ellipse", isSyncing: isSyncing(pinSync.syncStatus))
                 }
-                NavigationLink {
-                    GrowthStageImagesSettingsView()
+                .disabled(isSyncing(pinSync.syncStatus))
+                VineyardSyncStatusRow(label: "pins", state: pinStateFrom(pinSync.syncStatus, lastSync: pinSync.lastSyncDate))
+
+                Button {
+                    Task { await paddockSync.syncPaddocksForSelectedVineyard() }
                 } label: {
-                    Label("E-L Stage Images", systemImage: "photo.on.rectangle.angled")
+                    syncButtonLabel(title: "Sync Paddocks", icon: "square.grid.2x2", isSyncing: isSyncing(paddockSync.syncStatus))
                 }
-                NavigationLink {
-                    GrowthStageReportView()
+                .disabled(isSyncing(paddockSync.syncStatus))
+                VineyardSyncStatusRow(label: "paddocks", state: paddockStateFrom(paddockSync.syncStatus, lastSync: paddockSync.lastSyncDate))
+
+                Button {
+                    Task { await tripSync.syncTripsForSelectedVineyard() }
                 } label: {
-                    Label("Growth Stage Report", systemImage: "chart.bar.doc.horizontal")
+                    syncButtonLabel(title: "Sync Trips", icon: "map", isSyncing: isSyncing(tripSync.syncStatus))
                 }
-            } header: {
-                Text("Phenology")
+                .disabled(isSyncing(tripSync.syncStatus))
+                VineyardSyncStatusRow(label: "trips", state: tripStateFrom(tripSync.syncStatus, lastSync: tripSync.lastSyncDate))
+
+                Button {
+                    Task { await sprayRecordSync.syncSprayRecordsForSelectedVineyard() }
+                } label: {
+                    syncButtonLabel(title: "Sync Spray Records", icon: "drop.fill", isSyncing: isSyncing(sprayRecordSync.syncStatus))
+                }
+                .disabled(isSyncing(sprayRecordSync.syncStatus))
+                VineyardSyncStatusRow(label: "spray records", state: sprayStateFrom(sprayRecordSync.syncStatus, lastSync: sprayRecordSync.lastSyncDate))
+
+                Button {
+                    Task { await buttonConfigSync.syncButtonConfigForSelectedVineyard() }
+                } label: {
+                    syncButtonLabel(title: "Sync Button Config", icon: "square.grid.2x2", isSyncing: isSyncing(buttonConfigSync.syncStatus))
+                }
+                .disabled(isSyncing(buttonConfigSync.syncStatus))
+                VineyardSyncStatusRow(label: "button config", state: buttonConfigStateFrom(buttonConfigSync.syncStatus, lastSync: buttonConfigSync.lastSyncDate))
+            } footer: {
+                Text("Pins, paddocks, trips, spray records, and button config sync to Supabase. Other data stays on this device for now.")
             }
         }
-        .navigationTitle("Preferences")
+        .navigationTitle("Sync")
         .navigationBarTitleDisplayMode(.inline)
-        .sheet(isPresented: $showGrowthStages) {
-            GrowthStageConfigSheet()
-        }
-        .onAppear {
-            samplesPerHectareText = String(store.settings.samplesPerHectare)
-            fillTimerEnabled = store.settings.fillTimerEnabled
-            elConfirmationEnabled = store.settings.elConfirmationEnabled
-            seasonFuelCostText = String(format: "%.2f", store.settings.seasonFuelCostPerLitre)
+    }
+
+    private func syncButtonLabel(title: String, icon: String, isSyncing: Bool) -> some View {
+        HStack {
+            Label(title, systemImage: icon)
+                .foregroundStyle(.primary)
+            Spacer()
+            if isSyncing { ProgressView() }
         }
     }
 
-    private func saveSamples() {
-        guard let v = Int(samplesPerHectareText), v > 0 else { return }
-        var s = store.settings
-        s.samplesPerHectare = v
-        store.updateSettings(s)
-    }
+    private func isSyncing(_ status: PinSyncService.Status) -> Bool { if case .syncing = status { return true }; return false }
+    private func isSyncing(_ status: PaddockSyncService.Status) -> Bool { if case .syncing = status { return true }; return false }
+    private func isSyncing(_ status: TripSyncService.Status) -> Bool { if case .syncing = status { return true }; return false }
+    private func isSyncing(_ status: SprayRecordSyncService.Status) -> Bool { if case .syncing = status { return true }; return false }
+    private func isSyncing(_ status: ButtonConfigSyncService.Status) -> Bool { if case .syncing = status { return true }; return false }
 
-    private func saveFuelCost() {
-        guard let v = Double(seasonFuelCostText), v >= 0 else { return }
-        var s = store.settings
-        s.seasonFuelCostPerLitre = v
-        store.updateSettings(s)
+    private func pinStateFrom(_ status: PinSyncService.Status, lastSync: Date?) -> VineyardSyncState {
+        switch status {
+        case .idle: return .idle
+        case .syncing: return .syncing
+        case .success: return .success(lastSync)
+        case .failure(let m): return .failure(m)
+        }
+    }
+    private func tripStateFrom(_ status: TripSyncService.Status, lastSync: Date?) -> VineyardSyncState {
+        switch status {
+        case .idle: return .idle
+        case .syncing: return .syncing
+        case .success: return .success(lastSync)
+        case .failure(let m): return .failure(m)
+        }
+    }
+    private func paddockStateFrom(_ status: PaddockSyncService.Status, lastSync: Date?) -> VineyardSyncState {
+        switch status {
+        case .idle: return .idle
+        case .syncing: return .syncing
+        case .success: return .success(lastSync)
+        case .failure(let m): return .failure(m)
+        }
+    }
+    private func sprayStateFrom(_ status: SprayRecordSyncService.Status, lastSync: Date?) -> VineyardSyncState {
+        switch status {
+        case .idle: return .idle
+        case .syncing: return .syncing
+        case .success: return .success(lastSync)
+        case .failure(let m): return .failure(m)
+        }
+    }
+    private func buttonConfigStateFrom(_ status: ButtonConfigSyncService.Status, lastSync: Date?) -> VineyardSyncState {
+        switch status {
+        case .idle: return .idle
+        case .syncing: return .syncing
+        case .success: return .success(lastSync)
+        case .failure(let m): return .failure(m)
+        }
     }
 }
