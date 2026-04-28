@@ -17,6 +17,9 @@ struct NewMainTabView: View {
             PinsView()
                 .tabItem { Label("Pins", systemImage: "mappin.and.ellipse") }
 
+            TripView()
+                .tabItem { Label("Trip", systemImage: "road.lanes") }
+
             NewSettingsTabView()
                 .tabItem { Label("Settings", systemImage: "gearshape.fill") }
         }

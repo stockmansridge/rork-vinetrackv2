@@ -1,0 +1,204 @@
+import SwiftUI
+import MapKit
+
+struct TripDetailView: View {
+    let trip: Trip
+    @Environment(MigratedDataStore.self) private var store
+    @Environment(\.dismiss) private var dismiss
+    @State private var showSummary: Bool = false
+    @State private var showDeleteConfirmation: Bool = false
+    @State private var position: MapCameraPosition = .automatic
+
+    private var sprayRecord: SprayRecord? {
+        store.sprayRecords.first { $0.tripId == trip.id }
+    }
+
+    private var pinsForTrip: [VinePin] {
+        store.pins.filter { $0.tripId == trip.id }
+    }
+
+    private var displayName: String {
+        if let record = sprayRecord, !record.sprayReference.isEmpty {
+            return record.sprayReference
+        }
+        let dateStr = trip.startTime.formatted(date: .abbreviated, time: .omitted)
+        return "Maintenance Trip \(dateStr)"
+    }
+
+    var body: some View {
+        List {
+            Section {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(displayName)
+                        .font(.title2.weight(.semibold))
+                        .foregroundStyle(VineyardTheme.olive)
+                    Label(trip.startTime.formatted(date: .abbreviated, time: .shortened), systemImage: "calendar")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                    if let endTime = trip.endTime {
+                        Label("Ended \(endTime.formatted(date: .abbreviated, time: .shortened))", systemImage: "flag.checkered")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    } else if trip.isActive {
+                        Label("Active", systemImage: "circle.fill")
+                            .font(.subheadline)
+                            .foregroundStyle(.green)
+                    }
+                }
+                .padding(.vertical, 4)
+            }
+
+            Section("Stats") {
+                statRow("Duration", value: formatDuration(trip.activeDuration), icon: "clock")
+                statRow("Distance", value: formatDistance(trip.totalDistance), icon: "point.topleft.down.to.point.bottomright.curvepath")
+                if !trip.paddockName.isEmpty {
+                    statRow("Paddock", value: trip.paddockName, icon: "leaf")
+                }
+                if !trip.personName.isEmpty {
+                    statRow("Operator", value: trip.personName, icon: "person")
+                }
+                if !trip.rowSequence.isEmpty {
+                    statRow("Paths planned", value: "\(trip.rowSequence.count)", icon: "list.number")
+                    statRow("Completed", value: "\(trip.completedPaths.count)", icon: "checkmark.circle")
+                    if !trip.skippedPaths.isEmpty {
+                        statRow("Skipped", value: "\(trip.skippedPaths.count)", icon: "xmark.circle")
+                    }
+                }
+                if pinsForTrip.count > 0 {
+                    statRow("Pins recorded", value: "\(pinsForTrip.count)", icon: "mappin")
+                }
+            }
+
+            if let record = sprayRecord {
+                Section("Spray Record") {
+                    if !record.sprayReference.isEmpty {
+                        statRow("Reference", value: record.sprayReference, icon: "drop.fill")
+                    }
+                    statRow("Date", value: record.date.formatted(date: .abbreviated, time: .omitted), icon: "calendar")
+                    if record.tanks.count > 0 {
+                        statRow("Tanks", value: "\(record.tanks.count)", icon: "cylinder")
+                    }
+                }
+            }
+
+            if trip.pathPoints.count > 1 {
+                Section("Path") {
+                    Map(position: $position) {
+                        let coords = trip.pathPoints.map { $0.coordinate }
+                        if coords.count > 1 {
+                            MapPolyline(coordinates: coords)
+                                .stroke(VineyardTheme.leafGreen, lineWidth: 4)
+                        }
+                    }
+                    .mapStyle(.hybrid)
+                    .frame(height: 240)
+                    .listRowInsets(EdgeInsets())
+                }
+            }
+
+            if !trip.rowSequence.isEmpty {
+                Section {
+                    Button {
+                        showSummary = true
+                    } label: {
+                        Label("View Path Summary", systemImage: "list.bullet.clipboard")
+                    }
+                }
+            }
+
+            if !pinsForTrip.isEmpty {
+                Section("Pins") {
+                    ForEach(pinsForTrip) { pin in
+                        HStack {
+                            Image(systemName: pin.mode == .growth ? "leaf.fill" : "wrench.fill")
+                                .foregroundStyle(pin.mode == .growth ? VineyardTheme.leafGreen : .orange)
+                                .frame(width: 24)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(pin.buttonName.isEmpty ? "Pin" : pin.buttonName)
+                                    .font(.subheadline.weight(.medium))
+                                Text(pin.timestamp.formatted(date: .abbreviated, time: .shortened))
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            if pin.isCompleted {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .foregroundStyle(.green)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        .navigationTitle("Trip")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button(role: .destructive) {
+                    showDeleteConfirmation = true
+                } label: {
+                    Image(systemName: "trash")
+                }
+            }
+        }
+        .sheet(isPresented: $showSummary) {
+            TripSummarySheet(trip: trip)
+                .presentationDetents([.medium, .large])
+                .presentationDragIndicator(.visible)
+        }
+        .alert("Delete Trip", isPresented: $showDeleteConfirmation) {
+            Button("Delete", role: .destructive) {
+                store.deleteTrip(trip.id)
+                dismiss()
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Are you sure you want to delete this trip? This action cannot be undone.")
+        }
+        .onAppear {
+            if trip.pathPoints.count > 1 {
+                let coords = trip.pathPoints.map { $0.coordinate }
+                let lats = coords.map { $0.latitude }
+                let lons = coords.map { $0.longitude }
+                if let minLat = lats.min(), let maxLat = lats.max(),
+                   let minLon = lons.min(), let maxLon = lons.max() {
+                    let center = CLLocationCoordinate2D(
+                        latitude: (minLat + maxLat) / 2,
+                        longitude: (minLon + maxLon) / 2
+                    )
+                    let span = MKCoordinateSpan(
+                        latitudeDelta: max(maxLat - minLat, 0.001) * 1.4,
+                        longitudeDelta: max(maxLon - minLon, 0.001) * 1.4
+                    )
+                    position = .region(MKCoordinateRegion(center: center, span: span))
+                }
+            }
+        }
+    }
+
+    private func statRow(_ label: String, value: String, icon: String) -> some View {
+        HStack {
+            Label(label, systemImage: icon)
+            Spacer()
+            Text(value)
+                .font(.body.weight(.medium))
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    private func formatDuration(_ seconds: TimeInterval) -> String {
+        let mins = Int(seconds) / 60
+        let hrs = mins / 60
+        if hrs > 0 {
+            return "\(hrs)h \(mins % 60)m"
+        }
+        return "\(mins)m"
+    }
+
+    private func formatDistance(_ meters: Double) -> String {
+        if meters < 1000 {
+            return "\(Int(meters))m"
+        }
+        return String(format: "%.1fkm", meters / 1000)
+    }
+}
