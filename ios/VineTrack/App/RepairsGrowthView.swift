@@ -12,6 +12,7 @@ struct RepairsGrowthView: View {
     @State private var selection: Tab
     @State private var showEditButtons: Bool = false
     @State private var showGrowthPicker: Bool = false
+    @State private var pendingConfirmation: PendingConfirmation?
     @State private var lastGrowthStage: GrowthStage?
     @State private var feedbackMessage: String?
     @State private var feedbackKind: VineyardBadgeKind = .success
@@ -24,18 +25,34 @@ struct RepairsGrowthView: View {
     private var canCreate: Bool { accessControl.canCreateOperationalRecords }
     private var canEdit: Bool { accessControl.canChangeSettings }
 
+    /// De-duplicate the original 8-default buttons by name to show the canonical
+    /// 4 repair tiles (Irrigation, Broken Post, Vine Issue, Other).
     private var repairButtons: [ButtonConfig] {
         let sorted = store.repairButtons
             .filter { !$0.isGrowthStageButton }
             .sorted { $0.index < $1.index }
-        return Array(sorted.prefix(8))
+        return dedupedByName(sorted, limit: 4)
     }
 
+    /// The 3 non-growth-stage observation tiles (Powdery, Downy, Blackberries).
     private var growthButtons: [ButtonConfig] {
         let sorted = store.growthButtons
             .filter { !$0.isGrowthStageButton }
             .sorted { $0.index < $1.index }
-        return Array(sorted.prefix(6))
+        return dedupedByName(sorted, limit: 3)
+    }
+
+    private func dedupedByName(_ buttons: [ButtonConfig], limit: Int) -> [ButtonConfig] {
+        var seen = Set<String>()
+        var unique: [ButtonConfig] = []
+        for btn in buttons {
+            let key = btn.name.lowercased()
+            if !seen.contains(key) {
+                seen.insert(key)
+                unique.append(btn)
+            }
+        }
+        return Array(unique.prefix(limit))
     }
 
     var body: some View {
@@ -79,7 +96,16 @@ struct RepairsGrowthView: View {
         }
         .sheet(isPresented: $showGrowthPicker) {
             GrowthStagePickerSheet { stage in
-                handleGrowthStageSelected(stage)
+                lastGrowthStage = stage
+                pendingConfirmation = PendingConfirmation(kind: .growthStage(stage), side: .right)
+            }
+        }
+        .sheet(item: $pendingConfirmation) { pending in
+            PinDropConfirmationSheet(
+                kind: pending.kind,
+                initialSide: pending.side
+            ) { title, subtitle in
+                showPinToast(title: title, subtitle: subtitle)
             }
         }
     }
@@ -88,26 +114,30 @@ struct RepairsGrowthView: View {
 
     private var segmentHeader: some View {
         HStack(spacing: 8) {
-            segmentButton(title: "Repairs", tab: .repairs)
-            segmentButton(title: "Growth", tab: .growth)
+            segmentButton(title: "Repairs", icon: "wrench.fill", tab: .repairs)
+            segmentButton(title: "Growth", icon: "leaf.fill", tab: .growth)
         }
         .padding(4)
         .background(Color(.secondarySystemBackground), in: .rect(cornerRadius: 12))
     }
 
-    private func segmentButton(title: String, tab: Tab) -> some View {
+    private func segmentButton(title: String, icon: String, tab: Tab) -> some View {
         Button {
             withAnimation(.easeInOut(duration: 0.2)) { selection = tab }
         } label: {
-            Text(title)
-                .font(.headline.weight(.bold))
-                .foregroundStyle(selection == tab ? Color.white : Color.primary)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 10)
-                .background(
-                    selection == tab ? VineyardTheme.primary : Color.clear,
-                    in: .rect(cornerRadius: 9)
-                )
+            HStack(spacing: 6) {
+                Image(systemName: icon)
+                    .font(.subheadline.weight(.bold))
+                Text(title)
+                    .font(.headline.weight(.bold))
+            }
+            .foregroundStyle(selection == tab ? Color.white : Color.primary)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 10)
+            .background(
+                selection == tab ? VineyardTheme.primary : Color.clear,
+                in: .rect(cornerRadius: 9)
+            )
         }
         .buttonStyle(.plain)
     }
@@ -124,7 +154,7 @@ struct RepairsGrowthView: View {
                 Spacer()
             } else {
                 fillingButtonGrid(buttons: repairButtons) { btn in
-                    handleTap(button: btn, side: .right)
+                    handleButtonTap(button: btn)
                 }
             }
         }
@@ -144,7 +174,7 @@ struct RepairsGrowthView: View {
                 Spacer()
             } else {
                 fillingButtonGrid(buttons: growthButtons) { btn in
-                    handleTap(button: btn, side: .right)
+                    handleButtonTap(button: btn)
                 }
             }
         }
@@ -153,10 +183,11 @@ struct RepairsGrowthView: View {
 
     private var growthStageBar: some View {
         Button {
+            guard canCreate else { return }
             showGrowthPicker = true
         } label: {
             HStack(spacing: 12) {
-                Image(systemName: "mappin.and.ellipse")
+                Image(systemName: "leaf.circle.fill")
                     .font(.title3.weight(.bold))
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Growth Stage")
@@ -204,7 +235,7 @@ struct RepairsGrowthView: View {
             ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
                 HStack(spacing: 10) {
                     ForEach(row) { btn in
-                        FillingActionTile(button: btn, side: .right, canCreate: canCreate) {
+                        FillingActionTile(button: btn, canCreate: canCreate) {
                             onTap(btn)
                         }
                     }
@@ -222,75 +253,35 @@ struct RepairsGrowthView: View {
 
     // MARK: - Actions
 
-    private func handleTap(button: ButtonConfig, side: PinSide) {
+    private func handleButtonTap(button: ButtonConfig) {
         guard canCreate else { return }
-        guard let location = locationService.location else {
-            showFeedback("Waiting for GPS location.", kind: .warning)
-            return
-        }
-        store.createPinFromButton(
-            button: button,
-            coordinate: location.coordinate,
-            heading: locationService.heading?.trueHeading ?? 0,
-            side: side,
-            paddockId: nil,
-            rowNumber: nil,
-            createdBy: auth.userName,
-            notes: nil
-        )
-        showPinToast(title: "Pin Dropped", subtitle: "\(button.name) \u{2022} \(side == .left ? "Left" : "Right")")
-    }
-
-    private func handleGrowthStageSelected(_ stage: GrowthStage) {
-        guard let location = locationService.location else {
-            showFeedback("Waiting for GPS location.", kind: .warning)
-            return
-        }
-        lastGrowthStage = stage
-        store.createGrowthStagePin(
-            stageCode: stage.code,
-            stageDescription: stage.description,
-            coordinate: location.coordinate,
-            heading: locationService.heading?.trueHeading ?? 0,
-            side: .right,
-            paddockId: nil,
-            rowNumber: nil,
-            createdBy: auth.userName,
-            notes: nil
-        )
-        showPinToast(title: "Pin Dropped", subtitle: "EL \(stage.code) \u{2022} \(stage.description)")
+        pendingConfirmation = PendingConfirmation(kind: .button(button), side: .right)
     }
 
     private func showPinToast(title: String, subtitle: String) {
         pinToast = PinDroppedToastInfo(title: title, subtitle: subtitle)
     }
-
-    private func showFeedback(_ message: String, kind: VineyardBadgeKind) {
-        withAnimation(.snappy) {
-            feedbackMessage = message
-            feedbackKind = kind
-        }
-        Task {
-            try? await Task.sleep(for: .seconds(2.0))
-            await MainActor.run {
-                withAnimation(.easeOut) { feedbackMessage = nil }
-            }
-        }
-    }
 }
 
-// MARK: - Filling tile (uses pin drop icon)
+// MARK: - Pending confirmation wrapper
+
+private struct PendingConfirmation: Identifiable {
+    let id = UUID()
+    let kind: PinDropConfirmationSheet.Kind
+    let side: PinSide
+}
+
+// MARK: - Filling tile (uses contextual icon)
 
 struct FillingActionTile: View {
     let button: ButtonConfig
-    let side: PinSide
     let canCreate: Bool
     let onTap: () -> Void
 
     var body: some View {
         Button(action: onTap) {
             VStack(spacing: 8) {
-                Image(systemName: "mappin.and.ellipse")
+                Image(systemName: ButtonIconMap.icon(for: button.name))
                     .font(.title.weight(.semibold))
                 Text(button.name)
                     .font(.title3.weight(.heavy))
