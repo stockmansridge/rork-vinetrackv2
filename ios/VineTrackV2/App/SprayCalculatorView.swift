@@ -42,18 +42,17 @@ struct SprayCalculatorView: View {
     @State private var hasEditedSprayRate: Bool = false
     @State private var notes: String = ""
 
-    // Optional manual weather
-    @State private var temperatureText: String = ""
-    @State private var windSpeedText: String = ""
-    @State private var windDirection: String = ""
-    @State private var humidityText: String = ""
+    // Trip setup
+    @State private var numberOfFansJets: String = ""
+    @State private var trackingPatternChoice: TrackingPattern = .sequential
+    @State private var startingRow: Int = 1
+    @State private var reversedDirection: Bool = false
 
-    // Weather auto-fetch
-    @State private var isFetchingWeather: Bool = false
-    @State private var weatherFetchError: String?
-    @State private var weatherFetchedAt: Date?
-    @State private var weatherStationId: String?
-    @State private var weatherSource: String?
+    // Captured at job start
+    @State private var capturedTemperature: Double?
+    @State private var capturedWindSpeed: Double?
+    @State private var capturedWindDirection: String = ""
+    @State private var capturedHumidity: Double?
 
     // UI
     @State private var isPaddocksExpanded: Bool = true
@@ -64,6 +63,8 @@ struct SprayCalculatorView: View {
     @State private var summaryJobStarted: Bool = false
     @State private var savedFeedback: Bool = false
     @State private var errorMessage: String?
+    @State private var showStartConfirmation: Bool = false
+    @State private var isStartingJob: Bool = false
 
     // MARK: - Computed
 
@@ -104,6 +105,33 @@ struct SprayCalculatorView: View {
         !selectedPaddockIds.isEmpty && selectedEquipmentId != nil && !chemicalLines.isEmpty
     }
 
+    private var previewPaddock: Paddock? {
+        selectedPaddocks.first(where: { !$0.rows.isEmpty }) ?? selectedPaddocks.first
+    }
+
+    private var totalPreviewRows: Int { previewPaddock?.rows.count ?? 0 }
+
+    private var pathSequencePreview: [Double] {
+        guard let p = previewPaddock, !p.rows.isEmpty else { return [] }
+        return trackingPatternChoice.generateSequence(
+            startRow: max(1, min(startingRow, p.rows.count)),
+            totalRows: p.rows.count,
+            reversed: reversedDirection
+        )
+    }
+
+    private var selectedTractorName: String {
+        selectedTractorId.flatMap { id in
+            store.tractors.first(where: { $0.id == id })?.displayName
+        } ?? "Not selected"
+    }
+
+    private var selectedEquipmentName: String {
+        selectedEquipmentId.flatMap { id in
+            store.sprayEquipment.first(where: { $0.id == id })?.name
+        } ?? "Not selected"
+    }
+
     // MARK: - Body
 
     var body: some View {
@@ -119,7 +147,8 @@ struct SprayCalculatorView: View {
                     irrigationDataSection
                     tractorSelection
                     chemicalLinesSection
-                    weatherSection
+                    tripSetupSection
+                    weatherNoteSection
                     notesSection
                     actionButtons
 
@@ -171,6 +200,9 @@ struct SprayCalculatorView: View {
             }
             .sheet(isPresented: $showAddChemicalToList) {
                 EditSavedChemicalSheet(chemical: nil)
+            }
+            .sheet(isPresented: $showStartConfirmation) {
+                startConfirmationSheet
             }
         }
     }
@@ -765,100 +797,254 @@ struct SprayCalculatorView: View {
         }
     }
 
-    private var weatherSection: some View {
+    private var tripSetupSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            SectionHeader(title: "Weather (optional)", icon: "cloud.sun")
+            SectionHeader(title: "Trip Setup", icon: "map")
 
-            Button {
-                Task { await fetchWeather() }
-            } label: {
-                HStack(spacing: 8) {
-                    if isFetchingWeather {
-                        ProgressView().controlSize(.small)
-                    } else {
-                        Image(systemName: "cloud.sun.bolt")
-                    }
-                    Text(isFetchingWeather ? "Fetching weather…" : "Fetch Weather")
-                        .font(.subheadline.weight(.medium))
+            VStack(spacing: 0) {
+                HStack {
+                    Label("No. Fans/Jets", systemImage: "fan")
+                        .font(.subheadline)
                     Spacer()
-                    if let fetched = weatherFetchedAt {
-                        Text(fetched.formatted(date: .omitted, time: .shortened))
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
+                    TextField("e.g. 6", text: $numberOfFansJets)
+                        .keyboardType(.numberPad)
+                        .multilineTextAlignment(.trailing)
+                        .frame(width: 100)
                 }
-                .foregroundStyle(VineyardTheme.olive)
                 .padding(.horizontal, 12)
-                .padding(.vertical, 12)
-                .frame(maxWidth: .infinity)
-                .background(VineyardTheme.olive.opacity(0.1))
-                .clipShape(.rect(cornerRadius: 10))
-            }
-            .disabled(isFetchingWeather)
+                .padding(.vertical, 10)
 
-            if let weatherFetchError {
-                Label(weatherFetchError, systemImage: "exclamationmark.triangle.fill")
-                    .font(.caption)
-                    .foregroundStyle(.orange)
-                    .padding(10)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Color.orange.opacity(0.1))
-                    .clipShape(.rect(cornerRadius: 8))
-            } else if let source = weatherSource, let fetched = weatherFetchedAt {
-                let stationSuffix = weatherStationId.map { " • \($0)" } ?? ""
-                Text("\(source)\(stationSuffix) • \(fetched.formatted(date: .abbreviated, time: .shortened))")
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
-            }
+                Divider().padding(.leading, 12)
 
-            VStack(spacing: 10) {
                 HStack {
-                    Label("Temperature", systemImage: "thermometer")
+                    Label("Tracking Pattern", systemImage: "arrow.triangle.swap")
                         .font(.subheadline)
                     Spacer()
-                    TextField("°C", text: $temperatureText)
-                        .keyboardType(.decimalPad)
-                        .multilineTextAlignment(.trailing)
-                        .frame(width: 80)
-                }
-                Divider()
-                HStack {
-                    Label("Wind Speed", systemImage: "wind")
-                        .font(.subheadline)
-                    Spacer()
-                    TextField("km/h", text: $windSpeedText)
-                        .keyboardType(.decimalPad)
-                        .multilineTextAlignment(.trailing)
-                        .frame(width: 80)
-                }
-                Divider()
-                HStack {
-                    Label("Wind Direction", systemImage: "location.north.line")
-                        .font(.subheadline)
-                    Spacer()
-                    Picker("", selection: $windDirection) {
-                        Text("—").tag("")
-                        ForEach(WindDirection.allCases, id: \.rawValue) { dir in
-                            Text(dir.rawValue).tag(dir.rawValue)
+                    Menu {
+                        ForEach(TrackingPattern.allCases) { pattern in
+                            Button(pattern.title) { trackingPatternChoice = pattern }
                         }
+                    } label: {
+                        HStack(spacing: 4) {
+                            Text(trackingPatternChoice.title)
+                                .font(.subheadline.weight(.medium))
+                            Image(systemName: "chevron.up.chevron.down").font(.caption2)
+                        }
+                        .foregroundStyle(VineyardTheme.olive)
+                    }
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 10)
+
+                Divider().padding(.leading, 12)
+
+                HStack {
+                    Label("Start From Row", systemImage: "flag")
+                        .font(.subheadline)
+                    Spacer()
+                    Stepper(value: $startingRow, in: 1...max(totalPreviewRows, 1)) {
+                        Text("\(startingRow)\(totalPreviewRows > 0 ? " of \(totalPreviewRows)" : "")")
+                            .font(.subheadline.weight(.medium).monospacedDigit())
                     }
                     .labelsHidden()
                 }
-                Divider()
-                HStack {
-                    Label("Humidity", systemImage: "humidity")
+                .padding(.horizontal, 12)
+                .padding(.vertical, 10)
+
+                Divider().padding(.leading, 12)
+
+                Toggle(isOn: $reversedDirection) {
+                    Label("Reverse Direction", systemImage: reversedDirection ? "arrow.left" : "arrow.right")
                         .font(.subheadline)
-                    Spacer()
-                    TextField("%", text: $humidityText)
-                        .keyboardType(.decimalPad)
-                        .multilineTextAlignment(.trailing)
-                        .frame(width: 80)
                 }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 10)
             }
-            .padding(12)
             .background(Color(.secondarySystemGroupedBackground))
             .clipShape(.rect(cornerRadius: 10))
+
+            if previewPaddock == nil {
+                Text("Select paddocks to enable row sequencing.")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+            }
         }
+    }
+
+    private var weatherNoteSection: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "cloud.sun.fill")
+                .font(.title3)
+                .foregroundStyle(.blue)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Weather captured automatically")
+                    .font(.subheadline.weight(.semibold))
+                Text("Temperature, wind and humidity will be recorded when the job starts.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
+        }
+        .padding(12)
+        .background(Color.blue.opacity(0.08))
+        .clipShape(.rect(cornerRadius: 10))
+    }
+
+    @ViewBuilder
+    private var startConfirmationSheet: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(spacing: 20) {
+                    VStack(spacing: 8) {
+                        Image(systemName: "checklist")
+                            .font(.system(size: 40))
+                            .foregroundStyle(VineyardTheme.olive)
+                        Text("Confirm Spray Job")
+                            .font(.title2.bold())
+                        Text("Review the details before starting.")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(.top, 12)
+
+                    VStack(spacing: 0) {
+                        confirmRow(label: "Operator", value: auth.userName?.isEmpty == false ? (auth.userName ?? "") : "—", icon: "person.fill")
+                        Divider().padding(.leading, 44)
+                        confirmRow(label: "Tractor", value: selectedTractorName, icon: "truck.pickup.side.fill")
+                        Divider().padding(.leading, 44)
+                        confirmRow(label: "Equipment", value: selectedEquipmentName, icon: "wrench.and.screwdriver.fill")
+                        Divider().padding(.leading, 44)
+                        confirmRow(label: "No. Fans/Jets", value: numberOfFansJets.isEmpty ? "—" : numberOfFansJets, icon: "fan")
+                        Divider().padding(.leading, 44)
+                        confirmRow(label: "Track Pattern", value: trackingPatternChoice.title, icon: "arrow.triangle.swap")
+                        Divider().padding(.leading, 44)
+                        confirmRow(
+                            label: "Start From",
+                            value: totalPreviewRows > 0
+                                ? "Row \(startingRow)\(reversedDirection ? " (reversed)" : "")"
+                                : "—",
+                            icon: "flag"
+                        )
+                    }
+                    .background(Color(.secondarySystemGroupedBackground))
+                    .clipShape(.rect(cornerRadius: 12))
+                    .padding(.horizontal)
+
+                    if !pathSequencePreview.isEmpty {
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack(spacing: 6) {
+                                Image(systemName: "point.topleft.down.to.point.bottomright.curvepath")
+                                    .font(.caption.weight(.semibold))
+                                    .foregroundStyle(VineyardTheme.olive)
+                                Text("Path Sequence Preview")
+                                    .font(.subheadline.weight(.semibold))
+                                Spacer()
+                                Text("\(pathSequencePreview.count) paths")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            Text(pathSequenceText)
+                                .font(.caption.monospacedDigit())
+                                .foregroundStyle(.secondary)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(10)
+                                .background(Color(.tertiarySystemGroupedBackground))
+                                .clipShape(.rect(cornerRadius: 8))
+                        }
+                        .padding(.horizontal)
+                    }
+
+                    HStack(spacing: 10) {
+                        Image(systemName: "cloud.sun.fill")
+                            .foregroundStyle(.blue)
+                        Text("Weather data will be captured automatically at the start.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                    }
+                    .padding(12)
+                    .background(Color.blue.opacity(0.08))
+                    .clipShape(.rect(cornerRadius: 10))
+                    .padding(.horizontal)
+
+                    if let errorMessage {
+                        Label(errorMessage, systemImage: "exclamationmark.triangle.fill")
+                            .font(.caption)
+                            .foregroundStyle(.orange)
+                            .padding(10)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .background(Color.orange.opacity(0.1))
+                            .clipShape(.rect(cornerRadius: 8))
+                            .padding(.horizontal)
+                    }
+
+                    VStack(spacing: 8) {
+                        Button {
+                            Task { await confirmAndStartJob() }
+                        } label: {
+                            HStack(spacing: 8) {
+                                if isStartingJob {
+                                    ProgressView().controlSize(.small).tint(.white)
+                                } else {
+                                    Image(systemName: "play.fill")
+                                }
+                                Text(isStartingJob ? "Starting…" : "Start Job Now")
+                                    .font(.headline)
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 14)
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(VineyardTheme.olive)
+                        .disabled(isStartingJob)
+
+                        Button("Cancel") {
+                            showStartConfirmation = false
+                        }
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .disabled(isStartingJob)
+                    }
+                    .padding(.horizontal)
+                    .padding(.top, 4)
+                    .padding(.bottom, 24)
+                }
+            }
+            .background(Color(.systemGroupedBackground))
+            .navigationTitle("Confirm & Start")
+            .navigationBarTitleDisplayMode(.inline)
+            .interactiveDismissDisabled(isStartingJob)
+        }
+    }
+
+    private var pathSequenceText: String {
+        let preview = pathSequencePreview.prefix(40)
+        let formatted = preview.map { value -> String in
+            value.truncatingRemainder(dividingBy: 1) == 0
+                ? String(format: "%.0f", value)
+                : String(format: "%.1f", value)
+        }
+        let suffix = pathSequencePreview.count > preview.count ? " …" : ""
+        return formatted.joined(separator: " → ") + suffix
+    }
+
+    private func confirmRow(label: String, value: String, icon: String) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: icon)
+                .font(.subheadline)
+                .foregroundStyle(VineyardTheme.olive)
+                .frame(width: 24)
+            Text(label)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+            Spacer()
+            Text(value)
+                .font(.subheadline.weight(.medium))
+                .foregroundStyle(.primary)
+                .multilineTextAlignment(.trailing)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
     }
 
     private var notesSection: some View {
@@ -960,7 +1146,7 @@ struct SprayCalculatorView: View {
     }
 
     private func currentWeatherSnapshot() -> (temperature: Double?, windSpeed: Double?, windDirection: String, humidity: Double?) {
-        (Double(temperatureText), Double(windSpeedText), windDirection, Double(humidityText))
+        (capturedTemperature, capturedWindSpeed, capturedWindDirection, capturedHumidity)
     }
 
     private func resolveWeatherCoordinate() -> CLLocationCoordinate2D? {
@@ -976,37 +1162,20 @@ struct SprayCalculatorView: View {
         return locationService.location?.coordinate
     }
 
-    private func fetchWeather() async {
-        guard !isFetchingWeather else { return }
-        guard let coordinate = resolveWeatherCoordinate() else {
-            weatherFetchError = "No location available. Select a paddock with a boundary or enable location services."
-            return
-        }
-        isFetchingWeather = true
-        weatherFetchError = nil
-        defer { isFetchingWeather = false }
-
+    private func captureWeather() async {
+        guard let coordinate = resolveWeatherCoordinate() else { return }
         let stationId = store.settings.weatherStationId
         let service = WeatherCurrentService()
         do {
             let snapshot = try await service.fetch(coordinate: coordinate, stationId: stationId)
-            if let t = snapshot.temperatureC {
-                temperatureText = String(format: "%.1f", t)
-            }
-            if let w = snapshot.windSpeedKmh {
-                windSpeedText = String(format: "%.1f", w)
-            }
+            capturedTemperature = snapshot.temperatureC
+            capturedWindSpeed = snapshot.windSpeedKmh
             if !snapshot.windDirection.isEmpty {
-                windDirection = snapshot.windDirection
+                capturedWindDirection = snapshot.windDirection
             }
-            if let h = snapshot.humidityPercent {
-                humidityText = String(format: "%.0f", h)
-            }
-            weatherFetchedAt = snapshot.observedAt
-            weatherStationId = snapshot.stationId
-            weatherSource = snapshot.source
+            capturedHumidity = snapshot.humidityPercent
         } catch {
-            weatherFetchError = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+            // Weather capture is best-effort; ignore errors.
         }
     }
 
@@ -1017,19 +1186,35 @@ struct SprayCalculatorView: View {
             errorMessage = "Your role does not allow creating spray records."
             return
         }
+        guard store.selectedVineyardId != nil else {
+            errorMessage = "No vineyard selected."
+            return
+        }
+        if tracking.activeTrip != nil {
+            errorMessage = "A trip is already in progress. End it before starting a new spray."
+            return
+        }
+        errorMessage = nil
+        showStartConfirmation = true
+    }
+
+    private func confirmAndStartJob() async {
+        guard formIsValid, !isStartingJob else { return }
         guard let equipId = selectedEquipmentId,
               let equip = store.sprayEquipment.first(where: { $0.id == equipId }) else { return }
         guard let vineyardId = store.selectedVineyardId else {
             errorMessage = "No vineyard selected."
             return
         }
-
         if tracking.activeTrip != nil {
             errorMessage = "A trip is already in progress. End it before starting a new spray."
             return
         }
         errorMessage = nil
+        isStartingJob = true
+        defer { isStartingJob = false }
 
+        await captureWeather()
         performCalculation()
 
         let firstPaddock = selectedPaddocks.first
@@ -1039,7 +1224,7 @@ struct SprayCalculatorView: View {
             type: .spray,
             paddockId: firstPaddock?.id,
             paddockName: paddockNames,
-            trackingPattern: .sequential,
+            trackingPattern: trackingPatternChoice,
             personName: auth.userName ?? ""
         )
 
@@ -1056,6 +1241,19 @@ struct SprayCalculatorView: View {
 
         var tripWithTanks = activeTrip
         tripWithTanks.totalTanks = tanks.count
+        if let preview = previewPaddock, !preview.rows.isEmpty {
+            let sequence = trackingPatternChoice.generateSequence(
+                startRow: max(1, min(startingRow, preview.rows.count)),
+                totalRows: preview.rows.count,
+                reversed: reversedDirection
+            )
+            if let first = sequence.first {
+                tripWithTanks.rowSequence = sequence
+                tripWithTanks.sequenceIndex = 0
+                tripWithTanks.currentRowNumber = first
+                tripWithTanks.nextRowNumber = sequence.dropFirst().first ?? first
+            }
+        }
         store.updateTrip(tripWithTanks)
 
         let tractorName = selectedTractorId.flatMap { id in
@@ -1074,6 +1272,7 @@ struct SprayCalculatorView: View {
             sprayReference: sprayName,
             tanks: tanks,
             notes: notes,
+            numberOfFansJets: numberOfFansJets,
             equipmentType: equip.name,
             tractor: tractorName,
             isTemplate: false,
@@ -1083,6 +1282,7 @@ struct SprayCalculatorView: View {
 
         savedFeedback.toggle()
         summaryJobStarted = true
+        showStartConfirmation = false
         showSummary = true
     }
 
@@ -1140,6 +1340,7 @@ struct SprayCalculatorView: View {
             sprayReference: sprayName,
             tanks: tanks,
             notes: notes,
+            numberOfFansJets: numberOfFansJets,
             equipmentType: equip.name,
             tractor: tractorName,
             isTemplate: false,
