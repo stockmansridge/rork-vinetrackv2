@@ -22,7 +22,7 @@ const CORS_HEADERS: Record<string, string> = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-const OPENAI_MODEL = Deno.env.get("OPENAI_MODEL") ?? "gpt-4o-mini";
+const OPENAI_MODEL = Deno.env.get("OPENAI_MODEL") ?? "gpt-4o";
 
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -67,12 +67,12 @@ function buildSearchPrompt(query: string, country: string): {
   user: string;
 } {
   const system =
-    "You are an agricultural chemical database expert. You respond ONLY with valid JSON, no markdown, no explanation, no code fences.";
+    "You are an agricultural and viticultural input database expert covering ALL types of vineyard inputs across global and regional markets, including small specialty manufacturers (e.g. Switch AG, Stoller, Omnia, Campbells, AgNova, Grochem, Sipcam, ADAMA, Nufarm, Syngenta, Bayer, Corteva, BASF, UPL, FMC). You know niche Australian, New Zealand, US, EU, South African, and South American brands — not just the top mainstream products. You respond ONLY with valid JSON, no markdown, no explanation, no code fences.";
   const countryContext = country
-    ? ` IMPORTANT: The vineyard is located in ${country}. You MUST prioritize products that are registered, sold, and commonly used in ${country}. List ${country}-registered brand names first. Use ${country}-based manufacturers and distributors. Only include international/generic products if fewer than 8 local ${country} products match the query.`
+    ? ` IMPORTANT: The vineyard is located in ${country}. You MUST prioritize products that are registered, sold, and commonly used in ${country}, including small specialty/regional brands. List ${country}-registered brand names first. Use ${country}-based manufacturers and distributors. Only include international/generic products if fewer than 8 local ${country} products match the query.`
     : "";
   const user =
-    `Search for agricultural/viticultural chemical products matching "${query}".${countryContext} Include fungicides, herbicides, insecticides, miticides, growth regulators, surfactants, adjuvants, and fertilisers. Consider brand names, active ingredients, and partial matches. Return up to 8 products as JSON:\n{"results":[{"name":"Product name","activeIngredient":"active ingredient(s)","chemicalGroup":"group","brand":"manufacturer","primaryUse":"primary use in vineyard e.g. Downy Mildew control, Nitrogen fertiliser, Botrytis prevention","modeOfAction":"MOA group code e.g. 3, 11, M5, 4A - use FRAC for fungicides, HRAC for herbicides, IRAC for insecticides, or empty string if unknown"}]}`;
+    `Search for agricultural/viticultural inputs matching "${query}".${countryContext}\n\nConsider ALL of the following input categories — do NOT restrict to mainstream crop protection only:\n- Fungicides, herbicides, insecticides, miticides, nematicides, bactericides\n- Plant growth regulators (PGRs)\n- Surfactants, adjuvants, wetters, stickers, penetrants\n- Fertilisers (granular, liquid, foliar, fertigation)\n- Biostimulants (amino acids, seaweed/kelp, humic/fulvic acid, fish hydrolysate, microbial)\n- Foliar nutrients and trace elements (Ca, Mg, Zn, B, Mn, Fe, Mo, Cu)\n- Soil conditioners, gypsum, lime, compost teas\n- Biological controls (Trichoderma, Bacillus, mycorrhizae)\n- Specialty/niche regional products from small manufacturers (e.g. Switch AG amino acid range, Stoller, Omnia Nutriology, Campbells Liquifert, AgNova, Grochem)\n\nMatch broadly: brand names, product line names, active ingredients, manufacturer names, partial matches, fuzzy matches, and common misspellings. If the query mentions a manufacturer (e.g. "Switch AG"), list THAT manufacturer's products even if niche. Include products even if they are less common — do not filter out specialty/biostimulant/nutrition products. Return up to 8 products as JSON:\n{"results":[{"name":"Product name","activeIngredient":"active ingredient(s) or key components for biostimulants/fertilisers","chemicalGroup":"group e.g. Strobilurin, Triazole, Biostimulant - Amino Acid, Foliar Fertiliser - N","brand":"manufacturer","primaryUse":"primary use in vineyard e.g. Downy Mildew control, Foliar nitrogen, Stress recovery, Flowering biostimulant","modeOfAction":"MOA group code e.g. 3, 11, M5, 4A - use FRAC for fungicides, HRAC for herbicides, IRAC for insecticides, or empty string for biostimulants/fertilisers/unknown"}]}`;
   return { system, user };
 }
 
@@ -81,7 +81,7 @@ function buildInfoPrompt(productName: string, country: string): {
   user: string;
 } {
   const system =
-    "You are an agricultural chemical database expert. You respond ONLY with valid JSON, no markdown, no explanation, no code fences.";
+    "You are an agricultural and viticultural input database expert covering crop protection, fertilisers, foliar nutrients, biostimulants (amino acid, seaweed, humic), adjuvants, and biological controls from both major and small specialty manufacturers globally (including niche Australian/NZ brands like Switch AG, AgNova, Grochem, Campbells, Omnia, Stoller). You respond ONLY with valid JSON, no markdown, no explanation, no code fences.";
   const countryContext = country
     ? ` IMPORTANT: The vineyard is located in ${country}. You MUST use the ${country}-registered version of this product. Provide ${country}-specific brand name, label rates, label URL, and regulatory data. If the product has a different brand name in ${country}, use the ${country} brand name.`
     : "";
