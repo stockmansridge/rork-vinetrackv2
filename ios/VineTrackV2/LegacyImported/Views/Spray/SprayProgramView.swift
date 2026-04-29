@@ -200,11 +200,9 @@ struct SprayProgramView: View {
                 }
             }
             .sheet(isPresented: $showCreateForm) {
-                SprayRecordFormView(
-                    tripId: store.trips.first?.id ?? UUID(),
-                    paddockIds: [],
-                    existingRecord: nil
-                )
+                NavigationStack {
+                    SprayCalculatorView()
+                }
             }
             .sheet(item: $sharePDFURL) { wrapper in
                 ShareSheet(items: [wrapper.url])
