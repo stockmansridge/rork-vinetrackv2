@@ -178,8 +178,8 @@ private struct NewHomeTabView: View {
                 .foregroundStyle(.primary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
-            Spacer()
         }
+        .frame(maxWidth: .infinity)
         .padding(.horizontal)
         .padding(.top, 4)
     }
