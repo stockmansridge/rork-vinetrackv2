@@ -8,7 +8,7 @@ struct BlocksHubView: View {
     @State private var paddockToEdit: Paddock?
     @State private var shareURL: ShareURL?
     @State private var showImporter: Bool = false
-    @State private var importSummary: PaddockCSVService.ImportSummary?
+    @State private var importSummary: PaddockJSONService.ImportSummary?
     @State private var importErrorMessage: String?
 
     var body: some View {
@@ -40,14 +40,14 @@ struct BlocksHubView: View {
                         Button {
                             exportPaddocks()
                         } label: {
-                            Label("Export Blocks (CSV)", systemImage: "square.and.arrow.up")
+                            Label("Export Blocks (JSON)", systemImage: "square.and.arrow.up")
                         }
                     }
                     if accessControl.canChangeSettings {
                         Button {
                             showImporter = true
                         } label: {
-                            Label("Import Blocks (CSV)", systemImage: "square.and.arrow.down")
+                            Label("Import Blocks (JSON)", systemImage: "square.and.arrow.down")
                         }
                     }
                 } label: {
@@ -66,7 +66,7 @@ struct BlocksHubView: View {
         }
         .fileImporter(
             isPresented: $showImporter,
-            allowedContentTypes: [.commaSeparatedText, .plainText, UTType(filenameExtension: "csv") ?? .data],
+            allowedContentTypes: [.json, UTType(filenameExtension: "json") ?? .data],
             allowsMultipleSelection: false
         ) { result in
             handleImportResult(result)
@@ -150,13 +150,13 @@ struct BlocksHubView: View {
     // MARK: - Import / Export
 
     private func exportPaddocks() {
-        let data = PaddockCSVService.generateCSV(paddocks: store.paddocks)
+        let data = PaddockJSONService.generateJSON(paddocks: store.paddocks, vineyardId: store.selectedVineyardId)
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd"
         let dateString = formatter.string(from: Date())
         let vineyardName = store.selectedVineyard?.name ?? "Vineyard"
         let safeName = vineyardName.replacingOccurrences(of: " ", with: "_")
-        let url = PaddockCSVService.saveCSVToTemp(data: data, fileName: "\(safeName)_blocks_\(dateString).csv")
+        let url = PaddockJSONService.saveJSONToTemp(data: data, fileName: "\(safeName)_blocks_\(dateString).json")
         shareURL = ShareURL(url: url)
     }
 
@@ -182,7 +182,7 @@ struct BlocksHubView: View {
         do {
             let data = try Data(contentsOf: url)
             let existing = store.paddocks
-            let result = try PaddockCSVService.parseCSV(data: data, vineyardId: vineyardId, existing: existing)
+            let result = try PaddockJSONService.parseJSON(data: data, vineyardId: vineyardId, existing: existing)
             let existingIds = Set(existing.map(\.id))
             for paddock in result.paddocks {
                 if existingIds.contains(paddock.id) {
