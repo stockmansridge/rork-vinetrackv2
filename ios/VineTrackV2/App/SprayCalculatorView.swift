@@ -1054,6 +1054,10 @@ struct SprayCalculatorView: View {
             return buildSprayTanks(result: result, tankCapacity: equip.tankCapacityLitres)
         }()
 
+        var tripWithTanks = activeTrip
+        tripWithTanks.totalTanks = tanks.count
+        store.updateTrip(tripWithTanks)
+
         let tractorName = selectedTractorId.flatMap { id in
             store.tractors.first(where: { $0.id == id })?.displayName
         } ?? ""

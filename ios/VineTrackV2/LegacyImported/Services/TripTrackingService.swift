@@ -165,6 +165,115 @@ final class TripTrackingService {
         return pin
     }
 
+    // MARK: - Tank workflow
+
+    /// Index of the current open tank session (no endTime). nil if none.
+    private func openSessionIndex(in trip: Trip) -> Int? {
+        trip.tankSessions.lastIndex(where: { $0.endTime == nil })
+    }
+
+    /// Index of the most recent session that has an active fill timer
+    /// (fillStartTime set, fillEndTime nil).
+    private func openFillIndex(in trip: Trip) -> Int? {
+        trip.tankSessions.lastIndex(where: { $0.fillStartTime != nil && $0.fillEndTime == nil })
+    }
+
+    /// Start spraying a new tank. If a tank session is already open it is
+    /// closed first.
+    func startTank() {
+        guard var trip = activeTrip else { return }
+        if let openIdx = openSessionIndex(in: trip) {
+            // If there's an open session that hasn't actually been started
+            // (fill-only), reuse it. Otherwise close it.
+            let existing = trip.tankSessions[openIdx]
+            let hasSpray = existing.fillEndTime != nil || existing.fillStartTime == nil ? false : false
+            _ = hasSpray
+            // Reuse if it was fill-only (fill recorded, never sprayed)
+            if existing.fillStartTime != nil {
+                trip.tankSessions[openIdx].startTime = Date()
+                trip.tankSessions[openIdx].startRow = currentRowNumber ?? trip.currentRowNumber
+                trip.activeTankNumber = existing.tankNumber
+                trip.isFillingTank = false
+                store?.updateTrip(trip)
+                return
+            }
+            // Otherwise close it
+            trip.tankSessions[openIdx].endTime = Date()
+            trip.tankSessions[openIdx].endRow = currentRowNumber ?? trip.currentRowNumber
+        }
+        let nextNumber = (trip.tankSessions.map { $0.tankNumber }.max() ?? 0) + 1
+        let session = TankSession(
+            tankNumber: nextNumber,
+            startTime: Date(),
+            startRow: currentRowNumber ?? trip.currentRowNumber
+        )
+        trip.tankSessions.append(session)
+        trip.activeTankNumber = nextNumber
+        trip.isFillingTank = false
+        store?.updateTrip(trip)
+    }
+
+    /// End the currently active tank session.
+    func endTank() {
+        guard var trip = activeTrip else { return }
+        guard let idx = openSessionIndex(in: trip) else { return }
+        trip.tankSessions[idx].endTime = Date()
+        trip.tankSessions[idx].endRow = currentRowNumber ?? trip.currentRowNumber
+        trip.activeTankNumber = nil
+        store?.updateTrip(trip)
+    }
+
+    /// Start the fill timer for the next (or current) tank.
+    func startFillTimer() {
+        guard var trip = activeTrip else { return }
+        if let idx = openSessionIndex(in: trip) {
+            // Tank still open — record fill on it (rare but valid)
+            trip.tankSessions[idx].fillStartTime = Date()
+            trip.tankSessions[idx].fillEndTime = nil
+        } else {
+            // Create a new session in fill-only mode
+            let nextNumber = (trip.tankSessions.map { $0.tankNumber }.max() ?? 0) + 1
+            var session = TankSession(
+                tankNumber: nextNumber,
+                startTime: Date()
+            )
+            session.fillStartTime = Date()
+            trip.tankSessions.append(session)
+            trip.fillingTankNumber = nextNumber
+        }
+        trip.isFillingTank = true
+        store?.updateTrip(trip)
+    }
+
+    /// Stop the fill timer. Records fillEndTime on the open fill session.
+    func stopFillTimer() {
+        guard var trip = activeTrip else { return }
+        if let idx = openFillIndex(in: trip) {
+            trip.tankSessions[idx].fillEndTime = Date()
+        }
+        trip.isFillingTank = false
+        trip.fillingTankNumber = nil
+        store?.updateTrip(trip)
+    }
+
+    /// Cancel a running fill timer without recording it.
+    func resetFillTimer() {
+        guard var trip = activeTrip else { return }
+        if let idx = openFillIndex(in: trip) {
+            // If the session is fill-only with no spray yet, drop it entirely.
+            let session = trip.tankSessions[idx]
+            if session.startRow == nil && session.endTime == nil {
+                trip.tankSessions.remove(at: idx)
+            } else {
+                trip.tankSessions[idx].fillStartTime = nil
+                trip.tankSessions[idx].fillEndTime = nil
+            }
+        }
+        trip.isFillingTank = false
+        trip.fillingTankNumber = nil
+        store?.updateTrip(trip)
+    }
+
     // MARK: - Resume after launch
 
     func resumeIfNeeded() {
