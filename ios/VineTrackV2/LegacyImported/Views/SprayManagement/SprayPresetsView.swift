@@ -433,7 +433,7 @@ struct EditSavedChemicalSheet: View {
         if use.isEmpty { use = result.primaryUse }
         if problem.isEmpty { problem = result.primaryUse }
 
-        let country = store.selectedVineyard?.country ?? ""
+        let country = ChemicalInfoService.resolveCountry(vineyardCountry: store.selectedVineyard?.country)
         do {
             let info = try await ChemicalInfoService().lookupChemicalInfo(productName: result.name, country: country)
             if activeIngredient.isEmpty { activeIngredient = info.activeIngredient }
@@ -651,7 +651,7 @@ struct ChemicalAILookupSheet: View {
         errorMessage = nil
         isLoading = true
         defer { isLoading = false }
-        let country = store.selectedVineyard?.country ?? ""
+        let country = ChemicalInfoService.resolveCountry(vineyardCountry: store.selectedVineyard?.country)
         do {
             results = try await ChemicalInfoService().searchChemicals(query: trimmed, country: country)
             if results.isEmpty {

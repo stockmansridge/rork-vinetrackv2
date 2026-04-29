@@ -70,6 +70,28 @@ nonisolated enum ChemicalLookupError: Error, LocalizedError, Sendable {
 
 nonisolated struct ChemicalInfoService: Sendable {
 
+    /// Resolves the country to use for AI localization.
+    /// Prefers the explicit vineyard country; falls back to the device/user
+    /// locale region (e.g. "AU", "NZ", "US") so AI search is always localized.
+    static func resolveCountry(vineyardCountry: String?) -> String {
+        let trimmed = (vineyardCountry ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmed.isEmpty { return trimmed }
+        if #available(iOS 16.0, *) {
+            if let region = Locale.current.region?.identifier, !region.isEmpty {
+                if let localized = Locale.current.localizedString(forRegionCode: region), !localized.isEmpty {
+                    return localized
+                }
+                return region
+            }
+        } else if let code = Locale.current.regionCode, !code.isEmpty {
+            if let localized = Locale.current.localizedString(forRegionCode: code), !localized.isEmpty {
+                return localized
+            }
+            return code
+        }
+        return ""
+    }
+
     func searchChemicals(query: String, country: String = "") async throws -> [ChemicalSearchResult] {
         var payload: [String: Any] = [
             "action": "search",
