@@ -175,11 +175,30 @@ private struct NewHomeTabView: View {
     }
 
     private func plainSectionHeader(_ title: String) -> some View {
-        Text(title)
-            .font(.title3.weight(.bold))
-            .foregroundStyle(.primary)
+        Text(title.uppercased())
+            .font(.subheadline.weight(.semibold))
+            .tracking(0.5)
+            .foregroundStyle(.secondary)
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal)
+    }
+
+    private func formattedNumber(_ value: Int) -> String {
+        if value >= 1000 {
+            let thousands = Double(value) / 1000.0
+            if thousands >= 10 {
+                return "\(Int(thousands))k"
+            }
+            return String(format: "%.1fk", thousands)
+        }
+        return "\(value)"
+    }
+
+    private func formattedHectares(_ value: Double) -> String {
+        if value >= 100 {
+            return String(format: "%.0f", value)
+        }
+        return String(format: "%.1f", value)
     }
 
     // MARK: Today
@@ -191,54 +210,24 @@ private struct NewHomeTabView: View {
     private var todaySection: some View {
         VStack(alignment: .leading, spacing: 10) {
             plainSectionHeader("Today")
-            VineyardCard {
-                HStack(spacing: 14) {
-                    ZStack {
-                        RoundedRectangle(cornerRadius: 12)
-                            .fill(Color.orange.opacity(0.15))
-                            .frame(width: 48, height: 48)
-                        Image(systemName: "mappin.and.ellipse")
-                            .font(.title3.weight(.semibold))
-                            .foregroundStyle(.orange)
-                    }
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("\(pinsNeedingAttention) pin\(pinsNeedingAttention == 1 ? "" : "s") need attention")
-                            .font(.headline)
-                            .foregroundStyle(.primary)
-                        Text(pinsNeedingAttention == 0 ? "All caught up" : "Open the Pins tab to review")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                    Spacer()
-                }
-            }
-            .padding(.horizontal)
-        }
-    }
-
-    // MARK: Vineyard Overview
-
-    private var vineyardOverviewSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            plainSectionHeader("Vineyard Overview")
             NavigationLink {
-                VineyardDetailsView()
+                PinsView()
             } label: {
                 VineyardCard {
                     HStack(spacing: 14) {
                         ZStack {
                             RoundedRectangle(cornerRadius: 12)
-                                .fill(VineyardTheme.leafGreen.opacity(0.15))
+                                .fill(Color.orange.opacity(0.15))
                                 .frame(width: 48, height: 48)
-                            Image(systemName: "map.fill")
+                            Image(systemName: "mappin.and.ellipse")
                                 .font(.title3.weight(.semibold))
-                                .foregroundStyle(VineyardTheme.leafGreen)
+                                .foregroundStyle(.orange)
                         }
                         VStack(alignment: .leading, spacing: 2) {
-                            Text(store.selectedVineyard?.name ?? "No vineyard selected")
+                            Text("\(pinsNeedingAttention) pin\(pinsNeedingAttention == 1 ? "" : "s") need attention")
                                 .font(.headline)
                                 .foregroundStyle(.primary)
-                            Text("\(store.paddocks.count) block\(store.paddocks.count == 1 ? "" : "s") \u{2022} View map & summary")
+                            Text(pinsNeedingAttention == 0 ? "All caught up" : "Open the Pins tab to review")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
@@ -252,6 +241,75 @@ private struct NewHomeTabView: View {
             .buttonStyle(.plain)
             .padding(.horizontal)
         }
+    }
+
+    // MARK: Vineyard Overview
+
+    private var totalHectares: Double {
+        store.paddocks.reduce(0.0) { $0 + $1.areaHectares }
+    }
+
+    private var totalVines: Int {
+        store.paddocks.reduce(0) { $0 + $1.effectiveVineCount }
+    }
+
+    private var vineyardOverviewSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            plainSectionHeader("Vineyard Overview")
+            NavigationLink {
+                VineyardDetailsView()
+            } label: {
+                VineyardCard {
+                    VStack(alignment: .leading, spacing: 14) {
+                        HStack(spacing: 14) {
+                            ZStack {
+                                RoundedRectangle(cornerRadius: 12)
+                                    .fill(VineyardTheme.leafGreen.opacity(0.15))
+                                    .frame(width: 48, height: 48)
+                                Image(systemName: "map.fill")
+                                    .font(.title3.weight(.semibold))
+                                    .foregroundStyle(VineyardTheme.leafGreen)
+                            }
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(store.selectedVineyard?.name ?? "No vineyard selected")
+                                    .font(.headline)
+                                    .foregroundStyle(.primary)
+                                Text("View map & summary")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(.tertiary)
+                        }
+                        Divider()
+                        HStack(spacing: 0) {
+                            overviewStat(value: "\(store.paddocks.count)", label: "Blocks")
+                            Divider().frame(height: 32)
+                            overviewStat(value: formattedHectares(totalHectares), label: "Hectares")
+                            Divider().frame(height: 32)
+                            overviewStat(value: formattedNumber(totalVines), label: "Vines")
+                        }
+                    }
+                }
+            }
+            .buttonStyle(.plain)
+            .padding(.horizontal)
+        }
+    }
+
+    private func overviewStat(value: String, label: String) -> some View {
+        VStack(spacing: 4) {
+            Text(value)
+                .font(.title3.weight(.bold))
+                .foregroundStyle(.primary)
+                .monospacedDigit()
+            Text(label)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity)
     }
 
     // MARK: Quick Actions
@@ -291,12 +349,12 @@ private struct NewHomeTabView: View {
     }
 
     private func quickActionTileLabel(title: String, systemIcon: String? = nil, grapeLeaf: Bool = false, colors: [Color]) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(spacing: 10) {
             Group {
                 if grapeLeaf {
                     GrapeVineLeafShape()
                         .fill(.white)
-                        .frame(width: 28, height: 28)
+                        .frame(width: 30, height: 30)
                 } else if let systemIcon {
                     Image(systemName: systemIcon)
                         .font(.title2.weight(.semibold))
@@ -307,7 +365,7 @@ private struct NewHomeTabView: View {
                 .font(.headline)
                 .foregroundStyle(.white)
         }
-        .frame(maxWidth: .infinity, minHeight: 96, alignment: .leading)
+        .frame(maxWidth: .infinity, minHeight: 96)
         .padding(16)
         .background(
             LinearGradient(colors: colors, startPoint: .topLeading, endPoint: .bottomTrailing),
@@ -364,24 +422,51 @@ private struct NewHomeTabView: View {
     }
 
     private func iconTile(title: String, icon: String, tint: Color) -> some View {
-        VStack(spacing: 10) {
+        operationalTile(title: title, subtitle: subtitleFor(title), icon: icon, tint: tint)
+    }
+
+    private func subtitleFor(_ title: String) -> String {
+        switch title {
+        case "Work Tasks": return "Log & calculate"
+        case "Maintenance Log": return "Repairs & jobs"
+        case "Growth Stage Report": return "E-L tracking"
+        case "Yield Estimation": return "Forecast crop"
+        case "Irrigation Advisor": return "Water planning"
+        case "Yield Determination": return "Final weights"
+        case "Manage Users": return "Team & roles"
+        case "Vineyard Setup": return "Blocks & rows"
+        case "Audit Log": return "Activity history"
+        case "Full Overview": return "All metrics"
+        default: return ""
+        }
+    }
+
+    private func operationalTile(title: String, subtitle: String, icon: String, tint: Color) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
             ZStack {
-                RoundedRectangle(cornerRadius: 14)
+                RoundedRectangle(cornerRadius: 12)
                     .fill(tint.opacity(0.15))
-                    .frame(width: 56, height: 56)
+                    .frame(width: 44, height: 44)
                 Image(systemName: icon)
-                    .font(.title2.weight(.semibold))
+                    .font(.title3.weight(.semibold))
                     .foregroundStyle(tint)
             }
-            Text(title)
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(.primary)
-                .multilineTextAlignment(.center)
-                .lineLimit(2)
-                .minimumScaleFactor(0.85)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.primary)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.85)
+                if !subtitle.isEmpty {
+                    Text(subtitle)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+            }
         }
-        .frame(maxWidth: .infinity, minHeight: 120)
-        .padding(.vertical, 14)
+        .frame(maxWidth: .infinity, minHeight: 110, alignment: .topLeading)
+        .padding(14)
         .background(VineyardTheme.cardBackground, in: .rect(cornerRadius: 14))
         .overlay(
             RoundedRectangle(cornerRadius: 14)
