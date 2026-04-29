@@ -37,6 +37,7 @@ struct BackendSettingsView: View {
             Form {
                 accountSection
                 vineyardSection
+                operationsSection
                 if let vineyard = store.selectedVineyard {
                     teamSection(vineyard: vineyard)
                 }
@@ -247,6 +248,43 @@ struct BackendSettingsView: View {
                     .frame(width: 40, height: 40)
                 GrapeLeafIcon(size: 20, color: .white)
             }
+        }
+    }
+
+    private var operationsSection: some View {
+        Section {
+            NavigationLink {
+                VineyardSetupHubView()
+            } label: {
+                SettingsRow(
+                    title: "Vineyard Setup",
+                    subtitle: "Blocks, Buttons & Growth Stages",
+                    symbol: "square.grid.2x2.fill",
+                    color: VineyardTheme.leafGreen
+                )
+            }
+            NavigationLink {
+                SprayEquipmentHubView()
+            } label: {
+                SettingsRow(
+                    title: "Spray & Equipment",
+                    subtitle: "Spray Management, Equipment & Tractors, Chemicals",
+                    symbol: "drop.fill",
+                    color: .teal
+                )
+            }
+            NavigationLink {
+                TeamOperationsHubView()
+            } label: {
+                SettingsRow(
+                    title: "Team Operations",
+                    subtitle: "Operator Categories",
+                    symbol: "person.2.fill",
+                    color: .blue
+                )
+            }
+        } header: {
+            SettingsSectionHeader(title: "Operations", symbol: "wrench.adjustable.fill", color: .orange)
         }
     }
 
