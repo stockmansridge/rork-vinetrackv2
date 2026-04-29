@@ -16,7 +16,8 @@ struct GrowthStageReportPDFService {
         seasonStartMonth: Int,
         seasonStartDay: Int,
         vintageColors: [Int: UIColor],
-        logoData: Data? = nil
+        logoData: Data? = nil,
+        timeZone: TimeZone = .current
     ) -> Data {
         let pageWidth: CGFloat = 595.0
         let pageHeight: CGFloat = 842.0
@@ -36,6 +37,10 @@ struct GrowthStageReportPDFService {
 
             let dateFormatter = DateFormatter()
             dateFormatter.dateFormat = "d MMM yyyy"
+            dateFormatter.timeZone = timeZone
+
+            var seasonCalendar = Calendar(identifier: .gregorian)
+            seasonCalendar.timeZone = timeZone
 
             for block in blocks {
                 drawTablePage(
@@ -76,7 +81,8 @@ struct GrowthStageReportPDFService {
                     vintageColors: vintageColors,
                     seasonStartMonth: seasonStartMonth,
                     seasonStartDay: seasonStartDay,
-                    logoData: logoData
+                    logoData: logoData,
+                    seasonCalendar: seasonCalendar
                 )
             }
         }
@@ -245,7 +251,8 @@ struct GrowthStageReportPDFService {
         vintageColors: [Int: UIColor],
         seasonStartMonth: Int,
         seasonStartDay: Int,
-        logoData: Data? = nil
+        logoData: Data? = nil,
+        seasonCalendar: Calendar = Calendar.current
     ) {
         context.beginPage()
         var y: CGFloat = margin
@@ -332,7 +339,7 @@ struct GrowthStageReportPDFService {
             )
         }
 
-        let cal = Calendar.current
+        let cal = seasonCalendar
         let normalizedDates: [Int: [(String, Double)]] = {
             var result: [Int: [(String, Double)]] = [:]
             for vintage in sortedVintages {

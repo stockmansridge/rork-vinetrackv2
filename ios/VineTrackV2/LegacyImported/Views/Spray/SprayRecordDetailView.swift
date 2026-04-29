@@ -195,7 +195,7 @@ struct SprayRecordDetailView: View {
 
     private var summarySection: some View {
         Section {
-            LabeledContent("Date", value: record.date.formatted(date: .abbreviated, time: .omitted))
+            LabeledContent("Date", value: record.date.formattedTZ(date: .abbreviated, time: .omitted, in: store.settings.resolvedTimeZone))
             if let trip = tripForRecord, !trip.paddockName.isEmpty {
                 LabeledContent("Paddock / Block", value: trip.paddockName)
             }
@@ -225,11 +225,11 @@ struct SprayRecordDetailView: View {
     private var timingSection: some View {
         let effectiveEnd = record.endTime ?? tripForRecord?.endTime
         return Section("Timing") {
-            LabeledContent("Started", value: record.startTime.formatted(date: .abbreviated, time: .shortened))
+            LabeledContent("Started", value: record.startTime.formattedTZ(date: .abbreviated, time: .shortened, in: store.settings.resolvedTimeZone))
             if let endTime = record.endTime {
-                LabeledContent("Finished", value: endTime.formatted(date: .abbreviated, time: .shortened))
+                LabeledContent("Finished", value: endTime.formattedTZ(date: .abbreviated, time: .shortened, in: store.settings.resolvedTimeZone))
             } else if let trip = tripForRecord, let tripEnd = trip.endTime {
-                LabeledContent("Finished", value: tripEnd.formatted(date: .abbreviated, time: .shortened))
+                LabeledContent("Finished", value: tripEnd.formattedTZ(date: .abbreviated, time: .shortened, in: store.settings.resolvedTimeZone))
             }
             if let trip = tripForRecord {
                 let duration = trip.activeDuration
@@ -514,6 +514,7 @@ extension SprayRecordDetailView {
         let operatorCatName = operatorCategoryNameForTrip
         let includeCostings = accessControl?.canViewFinancials ?? false
         let recordCopy = record
+        let exportTimeZone = store.settings.resolvedTimeZone
 
         Task {
             var snapshot: UIImage? = nil
@@ -532,7 +533,8 @@ extension SprayRecordDetailView {
                 fuelCost: fuelCost,
                 operatorCost: operatorCost,
                 operatorCategoryName: operatorCatName,
-                includeCostings: includeCostings
+                includeCostings: includeCostings,
+                timeZone: exportTimeZone
             )
             let fileName = "SprayRecord_\(recordCopy.sprayReference.isEmpty ? "Record" : recordCopy.sprayReference)_\(recordCopy.date.formatted(.iso8601.year().month().day()))"
             let url = SprayRecordPDFService.savePDFToTemp(data: data, fileName: fileName)

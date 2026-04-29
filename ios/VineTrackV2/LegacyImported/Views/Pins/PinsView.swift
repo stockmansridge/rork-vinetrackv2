@@ -194,6 +194,7 @@ struct PinsView: View {
         let pinsToExport = filteredPins
         let vineyardName = store.selectedVineyard?.name ?? "Vineyard"
         let logoData = store.selectedVineyard?.logoData
+        let exportTimeZone = store.settings.resolvedTimeZone
 
         let pinReports = pinsToExport.map { pin in
             let paddockName: String
@@ -207,16 +208,16 @@ struct PinsView: View {
 
         Task {
             var urls: [URL] = []
-            let fileName = "PinsReport_\(vineyardName)_\(Date().formatted(date: .numeric, time: .omitted))"
+            let fileName = "PinsReport_\(vineyardName)_\(Date().formattedTZ(date: .numeric, time: .omitted, in: exportTimeZone))"
 
             if format == .pdf || format == .both {
                 let snapshot = await PinsPDFService.captureMapSnapshot(pins: pinsToExport)
-                let pdfData = PinsPDFService.generatePDF(pins: pinReports, vineyardName: vineyardName, mapSnapshot: snapshot, logoData: logoData)
+                let pdfData = PinsPDFService.generatePDF(pins: pinReports, vineyardName: vineyardName, mapSnapshot: snapshot, logoData: logoData, timeZone: exportTimeZone)
                 urls.append(PinsPDFService.savePDFToTemp(data: pdfData, fileName: fileName))
             }
 
             if format == .csv || format == .both {
-                let csvData = PinsPDFService.generateCSV(pins: pinReports, vineyardName: vineyardName)
+                let csvData = PinsPDFService.generateCSV(pins: pinReports, vineyardName: vineyardName, timeZone: exportTimeZone)
                 urls.append(PinsPDFService.saveCSVToTemp(data: csvData, fileName: fileName))
             }
 

@@ -243,6 +243,7 @@ struct SprayProgramView: View {
         let operatorCategories = store.operatorCategories
         let users = store.selectedVineyard?.users ?? []
         let includeCostings = accessControl?.canViewFinancials ?? false
+        let exportTimeZone = store.settings.resolvedTimeZone
 
         Task.detached {
             let url = SprayProgramExportService.generateProgramPDF(
@@ -255,7 +256,8 @@ struct SprayProgramView: View {
                 seasonFuelCostPerLitre: fuelCost,
                 operatorCategories: operatorCategories,
                 vineyardUsers: users,
-                includeCostings: includeCostings
+                includeCostings: includeCostings,
+                timeZone: exportTimeZone
             )
             await MainActor.run {
                 sharePDFURL = ShareURL(url: url)
@@ -282,7 +284,7 @@ struct SprayProgramView: View {
                             .foregroundStyle(.primary)
                     }
 
-                    Label(record.date.formatted(date: .abbreviated, time: .omitted), systemImage: "calendar")
+                    Label(record.date.formattedTZ(date: .abbreviated, time: .omitted, in: store.settings.resolvedTimeZone), systemImage: "calendar")
                         .font(.caption)
                         .foregroundStyle(.secondary)
 

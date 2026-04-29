@@ -19,11 +19,13 @@ struct TripDetailView: View {
         store.pins.filter { $0.tripId == trip.id }
     }
 
+    private var tz: TimeZone { store.settings.resolvedTimeZone }
+
     private var displayName: String {
         if let record = sprayRecord, !record.sprayReference.isEmpty {
             return record.sprayReference
         }
-        let dateStr = trip.startTime.formatted(date: .abbreviated, time: .omitted)
+        let dateStr = trip.startTime.formattedTZ(date: .abbreviated, time: .omitted, in: tz)
         return "Maintenance Trip \(dateStr)"
     }
 
@@ -34,11 +36,11 @@ struct TripDetailView: View {
                     Text(displayName)
                         .font(.title2.weight(.semibold))
                         .foregroundStyle(VineyardTheme.olive)
-                    Label(trip.startTime.formatted(date: .abbreviated, time: .shortened), systemImage: "calendar")
+                    Label(trip.startTime.formattedTZ(date: .abbreviated, time: .shortened, in: tz), systemImage: "calendar")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                     if let endTime = trip.endTime {
-                        Label("Ended \(endTime.formatted(date: .abbreviated, time: .shortened))", systemImage: "flag.checkered")
+                        Label("Ended \(endTime.formattedTZ(date: .abbreviated, time: .shortened, in: tz))", systemImage: "flag.checkered")
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
                     } else if trip.isActive {
@@ -76,7 +78,7 @@ struct TripDetailView: View {
                     if !record.sprayReference.isEmpty {
                         statRow("Reference", value: record.sprayReference, icon: "drop.fill")
                     }
-                    statRow("Date", value: record.date.formatted(date: .abbreviated, time: .omitted), icon: "calendar")
+                    statRow("Date", value: record.date.formattedTZ(date: .abbreviated, time: .omitted, in: tz), icon: "calendar")
                     if record.tanks.count > 0 {
                         statRow("Tanks", value: "\(record.tanks.count)", icon: "cylinder")
                     }
@@ -136,7 +138,7 @@ struct TripDetailView: View {
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(pin.buttonName.isEmpty ? "Pin" : pin.buttonName)
                                     .font(.subheadline.weight(.medium))
-                                Text(pin.timestamp.formatted(date: .abbreviated, time: .shortened))
+                                Text(pin.timestamp.formattedTZ(date: .abbreviated, time: .shortened, in: tz))
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
                             }
@@ -284,7 +286,8 @@ struct TripDetailView: View {
         let paddockName = trip.paddockName
         let pinCount = pinsForTrip.count
         let tripCopy = trip
-        let fileName = "TripReport_\(vineyardName)_\(trip.startTime.formatted(date: .numeric, time: .omitted))"
+        let exportTimeZone = tz
+        let fileName = "TripReport_\(vineyardName)_\(trip.startTime.formattedTZ(date: .numeric, time: .omitted, in: exportTimeZone))"
 
         Task {
             let snapshot = await TripPDFService.captureMapSnapshot(trip: tripCopy)
@@ -294,7 +297,8 @@ struct TripDetailView: View {
                 paddockName: paddockName,
                 pinCount: pinCount,
                 mapSnapshot: snapshot,
-                logoData: logoData
+                logoData: logoData,
+                timeZone: exportTimeZone
             )
             let url = TripPDFService.savePDFToTemp(data: pdfData, fileName: fileName)
             isExporting = false

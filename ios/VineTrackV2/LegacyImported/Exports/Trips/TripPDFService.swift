@@ -4,7 +4,7 @@ import MapKit
 import CoreLocation
 
 struct TripPDFService {
-    static func generatePDF(trip: Trip, vineyardName: String, paddockName: String, pinCount: Int, mapSnapshot: UIImage?, logoData: Data? = nil, fuelCost: Double = 0, chemicalCosts: [(String, Double)] = [], operatorCost: Double = 0, operatorCategoryName: String? = nil, includeCostings: Bool = true) -> Data {
+    static func generatePDF(trip: Trip, vineyardName: String, paddockName: String, pinCount: Int, mapSnapshot: UIImage?, logoData: Data? = nil, fuelCost: Double = 0, chemicalCosts: [(String, Double)] = [], operatorCost: Double = 0, operatorCategoryName: String? = nil, includeCostings: Bool = true, timeZone: TimeZone = .current) -> Data {
         let pageWidth: CGFloat = 595.0
         let pageHeight: CGFloat = 842.0
         let margin: CGFloat = 40.0
@@ -70,7 +70,7 @@ struct TripPDFService {
                 y: &y
             )
 
-            let dateStr = trip.startTime.formatted(date: .abbreviated, time: .shortened)
+            let dateStr = trip.startTime.formattedTZ(date: .abbreviated, time: .shortened, in: timeZone)
             drawText(dateStr, font: captionFont, color: .darkGray)
             y += 4
 
@@ -86,9 +86,9 @@ struct TripPDFService {
             if !trip.personName.isEmpty {
                 drawRow(label: "Logged By", value: trip.personName)
             }
-            drawRow(label: "Date", value: trip.startTime.formatted(date: .abbreviated, time: .shortened))
+            drawRow(label: "Date", value: trip.startTime.formattedTZ(date: .abbreviated, time: .shortened, in: timeZone))
             if let endTime = trip.endTime {
-                drawRow(label: "End Time", value: endTime.formatted(date: .omitted, time: .shortened))
+                drawRow(label: "End Time", value: endTime.formattedTZ(date: .omitted, time: .shortened, in: timeZone))
             }
             drawRow(label: "Duration", value: formatDuration(trip))
             drawRow(label: "Distance", value: formatDistance(trip.totalDistance))
@@ -177,8 +177,9 @@ struct TripPDFService {
 
             y += 16
             checkPageBreak(needed: 30)
-            let footerDate = Date().formatted(date: .abbreviated, time: .shortened)
-            drawText("Generated \(footerDate) • VineTrackV2", font: captionFont, color: .gray)
+            let footerDate = Date().formattedTZ(date: .abbreviated, time: .shortened, in: timeZone)
+            let tzAbbrev = timeZone.abbreviation() ?? timeZone.identifier
+            drawText("Generated \(footerDate) (\(tzAbbrev)) • VineTrackV2", font: captionFont, color: .gray)
         }
 
         return data

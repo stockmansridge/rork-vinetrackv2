@@ -10,7 +10,7 @@ struct PinsPDFService {
         let paddockName: String
     }
 
-    static func generatePDF(pins: [PinReport], vineyardName: String, mapSnapshot: UIImage?, logoData: Data? = nil) -> Data {
+    static func generatePDF(pins: [PinReport], vineyardName: String, mapSnapshot: UIImage?, logoData: Data? = nil, timeZone: TimeZone = .current) -> Data {
         let pageWidth: CGFloat = 595.0
         let pageHeight: CGFloat = 842.0
         let margin: CGFloat = 40.0
@@ -103,7 +103,7 @@ struct PinsPDFService {
                 y: &y
             )
 
-            let dateStr = Date().formatted(date: .abbreviated, time: .shortened)
+            let dateStr = Date().formattedTZ(date: .abbreviated, time: .shortened, in: timeZone)
             drawText(dateStr, font: captionFont, color: .darkGray)
             y += 4
 
@@ -202,7 +202,7 @@ struct PinsPDFService {
                 let statusAttrs: [NSAttributedString.Key: Any] = [.font: UIFont.systemFont(ofSize: 9, weight: .semibold), .foregroundColor: statusColor]
                 (statusStr as NSString).draw(at: CGPoint(x: colStatus, y: y), withAttributes: statusAttrs)
 
-                let dateString = pin.timestamp.formatted(date: .numeric, time: .shortened)
+                let dateString = pin.timestamp.formattedTZ(date: .numeric, time: .shortened, in: timeZone)
                 (dateString as NSString).draw(at: CGPoint(x: colDate, y: y), withAttributes: cellSecAttrs)
 
                 let detailY = y + 13
@@ -229,8 +229,9 @@ struct PinsPDFService {
 
             y += 16
             checkPageBreak(needed: 30)
-            let footerDate = Date().formatted(date: .abbreviated, time: .shortened)
-            drawText("Generated \(footerDate) • VineTrackV2", font: captionFont, color: .gray)
+            let footerDate = Date().formattedTZ(date: .abbreviated, time: .shortened, in: timeZone)
+            let tzAbbrev = timeZone.abbreviation() ?? timeZone.identifier
+            drawText("Generated \(footerDate) (\(tzAbbrev)) • VineTrackV2", font: captionFont, color: .gray)
         }
 
         return data
@@ -316,7 +317,7 @@ struct PinsPDFService {
         return url
     }
 
-    static func generateCSV(pins: [PinReport], vineyardName: String) -> Data {
+    static func generateCSV(pins: [PinReport], vineyardName: String, timeZone: TimeZone = .current) -> Data {
         var csv = "Type,Name,Block,Row,Side,Heading,Status,Created By,Completed By,Completed At,Latitude,Longitude,Date\n"
 
         for report in pins {
@@ -327,8 +328,8 @@ struct PinsPDFService {
             let statusStr = pin.isCompleted ? "Completed" : "Active"
             let createdBy = pin.createdBy ?? ""
             let completedBy = pin.completedBy ?? ""
-            let completedAt = pin.completedAt?.formatted(date: .numeric, time: .shortened) ?? ""
-            let dateStr = pin.timestamp.formatted(date: .numeric, time: .shortened)
+            let completedAt = pin.completedAt?.formattedTZ(date: .numeric, time: .shortened, in: timeZone) ?? ""
+            let dateStr = pin.timestamp.formattedTZ(date: .numeric, time: .shortened, in: timeZone)
 
             let row = [
                 escapeCSV(typeStr),

@@ -17,6 +17,8 @@ struct GrowthStageReportView: View {
 
     private var seasonStartMonth: Int { store.settings.seasonStartMonth }
     private var seasonStartDay: Int { store.settings.seasonStartDay }
+    private var tz: TimeZone { store.settings.resolvedTimeZone }
+    private var seasonCalendar: Calendar { store.settings.resolvedCalendar }
 
     private var growthPins: [VinePin] {
         store.pins.filter { $0.growthStageCode != nil && $0.mode == .growth }
@@ -52,7 +54,7 @@ struct GrowthStageReportView: View {
     }
 
     private func vintageYear(for date: Date) -> Int {
-        let cal = Calendar.current
+        let cal = seasonCalendar
         let month = cal.component(.month, from: date)
         let day = cal.component(.day, from: date)
         let year = cal.component(.year, from: date)
@@ -64,7 +66,7 @@ struct GrowthStageReportView: View {
     }
 
     private func vintageRange(for vintage: Int) -> (start: Date, end: Date) {
-        let cal = Calendar.current
+        let cal = seasonCalendar
         let startComponents = DateComponents(year: vintage - 1, month: seasonStartMonth, day: seasonStartDay)
         let endComponents = DateComponents(year: vintage, month: seasonStartMonth, day: seasonStartDay)
         let start = cal.date(from: startComponents) ?? Date()
@@ -73,7 +75,7 @@ struct GrowthStageReportView: View {
     }
 
     private func endOfDay(_ date: Date) -> Date {
-        let cal = Calendar.current
+        let cal = seasonCalendar
         if let result = cal.date(bySettingHour: 23, minute: 59, second: 59, of: date) {
             return result
         }
@@ -163,6 +165,7 @@ struct GrowthStageReportView: View {
         let vineyardName = store.selectedVineyard?.name ?? "Vineyard"
         let seasonMonth = seasonStartMonth
         let seasonDay = seasonStartDay
+        let exportTimeZone = tz
 
         let blocks: [GrowthStageReportPDFService.BlockReport] = {
             let paddocks: [Paddock] = {
@@ -228,7 +231,8 @@ struct GrowthStageReportView: View {
                 seasonStartMonth: seasonMonth,
                 seasonStartDay: seasonDay,
                 vintageColors: vintageColorMap,
-                logoData: nil
+                logoData: nil,
+                timeZone: exportTimeZone
             )
             let fileName = "GrowthStageReport_\(Date().formatted(.iso8601.year().month().day()))"
             let url = GrowthStageReportPDFService.savePDFToTemp(data: data, fileName: fileName)
@@ -312,7 +316,7 @@ struct GrowthStageReportView: View {
         } footer: {
             if let first = availableVintages.first {
                 let range = vintageRange(for: first)
-                Text("Vintage \(String(first)): \(range.start.formatted(.dateTime.day().month(.abbreviated).year())) \u{2013} \(range.end.formatted(.dateTime.day().month(.abbreviated).year()))")
+                Text("Vintage \(String(first)): \(range.start.formattedTZ(date: .abbreviated, time: .omitted, in: tz)) \u{2013} \(range.end.formattedTZ(date: .abbreviated, time: .omitted, in: tz))")
             }
         }
     }
@@ -374,7 +378,7 @@ struct GrowthStageReportView: View {
                             .foregroundStyle(color)
                             .frame(width: 38, alignment: .leading)
 
-                        Text(pin.timestamp.formatted(.dateTime.day().month(.abbreviated).year()))
+                        Text(pin.timestamp.formattedTZ(date: .abbreviated, time: .omitted, in: tz))
                             .font(.caption.monospacedDigit())
 
                         Spacer()

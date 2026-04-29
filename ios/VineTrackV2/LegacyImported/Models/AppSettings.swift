@@ -2,6 +2,30 @@ import Foundation
 
 import SwiftUI
 
+nonisolated extension Date {
+    func formattedTZ(date dateStyle: Date.FormatStyle.DateStyle, time timeStyle: Date.FormatStyle.TimeStyle, in timeZone: TimeZone) -> String {
+        var style = Date.FormatStyle(date: dateStyle, time: timeStyle)
+        style.timeZone = timeZone
+        return self.formatted(style)
+    }
+}
+
+extension AppSettings {
+    nonisolated var resolvedTimeZone: TimeZone {
+        TimeZone(identifier: timezone) ?? .current
+    }
+
+    nonisolated var resolvedCalendar: Calendar {
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = resolvedTimeZone
+        return cal
+    }
+
+    nonisolated var timezoneAbbreviation: String {
+        resolvedTimeZone.abbreviation() ?? resolvedTimeZone.identifier
+    }
+}
+
 nonisolated enum AppAppearance: String, Codable, Sendable, CaseIterable {
     case system
     case light
