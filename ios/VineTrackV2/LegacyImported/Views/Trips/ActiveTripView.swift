@@ -116,12 +116,16 @@ struct ActiveTripView: View {
                 }
                 .padding(12)
 
-                if showRowIndicator, tracking.rowGuidanceAvailable {
+                if showRowIndicator, tracking.rowGuidanceAvailable, store.settings.rowTrackingEnabled {
                     rowIndicatorOverlay
                 }
             }
 
-            currentRowBanner
+            if store.settings.rowTrackingEnabled {
+                currentRowBanner
+            } else {
+                rowTrackingDisabledBanner
+            }
 
             if let record = sprayRecord {
                 sprayBanner(record: record)
@@ -367,6 +371,35 @@ struct ActiveTripView: View {
     }
 
     // MARK: - Banners
+
+    private var rowTrackingDisabledBanner: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "location.slash.fill")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("ROW TRACKING DISABLED")
+                    .font(.caption2.weight(.bold))
+                    .foregroundStyle(.secondary)
+                Text("GPS path is still recording. Enable row tracking in Preferences for live row guidance.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+            }
+            Spacer()
+            Button {
+                showSummary = true
+            } label: {
+                Image(systemName: "list.bullet.clipboard")
+                    .font(.title3)
+                    .foregroundStyle(Color.accentColor)
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+        .background(Color(.secondarySystemGroupedBackground))
+    }
 
     private var currentRowBanner: some View {
         HStack(spacing: 10) {

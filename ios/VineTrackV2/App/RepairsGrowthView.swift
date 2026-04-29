@@ -15,6 +15,8 @@ struct RepairsGrowthView: View {
     @State private var lastGrowthStage: GrowthStage?
     @State private var errorMessage: String?
     @State private var pinToast: PinDroppedToastInfo?
+    @State private var pendingPhotoPinId: UUID?
+    @State private var showPhotoPicker: Bool = false
 
     init(initial: Tab = .repairs) {
         _selection = State(initialValue: initial)
@@ -92,6 +94,20 @@ struct RepairsGrowthView: View {
                 handleGrowthStageSelected(stage)
             }
         }
+        .sheet(isPresented: $showPhotoPicker) {
+            CameraImagePicker { data in
+                attachPhoto(data: data)
+            }
+            .ignoresSafeArea()
+        }
+    }
+
+    private func attachPhoto(data: Data?) {
+        defer { pendingPhotoPinId = nil }
+        guard let data, let pinId = pendingPhotoPinId else { return }
+        guard var pin = store.pins.first(where: { $0.id == pinId }) else { return }
+        pin.photoData = data
+        store.updatePin(pin)
     }
 
     // MARK: - Segmented header
@@ -272,12 +288,16 @@ struct RepairsGrowthView: View {
             rowNumber: nil,
             createdBy: auth.userName
         )
-        guard pin != nil else {
+        guard let createdPin = pin else {
             showError("Could not create pin \u{2014} no vineyard selected.")
             return
         }
         let sideLabel = side == .left ? "Left" : "Right"
         showPinToast(title: "\(button.name) pin dropped", subtitle: "\(sideLabel) side")
+        if store.settings.autoPhotoPrompt {
+            pendingPhotoPinId = createdPin.id
+            showPhotoPicker = true
+        }
     }
 
     private func handleGrowthStageSelected(_ stage: GrowthStage) {
@@ -297,11 +317,15 @@ struct RepairsGrowthView: View {
             rowNumber: nil,
             createdBy: auth.userName
         )
-        guard pin != nil else {
+        guard let createdPin = pin else {
             showError("Could not create pin \u{2014} no vineyard selected.")
             return
         }
         showPinToast(title: "Growth stage recorded", subtitle: "EL \(stage.code) \u{2022} \(stage.description)")
+        if store.settings.autoPhotoPrompt {
+            pendingPhotoPinId = createdPin.id
+            showPhotoPicker = true
+        }
     }
 
     private func showPinToast(title: String, subtitle: String) {

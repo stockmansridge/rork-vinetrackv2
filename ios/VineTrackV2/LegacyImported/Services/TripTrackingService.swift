@@ -255,7 +255,15 @@ final class TripTrackingService {
             trip.pathPoints.append(newPoint)
         }
 
-        updateRowGuidance(for: location.coordinate, trip: &trip, store: store)
+        let rowTrackingEnabled = store.settings.rowTrackingEnabled
+        if rowTrackingEnabled {
+            updateRowGuidance(for: location.coordinate, trip: &trip, store: store)
+        } else {
+            currentRowNumber = nil
+            currentRowDistance = nil
+            rowGuidanceAvailable = false
+            rowsCoveredCount = trip.completedPaths.count
+        }
 
         store.updateTrip(trip)
         currentDistance = trip.totalDistance

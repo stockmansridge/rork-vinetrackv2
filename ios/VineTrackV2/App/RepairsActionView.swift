@@ -10,6 +10,8 @@ struct RepairsActionView: View {
     @State private var showEditButtons: Bool = false
     @State private var feedbackMessage: String?
     @State private var feedbackKind: VineyardBadgeKind = .success
+    @State private var pendingPhotoPinId: UUID?
+    @State private var showPhotoPicker: Bool = false
 
     private var canCreate: Bool { accessControl.canCreateOperationalRecords }
     private var canEdit: Bool { accessControl.canChangeSettings }
@@ -73,6 +75,20 @@ struct RepairsActionView: View {
         .sheet(isPresented: $showEditButtons) {
             EditButtonsSheet(mode: .repairs)
         }
+        .sheet(isPresented: $showPhotoPicker) {
+            CameraImagePicker { data in
+                attachPhoto(data: data)
+            }
+            .ignoresSafeArea()
+        }
+    }
+
+    private func attachPhoto(data: Data?) {
+        defer { pendingPhotoPinId = nil }
+        guard let data, let pinId = pendingPhotoPinId else { return }
+        guard var pin = store.pins.first(where: { $0.id == pinId }) else { return }
+        pin.photoData = data
+        store.updatePin(pin)
     }
 
     private func handleTap(button: ButtonConfig, side: PinSide) {
@@ -81,7 +97,7 @@ struct RepairsActionView: View {
             showFeedback("Waiting for GPS location.", kind: .warning)
             return
         }
-        store.createPinFromButton(
+        let createdPin = store.createPinFromButton(
             button: button,
             coordinate: location.coordinate,
             heading: locationService.heading?.trueHeading ?? 0,
@@ -92,6 +108,10 @@ struct RepairsActionView: View {
             notes: nil
         )
         showFeedback("Pin: \(button.name) (\(side == .left ? "L" : "R"))", kind: .success)
+        if store.settings.autoPhotoPrompt, let pin = createdPin {
+            pendingPhotoPinId = pin.id
+            showPhotoPicker = true
+        }
     }
 
     private func showFeedback(_ message: String, kind: VineyardBadgeKind) {
