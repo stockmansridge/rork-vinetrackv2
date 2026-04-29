@@ -65,6 +65,7 @@ struct BackendSettingsView: View {
                 signOutSection
             }
             .navigationTitle("Settings")
+            .refreshable { await refreshVineyards() }
             .sheet(isPresented: $showVineyardSwitcher) {
                 BackendVineyardListView()
             }
@@ -98,23 +99,26 @@ struct BackendSettingsView: View {
     private var vineyardSection: some View {
         Section {
             if let vineyard = store.selectedVineyard {
-                HStack(spacing: 12) {
-                    ZStack {
-                        RoundedRectangle(cornerRadius: 8)
-                            .fill(VineyardTheme.leafGreen.gradient)
-                            .frame(width: 40, height: 40)
-                        GrapeLeafIcon(size: 20, color: .white)
-                    }
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(vineyard.name)
-                            .font(.headline)
-                        if !vineyard.country.isEmpty {
-                            Text(vineyard.country)
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
+                Button {
+                    showVineyardDetail = true
+                } label: {
+                    HStack(spacing: 12) {
+                        vineyardThumbnail(vineyard)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(vineyard.name)
+                                .font(.headline)
+                                .foregroundStyle(.primary)
+                            if !vineyard.country.isEmpty {
+                                Text(vineyard.country)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
                         }
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.tertiary)
                     }
-                    Spacer()
                 }
             } else {
                 Text("No vineyard selected")
@@ -125,38 +129,29 @@ struct BackendSettingsView: View {
             Button {
                 showVineyardSwitcher = true
             } label: {
-                Label("Switch Vineyard", systemImage: "arrow.triangle.swap")
+                Label("Change Vineyard", systemImage: "arrow.triangle.swap")
                     .foregroundStyle(.primary)
-            }
-
-            if store.selectedVineyard != nil {
-                Button {
-                    showVineyardDetail = true
-                } label: {
-                    Label("Edit Vineyard", systemImage: "pencil")
-                        .foregroundStyle(.primary)
-                }
-            }
-
-            Button {
-                Task { await refreshVineyards() }
-            } label: {
-                HStack {
-                    Label("Refresh Vineyards", systemImage: "arrow.clockwise")
-                        .foregroundStyle(.primary)
-                    Spacer()
-                    if isRefreshing { ProgressView() }
-                }
-            }
-            .disabled(isRefreshing)
-
-            if let refreshMessage {
-                Text(refreshMessage)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
             }
         } header: {
             Text("Vineyard")
+        }
+    }
+
+    @ViewBuilder
+    private func vineyardThumbnail(_ vineyard: Vineyard) -> some View {
+        if let data = vineyard.logoData, let image = UIImage(data: data) {
+            Image(uiImage: image)
+                .resizable()
+                .scaledToFill()
+                .frame(width: 40, height: 40)
+                .clipShape(.rect(cornerRadius: 8))
+        } else {
+            ZStack {
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(VineyardTheme.leafGreen.gradient)
+                    .frame(width: 40, height: 40)
+                GrapeLeafIcon(size: 20, color: .white)
+            }
         }
     }
 

@@ -1,4 +1,5 @@
 import SwiftUI
+import PhotosUI
 
 /// Phase 6A — simplified backend-aware vineyard detail sheet.
 ///
@@ -14,6 +15,7 @@ struct BackendVineyardDetailSheet: View {
     let vineyardRepository: any VineyardRepositoryProtocol
 
     @Environment(MigratedDataStore.self) private var store
+    @Environment(BackendAccessControl.self) private var accessControl
     @Environment(\.dismiss) private var dismiss
 
     @State private var showEditName: Bool = false
@@ -23,6 +25,8 @@ struct BackendVineyardDetailSheet: View {
     @State private var deleteConfirmationText: String = ""
     @State private var isWorking: Bool = false
     @State private var errorMessage: String?
+    @State private var selectedLogoItem: PhotosPickerItem?
+    @State private var showRemoveLogoConfirm: Bool = false
 
     init(
         vineyard: Vineyard,
@@ -46,8 +50,11 @@ struct BackendVineyardDetailSheet: View {
     var body: some View {
         NavigationStack {
             List {
+                logoSection
                 infoSection
-                dangerSection
+                if accessControl.canChangeSettings {
+                    dangerSection
+                }
             }
             .listStyle(.insetGrouped)
             .navigationTitle(vineyard.name)
@@ -95,6 +102,104 @@ struct BackendVineyardDetailSheet: View {
         )
     }
 
+    private var logoSection: some View {
+        Section {
+            HStack(spacing: 16) {
+                logoPreview
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(vineyard.logoData == nil ? "No logo" : "Logo set")
+                        .font(.subheadline.weight(.semibold))
+                    Text("Logos appear on exported PDFs and reports.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+            }
+
+            if accessControl.canChangeSettings {
+                PhotosPicker(selection: $selectedLogoItem, matching: .images) {
+                    Label(vineyard.logoData == nil ? "Add Logo" : "Change Logo",
+                          systemImage: vineyard.logoData == nil ? "photo.badge.plus" : "photo.badge.arrow.down")
+                        .foregroundStyle(.primary)
+                }
+                .disabled(isWorking)
+
+                if vineyard.logoData != nil {
+                    Button(role: .destructive) {
+                        showRemoveLogoConfirm = true
+                    } label: {
+                        Label("Remove Logo", systemImage: "trash")
+                    }
+                    .disabled(isWorking)
+                }
+            }
+        } header: {
+            Text("Vineyard Logo")
+        } footer: {
+            if !accessControl.canChangeSettings {
+                Text("Only owners and managers can change the vineyard logo.")
+            } else {
+                Text("Stored locally on this device. Logo sync is not enabled yet.")
+            }
+        }
+        .onChange(of: selectedLogoItem) { _, newItem in
+            handleLogoSelection(newItem)
+        }
+        .alert("Remove Logo?", isPresented: $showRemoveLogoConfirm) {
+            Button("Remove", role: .destructive) { removeLogo() }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This will remove the logo from this device.")
+        }
+    }
+
+    @ViewBuilder
+    private var logoPreview: some View {
+        if let data = vineyard.logoData, let image = UIImage(data: data) {
+            Image(uiImage: image)
+                .resizable()
+                .scaledToFit()
+                .frame(width: 64, height: 64)
+                .background(Color(.tertiarySystemGroupedBackground), in: .rect(cornerRadius: 10))
+                .clipShape(.rect(cornerRadius: 10))
+        } else {
+            ZStack {
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(VineyardTheme.leafGreen.opacity(0.15))
+                    .frame(width: 64, height: 64)
+                GrapeLeafIcon(size: 28, color: VineyardTheme.leafGreen)
+            }
+        }
+    }
+
+    private func handleLogoSelection(_ item: PhotosPickerItem?) {
+        guard let item else { return }
+        Task {
+            if let data = try? await item.loadTransferable(type: Data.self),
+               let uiImage = UIImage(data: data) {
+                let maxSize: CGFloat = 512
+                let scale = min(maxSize / uiImage.size.width, maxSize / uiImage.size.height, 1.0)
+                let newSize = CGSize(width: uiImage.size.width * scale, height: uiImage.size.height * scale)
+                let renderer = UIGraphicsImageRenderer(size: newSize)
+                let resized = renderer.image { _ in
+                    uiImage.draw(in: CGRect(origin: .zero, size: newSize))
+                }
+                if let jpeg = resized.jpegData(compressionQuality: 0.85) {
+                    var updated = vineyard
+                    updated.logoData = jpeg
+                    store.upsertLocalVineyard(updated)
+                }
+            }
+            selectedLogoItem = nil
+        }
+    }
+
+    private func removeLogo() {
+        var updated = vineyard
+        updated.logoData = nil
+        store.upsertLocalVineyard(updated)
+    }
+
     private var infoSection: some View {
         Section {
             LabeledContent("Name", value: vineyard.name)
@@ -106,17 +211,20 @@ struct BackendVineyardDetailSheet: View {
                     Text(c).tag(c)
                 }
             }
+            .disabled(!accessControl.canChangeSettings)
             .onChange(of: selectedCountry) { _, newValue in
                 Task { await updateCountry(newValue) }
             }
 
-            Button {
-                editedName = vineyard.name
-                showEditName = true
-            } label: {
-                Label("Rename Vineyard", systemImage: "pencil")
+            if accessControl.canChangeSettings {
+                Button {
+                    editedName = vineyard.name
+                    showEditName = true
+                } label: {
+                    Label("Rename Vineyard", systemImage: "pencil")
+                }
+                .disabled(isWorking)
             }
-            .disabled(isWorking)
         } header: {
             Text("Vineyard Info")
         } footer: {
