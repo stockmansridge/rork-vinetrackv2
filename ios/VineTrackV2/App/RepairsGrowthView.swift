@@ -114,20 +114,24 @@ struct RepairsGrowthView: View {
 
     private var segmentHeader: some View {
         HStack(spacing: 8) {
-            segmentButton(title: "Repairs", icon: "wrench.fill", tab: .repairs)
-            segmentButton(title: "Growth", icon: "leaf.fill", tab: .growth)
+            segmentButton(title: "Repairs", tab: .repairs) {
+                Image(systemName: "wrench.fill")
+                    .font(.subheadline.weight(.bold))
+            }
+            segmentButton(title: "Growth", tab: .growth) {
+                GrapeLeafIcon(size: 18, color: selection == .growth ? .white : .primary)
+            }
         }
         .padding(4)
         .background(Color(.secondarySystemBackground), in: .rect(cornerRadius: 12))
     }
 
-    private func segmentButton(title: String, icon: String, tab: Tab) -> some View {
+    private func segmentButton<Icon: View>(title: String, tab: Tab, @ViewBuilder icon: () -> Icon) -> some View {
         Button {
             withAnimation(.easeInOut(duration: 0.2)) { selection = tab }
         } label: {
             HStack(spacing: 6) {
-                Image(systemName: icon)
-                    .font(.subheadline.weight(.bold))
+                icon()
                 Text(title)
                     .font(.headline.weight(.bold))
             }
