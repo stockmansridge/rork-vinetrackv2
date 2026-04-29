@@ -36,30 +36,35 @@ enum VineyardTheme {
         let tintUI = UIColor.systemBlue
         let textUI = UIColor.label
 
-        // Navigation bar — clean white/light with dark titles and system blue tint for buttons
-        let navAppearance = UINavigationBarAppearance()
-        navAppearance.configureWithOpaqueBackground()
-        navAppearance.backgroundColor = UIColor.systemBackground
-        navAppearance.shadowColor = UIColor.separator.withAlphaComponent(0.4)
-        navAppearance.titleTextAttributes = [
+        // Navigation bar — minimal: transparent at scroll edge (no separator line),
+        // subtle blur + hairline only once content scrolls under the bar.
+        let navStandard = UINavigationBarAppearance()
+        navStandard.configureWithDefaultBackground()
+        navStandard.titleTextAttributes = [
             .foregroundColor: textUI,
             .font: UIFont.systemFont(ofSize: 17, weight: .semibold)
         ]
-        navAppearance.largeTitleTextAttributes = [
+        navStandard.largeTitleTextAttributes = [
             .foregroundColor: textUI,
             .font: UIFont.systemFont(ofSize: 34, weight: .bold)
         ]
 
-        UINavigationBar.appearance().standardAppearance = navAppearance
-        UINavigationBar.appearance().scrollEdgeAppearance = navAppearance
-        UINavigationBar.appearance().compactAppearance = navAppearance
+        let navScrollEdge = UINavigationBarAppearance()
+        navScrollEdge.configureWithTransparentBackground()
+        navScrollEdge.shadowColor = .clear
+        navScrollEdge.backgroundColor = .clear
+        navScrollEdge.titleTextAttributes = navStandard.titleTextAttributes
+        navScrollEdge.largeTitleTextAttributes = navStandard.largeTitleTextAttributes
+
+        UINavigationBar.appearance().standardAppearance = navStandard
+        UINavigationBar.appearance().scrollEdgeAppearance = navScrollEdge
+        UINavigationBar.appearance().compactAppearance = navStandard
+        UINavigationBar.appearance().compactScrollEdgeAppearance = navScrollEdge
         UINavigationBar.appearance().tintColor = tintUI
 
-        // Tab bar — clean white
+        // Tab bar — clean white with a subtle hairline (system default)
         let tabAppearance = UITabBarAppearance()
-        tabAppearance.configureWithOpaqueBackground()
-        tabAppearance.backgroundColor = UIColor.systemBackground
-        tabAppearance.shadowColor = UIColor.separator.withAlphaComponent(0.4)
+        tabAppearance.configureWithDefaultBackground()
 
         UITabBar.appearance().standardAppearance = tabAppearance
         UITabBar.appearance().scrollEdgeAppearance = tabAppearance
