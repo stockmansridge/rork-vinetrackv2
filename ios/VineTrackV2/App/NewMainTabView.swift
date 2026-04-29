@@ -299,7 +299,9 @@ private struct NewHomeTabView: View {
                             Divider().frame(height: 44)
                             overviewStat(icon: "square.dashed", iconColor: .orange, value: formattedHectares(totalHectares), label: "Hectares")
                             Divider().frame(height: 44)
-                            overviewStat(icon: "leaf.fill", iconColor: VineyardTheme.darkGreen, value: formattedNumber(totalVines), label: "Vines")
+                            overviewStatCustom(value: formattedNumber(totalVines), label: "Vines") {
+                                GrapeLeafIcon(size: 14, color: VineyardTheme.darkGreen)
+                            }
                         }
                     }
                 }
@@ -307,6 +309,20 @@ private struct NewHomeTabView: View {
             .buttonStyle(.plain)
             .padding(.horizontal)
         }
+    }
+
+    private func overviewStatCustom<Icon: View>(value: String, label: String, @ViewBuilder icon: () -> Icon) -> some View {
+        VStack(spacing: 4) {
+            icon()
+            Text(value)
+                .font(.title3.weight(.bold))
+                .foregroundStyle(.primary)
+                .monospacedDigit()
+            Text(label)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity)
     }
 
     private func overviewStat(icon: String, iconColor: Color, value: String, label: String) -> some View {
