@@ -189,13 +189,21 @@ private struct NewHomeTabView: View {
 
     private var titleHeader: some View {
         HStack(spacing: 12) {
-            ZStack {
-                Circle()
-                    .fill(VineyardTheme.leafGreen.gradient)
+            if let data = store.selectedVineyard?.logoData, let uiImage = UIImage(data: data) {
+                Image(uiImage: uiImage)
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
                     .frame(width: 40, height: 40)
-                GrapeVineLeafShape()
-                    .fill(.white)
-                    .frame(width: 22, height: 22)
+                    .clipShape(Circle())
+            } else {
+                ZStack {
+                    Circle()
+                        .fill(VineyardTheme.leafGreen.gradient)
+                        .frame(width: 40, height: 40)
+                    GrapeVineLeafShape()
+                        .fill(.white)
+                        .frame(width: 22, height: 22)
+                }
             }
             Text(store.selectedVineyard?.name ?? "No Vineyard")
                 .font(.title2.weight(.bold))
