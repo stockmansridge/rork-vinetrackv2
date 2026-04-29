@@ -14,10 +14,10 @@ struct CalculationSettingsView: View {
                     .foregroundStyle(.secondary)
             }
 
-            canopyRateSection(title: "Small Canopy", description: CanopySize.small.description, lowBinding: $rates.smallLow, highBinding: $rates.smallHigh)
-            canopyRateSection(title: "Medium Canopy", description: CanopySize.medium.description, lowBinding: $rates.mediumLow, highBinding: $rates.mediumHigh)
-            canopyRateSection(title: "Large Canopy", description: CanopySize.large.description, lowBinding: $rates.largeLow, highBinding: $rates.largeHigh)
-            canopyRateSection(title: "Full Canopy", description: CanopySize.full.description, lowBinding: $rates.fullLow, highBinding: $rates.fullHigh)
+            canopyRateSection(title: "Small Canopy", description: CanopySize.small.description, lowBinding: $rates.smallLow, highBinding: $rates.smallHigh, imageName: "CanopySmall")
+            canopyRateSection(title: "Medium Canopy", description: CanopySize.medium.description, lowBinding: $rates.mediumLow, highBinding: $rates.mediumHigh, imageName: nil)
+            canopyRateSection(title: "Large Canopy", description: CanopySize.large.description, lowBinding: $rates.largeLow, highBinding: $rates.largeHigh, imageName: nil)
+            canopyRateSection(title: "Full Canopy", description: CanopySize.full.description, lowBinding: $rates.fullLow, highBinding: $rates.fullHigh, imageName: nil)
 
             Section {
                 exampleCalculation
@@ -60,8 +60,19 @@ struct CalculationSettingsView: View {
         }
     }
 
-    private func canopyRateSection(title: String, description: String, lowBinding: Binding<Double>, highBinding: Binding<Double>) -> some View {
+    private func canopyRateSection(title: String, description: String, lowBinding: Binding<Double>, highBinding: Binding<Double>, imageName: String?) -> some View {
         Section {
+            if let imageName {
+                HStack {
+                    Spacer()
+                    Image(imageName)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(height: 100)
+                    Spacer()
+                }
+                .padding(.vertical, 4)
+            }
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Low Density")
