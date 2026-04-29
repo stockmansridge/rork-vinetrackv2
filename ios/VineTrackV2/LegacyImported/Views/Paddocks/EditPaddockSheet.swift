@@ -488,8 +488,17 @@ struct EditPaddockSheet: View {
 
     private var availableVarieties: [GrapeVariety] {
         let usedIds = Set(varietyAllocations.map { $0.varietyId })
+        let vineyardId = store.selectedVineyardId
+        var seenNames = Set<String>()
         return store.grapeVarieties
-            .filter { !usedIds.contains($0.id) }
+            .filter { variety in
+                guard !usedIds.contains(variety.id) else { return false }
+                if let vid = vineyardId, variety.vineyardId != vid { return false }
+                let key = variety.name.lowercased()
+                if seenNames.contains(key) { return false }
+                seenNames.insert(key)
+                return true
+            }
             .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
     }
 
