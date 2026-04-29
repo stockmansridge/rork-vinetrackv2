@@ -300,6 +300,7 @@ struct FilterChip: View {
 struct PinsMapView: View {
     let pins: [VinePin]
     @Environment(MigratedDataStore.self) private var store
+    @Environment(LocationService.self) private var locationService
     @State private var position: MapCameraPosition = .automatic
     @State private var selectedPin: VinePin?
     @State private var hasSetInitialPosition: Bool = false
@@ -402,6 +403,29 @@ struct PinsMapView: View {
                         .background(.ultraThinMaterial, in: .rect(cornerRadius: 8))
                 }
 
+                Button {
+                    if locationService.authorizationStatus == .notDetermined {
+                        locationService.requestPermission()
+                    }
+                    locationService.startUpdating()
+                    if let coordinate = locationService.location?.coordinate {
+                        withAnimation {
+                            position = .region(MKCoordinateRegion(
+                                center: coordinate,
+                                span: MKCoordinateSpan(latitudeDelta: 0.005, longitudeDelta: 0.005)
+                            ))
+                        }
+                    } else {
+                        withAnimation {
+                            position = .userLocation(fallback: .automatic)
+                        }
+                    }
+                } label: {
+                    Image(systemName: "location.fill")
+                        .font(.system(size: 15, weight: .semibold))
+                        .frame(width: 40, height: 40)
+                        .background(.ultraThinMaterial, in: .rect(cornerRadius: 8))
+                }
             }
             .padding(.top, 12)
             .padding(.trailing, 12)
