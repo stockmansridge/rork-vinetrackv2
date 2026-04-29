@@ -15,7 +15,7 @@ struct NewBackendRootView: View {
 
     var body: some View {
         Group {
-            if !didAttemptRestore || (auth.isLoading && !auth.isSignedIn) {
+            if !didAttemptRestore {
                 loadingView
             } else if !auth.isSignedIn {
                 NewBackendLoginView()
