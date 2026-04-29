@@ -146,11 +146,15 @@ struct SprayRecordDetailView: View {
 
     // MARK: - Template
 
+    private var currentRecord: SprayRecord {
+        store.sprayRecords.first(where: { $0.id == record.id }) ?? record
+    }
+
     private var templateCard: some View {
         let binding = Binding<Bool>(
-            get: { record.isTemplate },
+            get: { currentRecord.isTemplate },
             set: { newValue in
-                var updated = record
+                var updated = currentRecord
                 updated.isTemplate = newValue
                 store.updateSprayRecord(updated)
             }
