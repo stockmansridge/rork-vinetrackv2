@@ -458,7 +458,7 @@ private struct NewHomeTabView: View {
                 }
                 .buttonStyle(.plain)
                 NavigationLink {
-                    OperationsHubView()
+                    IrrigationRecommendationView()
                 } label: {
                     iconTile(title: "Irrigation Advisor", icon: "drop.fill", tint: .cyan)
                 }

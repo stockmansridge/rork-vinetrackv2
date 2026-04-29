@@ -45,6 +45,22 @@ struct OperationsHubView: View {
 
             Section {
                 NavigationLink {
+                    IrrigationRecommendationView()
+                } label: {
+                    operationRow(
+                        title: "Irrigation Advisor",
+                        subtitle: "5-day forecast & water planning",
+                        icon: "drop.fill",
+                        tint: .cyan,
+                        count: nil
+                    )
+                }
+            } header: {
+                SettingsSectionHeader(title: "Irrigation", symbol: "drop.fill", color: .cyan)
+            }
+
+            Section {
+                NavigationLink {
                     GrowthStageReportView()
                 } label: {
                     operationRow(
