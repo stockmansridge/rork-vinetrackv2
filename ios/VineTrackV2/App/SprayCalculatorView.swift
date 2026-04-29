@@ -1,5 +1,10 @@
 import SwiftUI
 
+enum GrowthStageMode: String, CaseIterable {
+    case same
+    case perPaddock
+}
+
 /// Backend-safe Spray Calculator.
 ///
 /// Restores the original spray-job setup workflow visually and functionally:
@@ -27,7 +32,10 @@ struct SprayCalculatorView: View {
     @State private var canopySize: CanopySize = .medium
     @State private var canopyDensity: CanopyDensity = .low
     @State private var sharedGrowthStageId: UUID?
+    @State private var growthStageMode: GrowthStageMode = .same
+    @State private var paddockPhenologyStages: [UUID: UUID] = [:]
     @State private var chemicalLines: [ChemicalLine] = []
+    @State private var showAddChemicalToList: Bool = false
     @State private var sprayRateText: String = ""
     @State private var hasEditedSprayRate: Bool = false
     @State private var notes: String = ""
@@ -99,6 +107,7 @@ struct SprayCalculatorView: View {
                     growthStageSection
                     equipmentSelection
                     waterRateSection
+                    irrigationDataSection
                     tractorSelection
                     chemicalLinesSection
                     weatherSection
@@ -150,6 +159,9 @@ struct SprayCalculatorView: View {
                         canViewFinancials: accessControl.canViewFinancials
                     )
                 }
+            }
+            .sheet(isPresented: $showAddChemicalToList) {
+                EditSavedChemicalSheet(chemical: nil)
             }
         }
     }
@@ -270,31 +282,214 @@ struct SprayCalculatorView: View {
 
     private var growthStageSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            SectionHeader(title: "Growth Stage (E-L)", icon: "leaf.arrow.circlepath")
-            Menu {
-                Button("Not Set") { sharedGrowthStageId = nil }
-                ForEach(phenologyStages) { stage in
-                    Button("\(stage.code) – \(stage.name)") { sharedGrowthStageId = stage.id }
-                }
-            } label: {
-                HStack {
-                    if let id = sharedGrowthStageId,
-                       let stage = phenologyStages.first(where: { $0.id == id }) {
-                        Text("E-L \(stage.code) – \(stage.name)")
-                            .foregroundStyle(.primary)
-                    } else {
-                        Text("Select growth stage")
-                            .foregroundStyle(.secondary)
-                    }
-                    Spacer()
-                    Image(systemName: "chevron.up.chevron.down")
+            SectionHeader(title: "Growth Stage", icon: "leaf.arrow.circlepath")
+
+            if selectedPaddockIds.isEmpty {
+                HStack(spacing: 8) {
+                    Image(systemName: "info.circle")
+                        .font(.caption)
+                        .foregroundStyle(.tertiary)
+                    Text("Select paddocks above to assign growth stages")
                         .font(.caption)
                         .foregroundStyle(.tertiary)
                 }
                 .padding(.horizontal, 12)
-                .padding(.vertical, 12)
+                .padding(.vertical, 10)
+                .frame(maxWidth: .infinity, alignment: .leading)
                 .background(Color(.secondarySystemGroupedBackground))
                 .clipShape(.rect(cornerRadius: 10))
+            } else {
+                Picker("", selection: $growthStageMode) {
+                    Text("Same for All").tag(GrowthStageMode.same)
+                    Text("Per Paddock").tag(GrowthStageMode.perPaddock)
+                }
+                .pickerStyle(.segmented)
+                .onChange(of: growthStageMode) { _, newMode in
+                    if newMode == .same, let shared = sharedGrowthStageId {
+                        for pid in selectedPaddockIds {
+                            paddockPhenologyStages[pid] = shared
+                        }
+                    }
+                }
+
+                if growthStageMode == .same {
+                    sameGrowthStageList
+                } else {
+                    perPaddockGrowthStageList
+                }
+            }
+        }
+    }
+
+    private var sameGrowthStageList: some View {
+        VStack(spacing: 0) {
+            HStack {
+                Text("E-L Growth Stages")
+                    .font(.caption.weight(.medium))
+                    .foregroundStyle(.secondary)
+                Spacer()
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+
+            Divider()
+
+            Button {
+                sharedGrowthStageId = nil
+                for pid in selectedPaddockIds {
+                    paddockPhenologyStages.removeValue(forKey: pid)
+                }
+            } label: {
+                HStack {
+                    Image(systemName: sharedGrowthStageId == nil ? "largecircle.fill.circle" : "circle")
+                        .foregroundStyle(sharedGrowthStageId == nil ? AnyShapeStyle(VineyardTheme.olive) : AnyShapeStyle(.tertiary))
+                    Text("Not Set").foregroundStyle(.primary)
+                    Spacer()
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 10)
+            }
+
+            Divider().padding(.leading, 40)
+
+            ForEach(phenologyStages) { stage in
+                let isSelected = sharedGrowthStageId == stage.id
+                Button {
+                    sharedGrowthStageId = stage.id
+                    for pid in selectedPaddockIds {
+                        paddockPhenologyStages[pid] = stage.id
+                    }
+                } label: {
+                    HStack {
+                        Image(systemName: isSelected ? "largecircle.fill.circle" : "circle")
+                            .foregroundStyle(isSelected ? AnyShapeStyle(VineyardTheme.olive) : AnyShapeStyle(.tertiary))
+                        Text(stage.code)
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(.primary)
+                            .frame(width: 56, alignment: .leading)
+                        Text(stage.name)
+                            .font(.subheadline)
+                            .foregroundStyle(.primary)
+                            .lineLimit(2)
+                        Spacer()
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                }
+                if stage.id != phenologyStages.last?.id {
+                    Divider().padding(.leading, 40)
+                }
+            }
+        }
+        .background(Color(.secondarySystemGroupedBackground))
+        .clipShape(.rect(cornerRadius: 10))
+    }
+
+    private var perPaddockGrowthStageList: some View {
+        let paddocks = selectedPaddocks
+        return VStack(spacing: 0) {
+            ForEach(paddocks) { paddock in
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(paddock.name)
+                            .font(.subheadline.weight(.medium))
+                            .foregroundStyle(.primary)
+                        if let stageId = paddockPhenologyStages[paddock.id],
+                           let stage = phenologyStages.first(where: { $0.id == stageId }) {
+                            Text("\(stage.name) (\(stage.code))")
+                                .font(.caption2)
+                                .foregroundStyle(VineyardTheme.leafGreen)
+                        }
+                    }
+                    Spacer()
+                    Menu {
+                        Button("Not Set") { paddockPhenologyStages.removeValue(forKey: paddock.id) }
+                        ForEach(phenologyStages) { stage in
+                            Button("\(stage.code) – \(stage.name)") {
+                                paddockPhenologyStages[paddock.id] = stage.id
+                            }
+                        }
+                    } label: {
+                        HStack(spacing: 4) {
+                            if let stageId = paddockPhenologyStages[paddock.id],
+                               let stage = phenologyStages.first(where: { $0.id == stageId }) {
+                                Text(stage.code).font(.caption.weight(.semibold))
+                            } else {
+                                Text("Select").font(.caption)
+                            }
+                            Image(systemName: "chevron.up.chevron.down").font(.caption2)
+                        }
+                        .foregroundStyle(VineyardTheme.olive)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(VineyardTheme.olive.opacity(0.1))
+                        .clipShape(.rect(cornerRadius: 8))
+                    }
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 10)
+                if paddock.id != paddocks.last?.id {
+                    Divider().padding(.leading, 12)
+                }
+            }
+        }
+        .background(Color(.secondarySystemGroupedBackground))
+        .clipShape(.rect(cornerRadius: 10))
+    }
+
+    private var irrigationDataSection: some View {
+        let paddocksWithIrrigation = selectedPaddocks.filter { $0.litresPerHaPerHour != nil }
+        return Group {
+            if !paddocksWithIrrigation.isEmpty {
+                VStack(alignment: .leading, spacing: 8) {
+                    SectionHeader(title: "Irrigation Data", icon: "drop.circle.fill")
+                    Text("Based on dripper spacing & flow rates")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+
+                    VStack(spacing: 0) {
+                        ForEach(paddocksWithIrrigation) { paddock in
+                            if let lPerHaHr = paddock.litresPerHaPerHour,
+                               let mlPerHaHr = paddock.mlPerHaPerHour,
+                               let mmHr = paddock.mmPerHour {
+                                VStack(spacing: 8) {
+                                    HStack {
+                                        Text(paddock.name)
+                                            .font(.subheadline.weight(.semibold))
+                                        Spacer()
+                                    }
+                                    HStack(spacing: 16) {
+                                        VStack(alignment: .leading, spacing: 2) {
+                                            Text("L/ha/hr").font(.caption2).foregroundStyle(.secondary)
+                                            Text(String(format: "%.0f", lPerHaHr))
+                                                .font(.title3.bold())
+                                                .foregroundStyle(.blue)
+                                        }
+                                        VStack(alignment: .leading, spacing: 2) {
+                                            Text("ML/ha/hr").font(.caption2).foregroundStyle(.secondary)
+                                            Text(String(format: "%.4f", mlPerHaHr))
+                                                .font(.subheadline.weight(.semibold))
+                                                .foregroundStyle(.blue)
+                                        }
+                                        VStack(alignment: .leading, spacing: 2) {
+                                            Text("mm/hr").font(.caption2).foregroundStyle(.secondary)
+                                            Text(String(format: "%.2f", mmHr))
+                                                .font(.subheadline.weight(.semibold))
+                                                .foregroundStyle(.teal)
+                                        }
+                                        Spacer()
+                                    }
+                                }
+                                .padding(12)
+                                if paddock.id != paddocksWithIrrigation.last?.id {
+                                    Divider().padding(.leading, 12)
+                                }
+                            }
+                        }
+                    }
+                    .background(Color(.secondarySystemGroupedBackground))
+                    .clipShape(.rect(cornerRadius: 10))
+                }
             }
         }
     }
@@ -541,8 +736,20 @@ struct SprayCalculatorView: View {
             }
             .disabled(store.savedChemicals.isEmpty)
 
+            Button {
+                showAddChemicalToList = true
+            } label: {
+                Label("Add New Chemical to List", systemImage: "flask.fill")
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(VineyardTheme.leafGreen)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .background(VineyardTheme.leafGreen.opacity(0.1))
+                    .clipShape(.rect(cornerRadius: 10))
+            }
+
             if store.savedChemicals.isEmpty {
-                Text("No chemicals configured. Add chemicals in Spray Management first.")
+                Text("No chemicals configured. Tap “Add New Chemical to List” to create one.")
                     .font(.caption)
                     .foregroundStyle(.tertiary)
             }
