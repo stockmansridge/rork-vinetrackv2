@@ -42,6 +42,14 @@ final class SupabaseTeamRepository: TeamRepositoryProtocol {
     func inviteMember(vineyardId: UUID, email: String, role: BackendRole) async throws -> BackendInvitation {
         guard provider.isConfigured else { throw BackendRepositoryError.missingSupabaseConfiguration }
         let normalizedEmail = email.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        // Cancel any existing pending invitations for this email + vineyard to avoid duplicates.
+        try? await provider.client
+            .from("invitations")
+            .update(InvitationStatusUpdate(status: "cancelled"))
+            .eq("vineyard_id", value: vineyardId.uuidString)
+            .eq("email", value: normalizedEmail)
+            .eq("status", value: "pending")
+            .execute()
         return try await provider.client
             .from("invitations")
             .insert(InvitationInsert(vineyardId: vineyardId, email: normalizedEmail, role: role))

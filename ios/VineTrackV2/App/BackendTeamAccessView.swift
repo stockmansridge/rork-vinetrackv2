@@ -179,7 +179,18 @@ struct BackendTeamAccessView: View {
         }
         do {
             let all = try await teamRepository.listPendingInvitations()
-            pendingInvitations = all.filter { $0.vineyardId == vineyardId }
+            let filtered = all.filter { $0.vineyardId == vineyardId && $0.status.lowercased() == "pending" }
+            // Defensive dedupe: keep only the most recent pending invitation per email,
+            // and hide any pending invitation whose email already corresponds to a member.
+            var seenEmails = Set<String>()
+            var deduped: [BackendInvitation] = []
+            for invitation in filtered.sorted(by: { ($0.createdAt ?? .distantPast) > ($1.createdAt ?? .distantPast) }) {
+                let key = invitation.email.lowercased()
+                if seenEmails.contains(key) { continue }
+                seenEmails.insert(key)
+                deduped.append(invitation)
+            }
+            pendingInvitations = deduped
         } catch {
             // Non-fatal — members still display.
         }
