@@ -185,7 +185,7 @@ struct ActiveTripView: View {
                     showRepairs = true
                 } label: {
                     HStack(spacing: 6) {
-                        Image(systemName: "wrench.fill").font(.caption)
+                        Image(systemName: "mappin").font(.caption)
                         Text("Repairs").font(.subheadline.weight(.semibold))
                     }
                     .frame(maxWidth: .infinity)
@@ -200,7 +200,7 @@ struct ActiveTripView: View {
                     showGrowth = true
                 } label: {
                     HStack(spacing: 6) {
-                        Image(systemName: "leaf.fill").font(.caption)
+                        Image(systemName: "mappin").font(.caption)
                         Text("Growth").font(.subheadline.weight(.semibold))
                     }
                     .frame(maxWidth: .infinity)
