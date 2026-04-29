@@ -99,7 +99,16 @@ struct BackendSettingsView: View {
 
     private var accountSection: some View {
         Section {
-            LabeledContent("Name", value: auth.userName ?? "—")
+            NavigationLink {
+                EditDisplayNameView()
+            } label: {
+                HStack {
+                    Text("Name")
+                    Spacer()
+                    Text(auth.userName ?? "—")
+                        .foregroundStyle(.secondary)
+                }
+            }
             LabeledContent("Email", value: auth.userEmail ?? "—")
         } header: {
             Text("Account")

@@ -185,6 +185,27 @@ final class NewBackendAuthService {
         await signOut()
     }
 
+    @discardableResult
+    func updateDisplayName(_ newName: String) async -> Bool {
+        let trimmed = newName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            errorMessage = "Please enter a name."
+            return false
+        }
+        guard isSignedIn else { return false }
+        isLoading = true
+        errorMessage = nil
+        defer { isLoading = false }
+        do {
+            try await profileRepository.upsertMyProfile(fullName: trimmed, email: userEmail)
+            userName = trimmed
+            return true
+        } catch {
+            errorMessage = error.localizedDescription
+            return false
+        }
+    }
+
     func loadPendingInvitations() async {
         guard isSignedIn else { return }
         do {
