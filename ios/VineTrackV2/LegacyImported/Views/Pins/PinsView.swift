@@ -7,7 +7,7 @@ struct PinsView: View {
     @Environment(BackendAccessControl.self) private var accessControl
     private var canDelete: Bool { accessControl.canDeleteOperationalRecords }
     private var canExport: Bool { accessControl.canExport }
-    @State private var viewMode: PinsViewMode = .list
+    @State private var viewMode: PinsViewMode = .map
     @State private var filterModes: Set<PinMode> = []
     @State private var completionFilter: PinCompletionFilter = .notDone
     @State private var selectedNames: Set<String> = []
