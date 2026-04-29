@@ -60,7 +60,8 @@ struct SprayCalculatorView: View {
     @State private var calculationResult: SprayCalculationResult?
     @State private var showResults: Bool = false
     @State private var showSummary: Bool = false
-    @State private var summaryJobStarted: Bool = false
+    @State private var summaryMode: SprayCalculationSummaryMode = .savedForLater
+    @State private var pendingTanks: [SprayTank] = []
     @State private var savedFeedback: Bool = false
     @State private var errorMessage: String?
     @State private var showStartConfirmation: Bool = false
@@ -193,8 +194,9 @@ struct SprayCalculatorView: View {
                     SprayCalculationSummarySheet(
                         result: result,
                         sprayName: sprayName,
-                        jobStarted: summaryJobStarted,
-                        canViewFinancials: accessControl.canViewFinancials
+                        mode: summaryMode,
+                        canViewFinancials: accessControl.canViewFinancials,
+                        onContinue: summaryMode == .readyToStart ? { finalizeStartFromMixSummary() } : nil
                     )
                 }
             }
@@ -1217,6 +1219,30 @@ struct SprayCalculatorView: View {
         await captureWeather()
         performCalculation()
 
+        let tanks: [SprayTank] = {
+            guard let result = calculationResult else { return [] }
+            return buildSprayTanks(result: result, tankCapacity: equip.tankCapacityLitres)
+        }()
+        pendingTanks = tanks
+
+        _ = vineyardId
+        summaryMode = .readyToStart
+        showStartConfirmation = false
+        showSummary = true
+    }
+
+    private func finalizeStartFromMixSummary() {
+        guard let equipId = selectedEquipmentId,
+              let equip = store.sprayEquipment.first(where: { $0.id == equipId }) else { return }
+        guard let vineyardId = store.selectedVineyardId else {
+            errorMessage = "No vineyard selected."
+            return
+        }
+        if tracking.activeTrip != nil {
+            errorMessage = "A trip is already in progress."
+            return
+        }
+
         let firstPaddock = selectedPaddocks.first
         let paddockNames = selectedPaddocks.map { $0.name }.joined(separator: ", ")
 
@@ -1234,10 +1260,9 @@ struct SprayCalculatorView: View {
         }
 
         let weather = currentWeatherSnapshot()
-        let tanks: [SprayTank] = {
-            guard let result = calculationResult else { return [] }
-            return buildSprayTanks(result: result, tankCapacity: equip.tankCapacityLitres)
-        }()
+        let tanks = pendingTanks.isEmpty
+            ? (calculationResult.map { buildSprayTanks(result: $0, tankCapacity: equip.tankCapacityLitres) } ?? [])
+            : pendingTanks
 
         var tripWithTanks = activeTrip
         tripWithTanks.totalTanks = tanks.count
@@ -1281,9 +1306,7 @@ struct SprayCalculatorView: View {
         store.addSprayRecord(record)
 
         savedFeedback.toggle()
-        summaryJobStarted = true
-        showStartConfirmation = false
-        showSummary = true
+        showSummary = false
     }
 
     private func saveForLater() {
@@ -1349,7 +1372,7 @@ struct SprayCalculatorView: View {
         store.addSprayRecord(record)
 
         savedFeedback.toggle()
-        summaryJobStarted = false
+        summaryMode = .savedForLater
         showSummary = true
     }
 }

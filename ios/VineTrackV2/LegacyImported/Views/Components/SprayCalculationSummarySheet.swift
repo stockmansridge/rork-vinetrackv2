@@ -1,11 +1,45 @@
 import SwiftUI
 
+enum SprayCalculationSummaryMode {
+    case savedForLater
+    case readyToStart
+    case jobStarted
+}
+
 struct SprayCalculationSummarySheet: View {
     @Environment(\.dismiss) private var dismiss
     let result: SprayCalculationResult
     let sprayName: String
-    let jobStarted: Bool
+    var mode: SprayCalculationSummaryMode = .savedForLater
     var canViewFinancials: Bool = true
+    var onContinue: (() -> Void)? = nil
+
+    init(
+        result: SprayCalculationResult,
+        sprayName: String,
+        jobStarted: Bool,
+        canViewFinancials: Bool = true
+    ) {
+        self.result = result
+        self.sprayName = sprayName
+        self.mode = jobStarted ? .jobStarted : .savedForLater
+        self.canViewFinancials = canViewFinancials
+        self.onContinue = nil
+    }
+
+    init(
+        result: SprayCalculationResult,
+        sprayName: String,
+        mode: SprayCalculationSummaryMode,
+        canViewFinancials: Bool = true,
+        onContinue: (() -> Void)? = nil
+    ) {
+        self.result = result
+        self.sprayName = sprayName
+        self.mode = mode
+        self.canViewFinancials = canViewFinancials
+        self.onContinue = onContinue
+    }
 
     private var numberOfTanks: Int {
         result.fullTankCount + (result.lastTankLitres > 0 ? 1 : 0)
@@ -44,8 +78,12 @@ struct SprayCalculationSummarySheet: View {
                     }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button(jobStarted ? "Continue" : "Done") {
-                        dismiss()
+                    Button(confirmTitle) {
+                        if let onContinue, mode == .readyToStart {
+                            onContinue()
+                        } else {
+                            dismiss()
+                        }
                     }
                     .fontWeight(.semibold)
                 }
@@ -53,14 +91,45 @@ struct SprayCalculationSummarySheet: View {
         }
     }
 
+    private var confirmTitle: String {
+        switch mode {
+        case .savedForLater: return "Done"
+        case .readyToStart: return "Start Trip"
+        case .jobStarted: return "Continue"
+        }
+    }
+
+    private var bannerIcon: String {
+        switch mode {
+        case .savedForLater: return "clock.badge.checkmark"
+        case .readyToStart: return "play.circle.fill"
+        case .jobStarted: return "checkmark.circle.fill"
+        }
+    }
+
+    private var bannerTitle: String {
+        switch mode {
+        case .savedForLater: return "Job Saved"
+        case .readyToStart: return "Mix Summary"
+        case .jobStarted: return "Job Started"
+        }
+    }
+
+    private var bannerColor: Color {
+        switch mode {
+        case .savedForLater: return VineyardTheme.leafGreen
+        case .readyToStart: return VineyardTheme.olive
+        case .jobStarted: return VineyardTheme.olive
+        }
+    }
+
     private var headerBanner: some View {
         VStack(spacing: 8) {
-            Image(systemName: jobStarted ? "checkmark.circle.fill" : "clock.badge.checkmark")
+            Image(systemName: bannerIcon)
                 .font(.system(size: 40))
-                .foregroundStyle(jobStarted ? VineyardTheme.olive : VineyardTheme.leafGreen)
-                .symbolEffect(.bounce, value: jobStarted)
+                .foregroundStyle(bannerColor)
 
-            Text(jobStarted ? "Job Started" : "Job Saved")
+            Text(bannerTitle)
                 .font(.title3.bold())
 
             if !sprayName.isEmpty {
@@ -75,9 +144,7 @@ struct SprayCalculationSummarySheet: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 16)
-        .background(
-            (jobStarted ? VineyardTheme.olive : VineyardTheme.leafGreen).opacity(0.08)
-        )
+        .background(bannerColor.opacity(0.08))
         .clipShape(.rect(cornerRadius: 14))
     }
 
