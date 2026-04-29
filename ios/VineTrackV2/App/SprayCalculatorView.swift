@@ -1116,7 +1116,7 @@ struct SprayCalculatorView: View {
             endTime: nil,
             isActive: false
         )
-        store.startTrip(placeholderTrip)
+        store.addInactiveTrip(placeholderTrip)
 
         let weather = currentWeatherSnapshot()
         let tanks: [SprayTank] = {
@@ -1173,15 +1173,48 @@ private struct CalcChemicalLineCard: View {
                 Text(selectedChemical?.name ?? "Select Chemical")
                     .font(.subheadline.weight(.semibold))
                 Spacer()
-                if let chem = selectedChemical,
-                   let rate = chem.rates.first(where: { $0.id == line.selectedRateId }) {
-                    Text(rate.basis == .perHectare ? "Per Ha" : "Per 100L")
-                        .font(.caption2.weight(.medium))
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
-                        .background(rate.basis == .perHectare ? VineyardTheme.olive.opacity(0.15) : Color.blue.opacity(0.15))
-                        .foregroundStyle(rate.basis == .perHectare ? VineyardTheme.olive : .blue)
+                if let chem = selectedChemical, !chem.rates.isEmpty {
+                    Menu {
+                        let haRates = chem.rates.filter { $0.basis == .perHectare }
+                        let per100LRates = chem.rates.filter { $0.basis == .per100Litres }
+                        if !haRates.isEmpty {
+                            Section("Per Hectare") {
+                                ForEach(haRates) { rate in
+                                    Button {
+                                        line.selectedRateId = rate.id
+                                        line.basis = rate.basis
+                                    } label: {
+                                        Text("\(rate.label): \(String(format: "%.0f", chem.unit.fromBase(rate.value))) \(chem.unit.rawValue)/ha")
+                                    }
+                                }
+                            }
+                        }
+                        if !per100LRates.isEmpty {
+                            Section("Per 100L Water") {
+                                ForEach(per100LRates) { rate in
+                                    Button {
+                                        line.selectedRateId = rate.id
+                                        line.basis = rate.basis
+                                    } label: {
+                                        Text("\(rate.label): \(String(format: "%.0f", chem.unit.fromBase(rate.value))) \(chem.unit.rawValue)/100L")
+                                    }
+                                }
+                            }
+                        }
+                    } label: {
+                        let currentBasis = chem.rates.first(where: { $0.id == line.selectedRateId })?.basis ?? line.basis
+                        HStack(spacing: 4) {
+                            Text(currentBasis == .perHectare ? "Per Ha" : "Per 100L")
+                                .font(.caption2.weight(.medium))
+                            Image(systemName: "chevron.up.chevron.down")
+                                .font(.caption2)
+                        }
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(currentBasis == .perHectare ? VineyardTheme.olive.opacity(0.15) : Color.blue.opacity(0.15))
+                        .foregroundStyle(currentBasis == .perHectare ? VineyardTheme.olive : .blue)
                         .clipShape(Capsule())
+                    }
                 }
                 Button(role: .destructive) {
                     onDelete()

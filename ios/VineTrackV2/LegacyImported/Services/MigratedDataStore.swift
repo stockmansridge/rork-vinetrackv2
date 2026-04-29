@@ -492,6 +492,18 @@ final class MigratedDataStore {
         onTripChanged?(item.id)
     }
 
+    /// Add a trip without marking it active. Used for "Save Job for Later"
+    /// flows where a placeholder trip is needed but should not auto-start.
+    func addInactiveTrip(_ trip: Trip) {
+        guard let vineyardId = selectedVineyardId else { return }
+        var item = trip
+        item.vineyardId = vineyardId
+        item.isActive = false
+        trips.append(item)
+        tripRepo.saveSlice(trips, for: vineyardId)
+        onTripChanged?(item.id)
+    }
+
     func updateTrip(_ trip: Trip) {
         guard let vineyardId = selectedVineyardId else { return }
         guard let index = trips.firstIndex(where: { $0.id == trip.id }) else { return }
