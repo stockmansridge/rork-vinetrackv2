@@ -300,9 +300,17 @@ private struct NewHomeTabView: View {
                                 RoundedRectangle(cornerRadius: 12)
                                     .fill(VineyardTheme.leafGreen.opacity(0.15))
                                     .frame(width: 48, height: 48)
-                                Image(systemName: "map.fill")
-                                    .font(.title3.weight(.semibold))
-                                    .foregroundStyle(VineyardTheme.leafGreen)
+                                if let data = store.selectedVineyard?.logoData, let uiImage = UIImage(data: data) {
+                                    Image(uiImage: uiImage)
+                                        .resizable()
+                                        .aspectRatio(contentMode: .fill)
+                                        .frame(width: 48, height: 48)
+                                        .clipShape(.rect(cornerRadius: 12))
+                                } else {
+                                    Image(systemName: "map.fill")
+                                        .font(.title3.weight(.semibold))
+                                        .foregroundStyle(VineyardTheme.leafGreen)
+                                }
                             }
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(store.selectedVineyard?.name ?? "No vineyard selected")
@@ -405,9 +413,7 @@ private struct NewHomeTabView: View {
         VStack(spacing: 8) {
             Group {
                 if grapeLeaf {
-                    GrapeVineLeafShape()
-                        .fill(.white)
-                        .frame(width: 24, height: 24)
+                    GrapeLeafIcon(size: 24, color: .white)
                 } else if let systemIcon {
                     Image(systemName: systemIcon)
                         .font(.title3.weight(.semibold))
