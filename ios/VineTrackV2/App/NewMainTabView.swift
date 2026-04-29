@@ -378,27 +378,27 @@ private struct NewHomeTabView: View {
     }
 
     private func quickActionTileLabel(title: String, systemIcon: String? = nil, grapeLeaf: Bool = false, colors: [Color]) -> some View {
-        VStack(spacing: 10) {
+        VStack(spacing: 8) {
             Group {
                 if grapeLeaf {
                     GrapeVineLeafShape()
                         .fill(.white)
-                        .frame(width: 30, height: 30)
+                        .frame(width: 24, height: 24)
                 } else if let systemIcon {
                     Image(systemName: systemIcon)
-                        .font(.title2.weight(.semibold))
+                        .font(.title3.weight(.semibold))
                         .foregroundStyle(.white)
                 }
             }
             Text(title)
-                .font(.headline)
+                .font(.subheadline.weight(.semibold))
                 .foregroundStyle(.white)
         }
-        .frame(maxWidth: .infinity, minHeight: 96)
-        .padding(16)
+        .frame(maxWidth: .infinity, minHeight: 76)
+        .padding(12)
         .background(
             LinearGradient(colors: colors, startPoint: .topLeading, endPoint: .bottomTrailing),
-            in: .rect(cornerRadius: 16)
+            in: .rect(cornerRadius: 14)
         )
         .shadow(color: colors.first?.opacity(0.25) ?? .clear, radius: 4, y: 2)
     }
