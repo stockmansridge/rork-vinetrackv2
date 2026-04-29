@@ -295,9 +295,15 @@ final class TripTrackingService {
         } else if status == .denied || status == .restricted {
             errorMessage = "Location permission is required to track trips."
             return
+        } else if status == .authorizedWhenInUse {
+            // Ask to upgrade to Always so the trip continues when the screen
+            // locks or the user switches apps. Safe to call repeatedly — iOS
+            // only shows the prompt once per app install.
+            locationService.requestAlwaysPermission()
         }
 
         locationService.startUpdating()
+        locationService.startBackgroundUpdating()
         isTracking = true
         isPaused = false
         lastObservedLocation = locationService.location
@@ -339,6 +345,9 @@ final class TripTrackingService {
         trackingTask = nil
         tickerTask?.cancel()
         tickerTask = nil
+        // Always stop background updates when the tracking loop pauses or
+        // ends — we only want background location during an active trip.
+        locationService?.stopBackgroundUpdating()
         if stopLocation {
             locationService?.stopUpdating()
         }

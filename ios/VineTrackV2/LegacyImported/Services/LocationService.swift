@@ -10,11 +10,15 @@ final class LocationService: NSObject, CLLocationManagerDelegate {
     var isUsingMockLocation: Bool = false
     private var mockFallbackTask: Task<Void, Never>?
 
+    private(set) var isBackgroundUpdatingEnabled: Bool = false
+
     override init() {
         super.init()
         manager.delegate = self
         manager.desiredAccuracy = kCLLocationAccuracyBest
         manager.headingFilter = 5
+        manager.pausesLocationUpdatesAutomatically = false
+        manager.activityType = .automotiveNavigation
         authorizationStatus = manager.authorizationStatus
         applySimulatorMockLocationIfNeeded()
     }
@@ -37,6 +41,38 @@ final class LocationService: NSObject, CLLocationManagerDelegate {
         manager.requestWhenInUseAuthorization()
     }
 
+    /// Request Always permission. iOS will only show the upgrade prompt if
+    /// the app already has When-In-Use authorization. Call this when the user
+    /// starts a trip so they understand the context.
+    func requestAlwaysPermission() {
+        if manager.authorizationStatus == .notDetermined {
+            manager.requestWhenInUseAuthorization()
+            return
+        }
+        if manager.authorizationStatus == .authorizedWhenInUse {
+            manager.requestAlwaysAuthorization()
+        }
+    }
+
+    /// Enable background location updates. Only valid while an active trip is
+    /// running. Requires UIBackgroundModes = location and either When-In-Use
+    /// or Always authorization.
+    func startBackgroundUpdating() {
+        guard !isBackgroundUpdatingEnabled else { return }
+        guard authorizationStatus == .authorizedWhenInUse || authorizationStatus == .authorizedAlways else { return }
+        manager.allowsBackgroundLocationUpdates = true
+        manager.showsBackgroundLocationIndicator = true
+        isBackgroundUpdatingEnabled = true
+    }
+
+    /// Disable background location updates. Call as soon as a trip ends or is
+    /// cancelled to stop draining battery and respect user privacy.
+    func stopBackgroundUpdating() {
+        guard isBackgroundUpdatingEnabled else { return }
+        manager.allowsBackgroundLocationUpdates = false
+        isBackgroundUpdatingEnabled = false
+    }
+
     func startUpdating() {
         manager.startUpdatingLocation()
         manager.startUpdatingHeading()
@@ -52,6 +88,7 @@ final class LocationService: NSObject, CLLocationManagerDelegate {
     func stopUpdating() {
         manager.stopUpdatingLocation()
         manager.stopUpdatingHeading()
+        stopBackgroundUpdating()
     }
 
     nonisolated func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {

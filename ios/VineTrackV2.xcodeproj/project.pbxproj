@@ -413,10 +413,12 @@
 				INFOPLIST_FILE = "VineTrackV2-Info.plist";
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_NSCameraUsageDescription = "VineTrack uses the camera to attach photos to vineyard pins, maintenance logs, and observations.";
+				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "VineTrack uses background location only while an active trip is running to record tractor paths and row coverage when the screen is locked or the app is in the background.";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "VineTrack uses your location to show your position on vineyard maps, drop GPS pins for repairs and observations, track trips, and provide row guidance.";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "VineTrack uses your photo library to attach existing photos to vineyard pins, maintenance logs, and observations when the camera is unavailable.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UIBackgroundModes = location;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
@@ -450,10 +452,12 @@
 				INFOPLIST_FILE = "VineTrackV2-Info.plist";
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_NSCameraUsageDescription = "VineTrack uses the camera to attach photos to vineyard pins, maintenance logs, and observations.";
+				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "VineTrack uses background location only while an active trip is running to record tractor paths and row coverage when the screen is locked or the app is in the background.";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "VineTrack uses your location to show your position on vineyard maps, drop GPS pins for repairs and observations, track trips, and provide row guidance.";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "VineTrack uses your photo library to attach existing photos to vineyard pins, maintenance logs, and observations when the camera is unavailable.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UIBackgroundModes = location;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
