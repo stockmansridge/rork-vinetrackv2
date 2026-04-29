@@ -24,7 +24,6 @@ struct PreferencesHubView: View {
     var body: some View {
         Form {
             appearanceSection
-            weatherSection
             seasonSection
             tripTrackingSection
             spraySection
@@ -70,40 +69,6 @@ struct PreferencesHubView: View {
         }
     }
 
-    private var weatherSection: some View {
-        Section {
-            HStack {
-                Label("Selected Station", systemImage: "antenna.radiowaves.left.and.right")
-                Spacer()
-                Text(store.settings.weatherStationId?.isEmpty == false
-                     ? store.settings.weatherStationId!
-                     : "Auto / Nearest")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-            }
-            Button {
-                showWeatherStationPicker = true
-            } label: {
-                Label("Find Nearby Stations", systemImage: "location.magnifyingglass")
-            }
-            if store.settings.weatherStationId?.isEmpty == false {
-                Button(role: .destructive) {
-                    var s = store.settings
-                    s.weatherStationId = nil
-                    store.updateSettings(s)
-                } label: {
-                    Label("Clear Station", systemImage: "xmark.circle")
-                }
-            }
-        } header: {
-            Text("Weather")
-        } footer: {
-            Text("Used by the Spray Calculator to fetch current conditions. If no station is selected the nearest PWS is used automatically.")
-        }
-    }
-
     private var seasonSection: some View {
         Section {
             Picker("Season Start Month", selection: $seasonStartMonth) {
@@ -137,24 +102,6 @@ struct PreferencesHubView: View {
                     s.elConfirmationEnabled = newValue
                     store.updateSettings(s)
                 }
-
-            Button {
-                showGrowthStages = true
-            } label: {
-                HStack {
-                    Label { Text("Enabled E-L Stages") } icon: { GrapeLeafIcon(size: 16) }
-                        .foregroundStyle(.primary)
-                    Spacer()
-                    Text("\(store.settings.enabledGrowthStageCodes.count)")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-            }
-            NavigationLink {
-                GrowthStageImagesSettingsView()
-            } label: {
-                Label("E-L Stage Images", systemImage: "photo.on.rectangle.angled")
-            }
         } header: {
             Text("Growing Season & E-L")
         } footer: {
@@ -207,11 +154,6 @@ struct PreferencesHubView: View {
                     .frame(width: 80)
                     .onSubmit { saveFuelCost() }
             }
-            NavigationLink {
-                CalculationSettingsView()
-            } label: {
-                Label("Canopy Water Rates", systemImage: "drop.triangle.fill")
-            }
         } header: {
             Text("Spray / Tank")
         }
@@ -227,11 +169,6 @@ struct PreferencesHubView: View {
                     .multilineTextAlignment(.trailing)
                     .frame(width: 80)
                     .onSubmit { saveSamples() }
-            }
-            NavigationLink {
-                YieldSettingsView()
-            } label: {
-                Label("Yield Settings", systemImage: "scalemass")
             }
         } header: {
             Text("Yield Estimation")

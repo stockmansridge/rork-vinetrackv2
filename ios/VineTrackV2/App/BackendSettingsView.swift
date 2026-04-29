@@ -44,26 +44,6 @@ struct BackendSettingsView: View {
 
                 Section {
                     NavigationLink {
-                        SetupManagementHubView()
-                    } label: {
-                        SettingsRow(
-                            title: "Setup & Management",
-                            subtitle: "Blocks, spray, equipment & operators",
-                            symbol: "slider.horizontal.below.rectangle",
-                            color: VineyardTheme.leafGreen
-                        )
-                    }
-                    NavigationLink {
-                        OperationsHubView()
-                    } label: {
-                        SettingsRow(
-                            title: "Operations",
-                            subtitle: "Tasks, maintenance, yield & phenology",
-                            symbol: "rectangle.stack.fill",
-                            color: .orange
-                        )
-                    }
-                    NavigationLink {
                         PreferencesHubView()
                     } label: {
                         SettingsRow(
@@ -84,7 +64,7 @@ struct BackendSettingsView: View {
                         )
                     }
                 } header: {
-                    SettingsSectionHeader(title: "Setup & Data", symbol: "gearshape.fill", color: .indigo)
+                    SettingsSectionHeader(title: "Preferences & Data", symbol: "gearshape.fill", color: .indigo)
                 }
 
                 accountPrivacySection

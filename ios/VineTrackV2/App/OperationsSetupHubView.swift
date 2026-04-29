@@ -3,52 +3,6 @@ import MapKit
 import CoreLocation
 import UniformTypeIdentifiers
 
-struct OperationsSetupHubView: View {
-    @Environment(MigratedDataStore.self) private var store
-    @Environment(BackendAccessControl.self) private var accessControl
-
-    var body: some View {
-        List {
-            Section {
-                NavigationLink {
-                    VineyardSetupHubView()
-                } label: {
-                    SettingsRow(
-                        title: "Vineyard Setup",
-                        subtitle: "Blocks, Buttons & Growth Stages",
-                        symbol: "square.grid.2x2.fill",
-                        color: VineyardTheme.leafGreen
-                    )
-                }
-                NavigationLink {
-                    SprayEquipmentHubView()
-                } label: {
-                    SettingsRow(
-                        title: "Spray & Equipment",
-                        subtitle: "Spray Management, Equipment & Tractors, Chemicals",
-                        symbol: "drop.fill",
-                        color: .teal
-                    )
-                }
-                NavigationLink {
-                    TeamOperationsHubView()
-                } label: {
-                    SettingsRow(
-                        title: "Team Operations",
-                        subtitle: "Operator Categories",
-                        symbol: "person.2.fill",
-                        color: .blue
-                    )
-                }
-            } header: {
-                SettingsSectionHeader(title: "Operations Setup", symbol: "wrench.adjustable.fill", color: .orange)
-            }
-        }
-        .listStyle(.insetGrouped)
-        .navigationTitle("Operations")
-    }
-}
-
 struct VineyardSetupHubView: View {
     @Environment(MigratedDataStore.self) private var store
     @Environment(BackendAccessControl.self) private var accessControl
