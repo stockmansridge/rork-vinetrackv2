@@ -7,6 +7,13 @@ nonisolated struct Vineyard: Codable, Identifiable, Sendable, Hashable {
     let createdAt: Date
     var logoData: Data?
     var country: String
+    /// Storage path (within the `vineyard-logos` bucket) for the synced logo.
+    /// `nil` means no synced logo. Local-only logos can also exist (e.g. while
+    /// an upload is in flight) — those have `logoData != nil` and `logoPath == nil`.
+    var logoPath: String?
+    /// Timestamp the synced logo was last updated, as reported by the backend.
+    /// Used to decide when to refetch the cached `logoData`.
+    var logoUpdatedAt: Date?
 
     init(
         id: UUID = UUID(),
@@ -14,7 +21,9 @@ nonisolated struct Vineyard: Codable, Identifiable, Sendable, Hashable {
         users: [VineyardUser] = [],
         createdAt: Date = Date(),
         logoData: Data? = nil,
-        country: String = ""
+        country: String = "",
+        logoPath: String? = nil,
+        logoUpdatedAt: Date? = nil
     ) {
         self.id = id
         self.name = name
@@ -22,10 +31,12 @@ nonisolated struct Vineyard: Codable, Identifiable, Sendable, Hashable {
         self.createdAt = createdAt
         self.logoData = logoData
         self.country = country
+        self.logoPath = logoPath
+        self.logoUpdatedAt = logoUpdatedAt
     }
 
     nonisolated enum CodingKeys: String, CodingKey {
-        case id, name, users, createdAt, logoData, country
+        case id, name, users, createdAt, logoData, country, logoPath, logoUpdatedAt
     }
 
     nonisolated init(from decoder: Decoder) throws {
@@ -36,6 +47,8 @@ nonisolated struct Vineyard: Codable, Identifiable, Sendable, Hashable {
         createdAt = try container.decodeIfPresent(Date.self, forKey: .createdAt) ?? Date()
         logoData = try container.decodeIfPresent(Data.self, forKey: .logoData)
         country = try container.decodeIfPresent(String.self, forKey: .country) ?? ""
+        logoPath = try container.decodeIfPresent(String.self, forKey: .logoPath)
+        logoUpdatedAt = try container.decodeIfPresent(Date.self, forKey: .logoUpdatedAt)
     }
 }
 

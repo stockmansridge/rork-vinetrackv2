@@ -7,14 +7,19 @@ struct BackendVineyardListView: View {
     @Environment(MigratedDataStore.self) private var store
 
     private let vineyardRepository: any VineyardRepositoryProtocol
+    private let logoStorage: VineyardLogoStorageService
 
     @State private var showAddVineyard: Bool = false
     @State private var isRefreshing: Bool = false
     @State private var errorMessage: String?
     @State private var vineyardPendingDeletion: Vineyard?
 
-    init(vineyardRepository: any VineyardRepositoryProtocol = SupabaseVineyardRepository()) {
+    init(
+        vineyardRepository: any VineyardRepositoryProtocol = SupabaseVineyardRepository(),
+        logoStorage: VineyardLogoStorageService = VineyardLogoStorageService()
+    ) {
         self.vineyardRepository = vineyardRepository
+        self.logoStorage = logoStorage
     }
 
     var body: some View {
@@ -74,8 +79,26 @@ struct BackendVineyardListView: View {
         do {
             let backendVineyards = try await vineyardRepository.listMyVineyards()
             store.mapBackendVineyardsIntoLocal(backendVineyards)
+            await fetchMissingLogos()
         } catch {
             errorMessage = error.localizedDescription
+        }
+    }
+
+    private func fetchMissingLogos() async {
+        for vineyard in store.vineyards {
+            guard let path = vineyard.logoPath, vineyard.logoData == nil else { continue }
+            do {
+                let data = try await logoStorage.downloadLogo(path: path)
+                if var current = store.vineyards.first(where: { $0.id == vineyard.id }) {
+                    current.logoData = data
+                    store.upsertLocalVineyard(current)
+                }
+            } catch {
+                #if DEBUG
+                print("[VineyardLogo] download failed for \(vineyard.name):", error.localizedDescription)
+                #endif
+            }
         }
     }
 

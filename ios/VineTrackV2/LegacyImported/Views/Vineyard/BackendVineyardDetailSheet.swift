@@ -1,18 +1,12 @@
 import SwiftUI
 import PhotosUI
 
-/// Phase 6A — simplified backend-aware vineyard detail sheet.
-///
-/// Shows basic vineyard info and lets the user rename, change country, or
-/// soft-delete the vineyard via `SupabaseVineyardRepository`. Local state is
-/// kept in sync via `MigratedDataStore`.
-///
-/// Member management, invitations, audit logging, and access control are
-/// intentionally NOT included — those will return in later phases when the
-/// new auth/team services are wired in.
+/// Backend-aware vineyard detail sheet. Supports rename, country, logo
+/// upload/change/remove (synced via Supabase Storage), and soft-delete.
 struct BackendVineyardDetailSheet: View {
     let initialVineyard: Vineyard
     let vineyardRepository: any VineyardRepositoryProtocol
+    private let logoStorage: VineyardLogoStorageService
 
     @Environment(MigratedDataStore.self) private var store
     @Environment(BackendAccessControl.self) private var accessControl
@@ -24,16 +18,19 @@ struct BackendVineyardDetailSheet: View {
     @State private var showDeleteConfirm: Bool = false
     @State private var deleteConfirmationText: String = ""
     @State private var isWorking: Bool = false
+    @State private var isUploadingLogo: Bool = false
     @State private var errorMessage: String?
     @State private var selectedLogoItem: PhotosPickerItem?
     @State private var showRemoveLogoConfirm: Bool = false
 
     init(
         vineyard: Vineyard,
-        vineyardRepository: any VineyardRepositoryProtocol = SupabaseVineyardRepository()
+        vineyardRepository: any VineyardRepositoryProtocol = SupabaseVineyardRepository(),
+        logoStorage: VineyardLogoStorageService = VineyardLogoStorageService()
     ) {
         self.initialVineyard = vineyard
         self.vineyardRepository = vineyardRepository
+        self.logoStorage = logoStorage
     }
 
     private var vineyard: Vineyard {
@@ -61,11 +58,12 @@ struct BackendVineyardDetailSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .task {
                 selectedCountry = vineyard.country
+                await ensureLogoCached()
             }
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Done") { dismiss() }
-                        .disabled(isWorking)
+                        .disabled(isWorking || isUploadingLogo)
                 }
             }
             .alert("Rename Vineyard", isPresented: $showEditName) {
@@ -107,30 +105,33 @@ struct BackendVineyardDetailSheet: View {
             HStack(spacing: 16) {
                 logoPreview
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(vineyard.logoData == nil ? "No logo" : "Logo set")
+                    Text(logoStatusTitle)
                         .font(.subheadline.weight(.semibold))
-                    Text("Logos appear on exported PDFs and reports.")
+                    Text("Logos appear on exported PDFs and reports, and sync to all members of this vineyard.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
                 Spacer()
+                if isUploadingLogo {
+                    ProgressView()
+                }
             }
 
             if accessControl.canChangeSettings {
                 PhotosPicker(selection: $selectedLogoItem, matching: .images) {
-                    Label(vineyard.logoData == nil ? "Add Logo" : "Change Logo",
-                          systemImage: vineyard.logoData == nil ? "photo.badge.plus" : "photo.badge.arrow.down")
+                    Label(vineyard.logoPath == nil ? "Add Logo" : "Change Logo",
+                          systemImage: vineyard.logoPath == nil ? "photo.badge.plus" : "photo.badge.arrow.down")
                         .foregroundStyle(.primary)
                 }
-                .disabled(isWorking)
+                .disabled(isWorking || isUploadingLogo)
 
-                if vineyard.logoData != nil {
+                if vineyard.logoPath != nil {
                     Button(role: .destructive) {
                         showRemoveLogoConfirm = true
                     } label: {
                         Label("Remove Logo", systemImage: "trash")
                     }
-                    .disabled(isWorking)
+                    .disabled(isWorking || isUploadingLogo)
                 }
             }
         } header: {
@@ -139,18 +140,27 @@ struct BackendVineyardDetailSheet: View {
             if !accessControl.canChangeSettings {
                 Text("Only owners and managers can change the vineyard logo.")
             } else {
-                Text("Stored locally on this device. Logo sync is not enabled yet.")
+                Text("The logo is shared across everyone with access to this vineyard.")
             }
         }
         .onChange(of: selectedLogoItem) { _, newItem in
             handleLogoSelection(newItem)
         }
         .alert("Remove Logo?", isPresented: $showRemoveLogoConfirm) {
-            Button("Remove", role: .destructive) { removeLogo() }
+            Button("Remove", role: .destructive) {
+                Task { await removeLogo() }
+            }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("This will remove the logo from this device.")
+            Text("This will remove the logo for everyone in this vineyard.")
         }
+    }
+
+    private var logoStatusTitle: String {
+        if vineyard.logoPath != nil && vineyard.logoData == nil {
+            return "Loading logo…"
+        }
+        return vineyard.logoPath == nil ? "No logo" : "Logo set"
     }
 
     @ViewBuilder
@@ -175,29 +185,76 @@ struct BackendVineyardDetailSheet: View {
     private func handleLogoSelection(_ item: PhotosPickerItem?) {
         guard let item else { return }
         Task {
-            if let data = try? await item.loadTransferable(type: Data.self),
-               let uiImage = UIImage(data: data) {
-                let maxSize: CGFloat = 512
-                let scale = min(maxSize / uiImage.size.width, maxSize / uiImage.size.height, 1.0)
-                let newSize = CGSize(width: uiImage.size.width * scale, height: uiImage.size.height * scale)
-                let renderer = UIGraphicsImageRenderer(size: newSize)
-                let resized = renderer.image { _ in
-                    uiImage.draw(in: CGRect(origin: .zero, size: newSize))
-                }
-                if let jpeg = resized.jpegData(compressionQuality: 0.85) {
-                    var updated = vineyard
-                    updated.logoData = jpeg
-                    store.upsertLocalVineyard(updated)
-                }
+            defer { selectedLogoItem = nil }
+            guard let data = try? await item.loadTransferable(type: Data.self),
+                  let uiImage = UIImage(data: data) else {
+                return
             }
-            selectedLogoItem = nil
+            let maxSize: CGFloat = 512
+            let scale = min(maxSize / uiImage.size.width, maxSize / uiImage.size.height, 1.0)
+            let newSize = CGSize(width: uiImage.size.width * scale, height: uiImage.size.height * scale)
+            let renderer = UIGraphicsImageRenderer(size: newSize)
+            let resized = renderer.image { _ in
+                uiImage.draw(in: CGRect(origin: .zero, size: newSize))
+            }
+            guard let jpeg = resized.jpegData(compressionQuality: 0.85) else { return }
+            await uploadLogo(jpeg)
         }
     }
 
-    private func removeLogo() {
-        var updated = vineyard
-        updated.logoData = nil
-        store.upsertLocalVineyard(updated)
+    private func uploadLogo(_ jpeg: Data) async {
+        isUploadingLogo = true
+        defer { isUploadingLogo = false }
+        do {
+            let path = try await logoStorage.uploadLogo(vineyardId: vineyard.id, imageData: jpeg)
+            let updatedAt = try await vineyardRepository.updateVineyardLogoPath(
+                vineyardId: vineyard.id,
+                logoPath: path
+            )
+            var updated = vineyard
+            updated.logoData = jpeg
+            updated.logoPath = path
+            updated.logoUpdatedAt = updatedAt
+            store.upsertLocalVineyard(updated)
+        } catch {
+            errorMessage = "Could not upload logo: \(error.localizedDescription)"
+        }
+    }
+
+    private func removeLogo() async {
+        isUploadingLogo = true
+        defer { isUploadingLogo = false }
+        let existingPath = vineyard.logoPath
+        do {
+            _ = try await vineyardRepository.updateVineyardLogoPath(
+                vineyardId: vineyard.id,
+                logoPath: nil
+            )
+            if let existingPath {
+                try? await logoStorage.deleteLogo(path: existingPath)
+            }
+            var updated = vineyard
+            updated.logoData = nil
+            updated.logoPath = nil
+            updated.logoUpdatedAt = nil
+            store.upsertLocalVineyard(updated)
+        } catch {
+            errorMessage = "Could not remove logo: \(error.localizedDescription)"
+        }
+    }
+
+    private func ensureLogoCached() async {
+        guard let path = vineyard.logoPath, vineyard.logoData == nil else { return }
+        do {
+            let data = try await logoStorage.downloadLogo(path: path)
+            var updated = vineyard
+            updated.logoData = data
+            store.upsertLocalVineyard(updated)
+        } catch {
+            #if DEBUG
+            print("[VineyardLogo] download failed:", error.localizedDescription)
+            #endif
+        }
     }
 
     private var infoSection: some View {
@@ -259,7 +316,8 @@ struct BackendVineyardDetailSheet: View {
             name: trimmed,
             ownerId: nil,
             country: vineyard.country.isEmpty ? nil : vineyard.country,
-            logoPath: nil,
+            logoPath: vineyard.logoPath,
+            logoUpdatedAt: vineyard.logoUpdatedAt,
             createdAt: nil,
             updatedAt: nil,
             deletedAt: nil
@@ -284,7 +342,8 @@ struct BackendVineyardDetailSheet: View {
             name: vineyard.name,
             ownerId: nil,
             country: newValue.isEmpty ? nil : newValue,
-            logoPath: nil,
+            logoPath: vineyard.logoPath,
+            logoUpdatedAt: vineyard.logoUpdatedAt,
             createdAt: nil,
             updatedAt: nil,
             deletedAt: nil
@@ -312,7 +371,8 @@ struct BackendVineyardDetailSheet: View {
                     name: local.name,
                     ownerId: nil,
                     country: local.country.isEmpty ? nil : local.country,
-                    logoPath: nil,
+                    logoPath: local.logoPath,
+                    logoUpdatedAt: local.logoUpdatedAt,
                     createdAt: local.createdAt,
                     updatedAt: nil,
                     deletedAt: nil

@@ -103,7 +103,8 @@ struct EditVineyardSheet: View {
                     name: trimmedName,
                     ownerId: nil,
                     country: countryParam,
-                    logoPath: nil,
+                    logoPath: existing.logoPath,
+                    logoUpdatedAt: existing.logoUpdatedAt,
                     createdAt: nil,
                     updatedAt: nil,
                     deletedAt: nil
@@ -124,7 +125,8 @@ struct EditVineyardSheet: View {
                         name: local.name,
                         ownerId: nil,
                         country: local.country.isEmpty ? nil : local.country,
-                        logoPath: nil,
+                        logoPath: local.logoPath,
+                        logoUpdatedAt: local.logoUpdatedAt,
                         createdAt: local.createdAt,
                         updatedAt: nil,
                         deletedAt: nil

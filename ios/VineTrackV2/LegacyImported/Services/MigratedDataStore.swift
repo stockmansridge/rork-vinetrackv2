@@ -291,7 +291,9 @@ final class MigratedDataStore {
     }
 
     /// Map BackendVineyard records into the local `Vineyard` model, preserving local
-    /// fields like `users` where possible.
+    /// fields like `users` and any cached `logoData` where possible. If the
+    /// backend reports a newer `logoUpdatedAt` than the local cache, the cached
+    /// `logoData` is cleared so the next refresh redownloads it.
     func mapBackendVineyardsIntoLocal(_ backendVineyards: [BackendVineyard]) {
         let existing = vineyardRepo.loadAll()
         var merged: [Vineyard] = []
@@ -300,6 +302,18 @@ final class MigratedDataStore {
                 var updated = local
                 updated.name = backend.name
                 updated.country = backend.country ?? local.country
+                updated.logoPath = backend.logoPath
+                let remoteUpdated = backend.logoUpdatedAt
+                let localUpdated = local.logoUpdatedAt
+                if backend.logoPath == nil {
+                    updated.logoData = nil
+                    updated.logoUpdatedAt = nil
+                } else if let remoteUpdated, localUpdated != remoteUpdated {
+                    updated.logoData = nil
+                    updated.logoUpdatedAt = remoteUpdated
+                } else {
+                    updated.logoUpdatedAt = remoteUpdated ?? localUpdated
+                }
                 merged.append(updated)
             } else {
                 let mapped = Vineyard(
@@ -308,7 +322,9 @@ final class MigratedDataStore {
                     users: [],
                     createdAt: backend.createdAt ?? Date(),
                     logoData: nil,
-                    country: backend.country ?? ""
+                    country: backend.country ?? "",
+                    logoPath: backend.logoPath,
+                    logoUpdatedAt: backend.logoUpdatedAt
                 )
                 merged.append(mapped)
             }
