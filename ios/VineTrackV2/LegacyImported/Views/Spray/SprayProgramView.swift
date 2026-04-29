@@ -220,7 +220,8 @@ struct SprayProgramView: View {
         let url = SprayProgramCSVService.exportRecords(
             records: operationalRecords,
             trips: store.trips,
-            vineyardName: vineyardName
+            vineyardName: vineyardName,
+            timeZone: store.settings.resolvedTimeZone
         )
         sharePDFURL = ShareURL(url: url)
     }

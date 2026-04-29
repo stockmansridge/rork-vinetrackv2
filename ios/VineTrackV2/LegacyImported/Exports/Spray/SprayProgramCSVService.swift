@@ -54,12 +54,14 @@ struct SprayProgramCSVService {
         records: [SprayRecord],
         trips: [Trip],
         vineyardName: String,
-        growthStageLookup: ((SprayRecord) -> String?)? = nil
+        growthStageLookup: ((SprayRecord) -> String?)? = nil,
+        timeZone: TimeZone = .current
     ) -> URL {
         var csv = templateHeaders.map { escapeCSV($0) }.joined(separator: ",") + "\n"
 
         let dateFormatter = DateFormatter()
         dateFormatter.dateFormat = "dd/MM/yyyy"
+        dateFormatter.timeZone = timeZone
 
         for record in records {
             let trip = trips.first { $0.id == record.tripId }
