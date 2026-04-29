@@ -67,6 +67,29 @@ struct SprayCalculatorView: View {
     @State private var showStartConfirmation: Bool = false
     @State private var isStartingJob: Bool = false
 
+    // Prefill (duplicate / template)
+    private let prefillRecord: SprayRecord?
+    @State private var prefillApplied: Bool = false
+
+    init(prefillRecord: SprayRecord? = nil) {
+        self.prefillRecord = prefillRecord
+        if let r = prefillRecord {
+            let baseName = r.sprayReference.isEmpty ? "" : r.sprayReference
+            let prefilledName: String = {
+                if r.isTemplate { return baseName }
+                return baseName.isEmpty ? "" : "\(baseName) (Copy)"
+            }()
+            _sprayName = State(initialValue: prefilledName)
+            _operationType = State(initialValue: r.operationType)
+            _notes = State(initialValue: r.notes)
+            _numberOfFansJets = State(initialValue: r.numberOfFansJets)
+            if let firstTank = r.tanks.first, firstTank.sprayRatePerHa > 0 {
+                _sprayRateText = State(initialValue: String(format: "%.0f", firstTank.sprayRatePerHa))
+                _hasEditedSprayRate = State(initialValue: true)
+            }
+        }
+    }
+
     // MARK: - Computed
 
     private var phenologyStages: [PhenologyStage] { PhenologyStage.allStages }
@@ -203,6 +226,41 @@ struct SprayCalculatorView: View {
             .sheet(isPresented: $showStartConfirmation) {
                 startConfirmationSheet
             }
+            .onAppear { applyPrefillIfNeeded() }
+        }
+    }
+
+    private func applyPrefillIfNeeded() {
+        guard let r = prefillRecord, !prefillApplied else { return }
+        prefillApplied = true
+
+        if !r.equipmentType.isEmpty {
+            selectedEquipmentId = store.sprayEquipment.first(where: { $0.name == r.equipmentType })?.id
+        }
+        if !r.tractor.isEmpty {
+            selectedTractorId = store.tractors.first(where: { $0.displayName == r.tractor || $0.name == r.tractor })?.id
+        }
+        if let trip = store.trips.first(where: { $0.id == r.tripId }) {
+            selectedPaddockIds = Set(trip.paddockIds)
+        }
+
+        if let firstTank = r.tanks.first {
+            var lines: [ChemicalLine] = []
+            for chem in firstTank.chemicals {
+                guard let saved = store.savedChemicals.first(where: {
+                    $0.name.caseInsensitiveCompare(chem.name) == .orderedSame
+                }) else { continue }
+                let basis: RateBasis = chem.ratePer100L > 0 ? .per100Litres : .perHectare
+                let rate = saved.rates.first(where: { $0.basis == basis }) ?? saved.rates.first
+                lines.append(
+                    ChemicalLine(
+                        chemicalId: saved.id,
+                        selectedRateId: rate?.id ?? UUID(),
+                        basis: rate?.basis ?? basis
+                    )
+                )
+            }
+            chemicalLines = lines
         }
     }
 
