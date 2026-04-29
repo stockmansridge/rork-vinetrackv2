@@ -1,4 +1,5 @@
 import SwiftUI
+import CoreLocation
 
 enum GrowthStageMode: String, CaseIterable {
     case same
@@ -21,6 +22,7 @@ struct SprayCalculatorView: View {
     @Environment(TripTrackingService.self) private var tracking
     @Environment(NewBackendAuthService.self) private var auth
     @Environment(BackendAccessControl.self) private var accessControl
+    @Environment(LocationService.self) private var locationService
     @Environment(\.dismiss) private var dismiss
 
     // Selection
@@ -45,6 +47,13 @@ struct SprayCalculatorView: View {
     @State private var windSpeedText: String = ""
     @State private var windDirection: String = ""
     @State private var humidityText: String = ""
+
+    // Weather auto-fetch
+    @State private var isFetchingWeather: Bool = false
+    @State private var weatherFetchError: String?
+    @State private var weatherFetchedAt: Date?
+    @State private var weatherStationId: String?
+    @State private var weatherSource: String?
 
     // UI
     @State private var isPaddocksExpanded: Bool = true
@@ -759,6 +768,49 @@ struct SprayCalculatorView: View {
     private var weatherSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             SectionHeader(title: "Weather (optional)", icon: "cloud.sun")
+
+            Button {
+                Task { await fetchWeather() }
+            } label: {
+                HStack(spacing: 8) {
+                    if isFetchingWeather {
+                        ProgressView().controlSize(.small)
+                    } else {
+                        Image(systemName: "cloud.sun.bolt")
+                    }
+                    Text(isFetchingWeather ? "Fetching weather…" : "Fetch Weather")
+                        .font(.subheadline.weight(.medium))
+                    Spacer()
+                    if let fetched = weatherFetchedAt {
+                        Text(fetched.formatted(date: .omitted, time: .shortened))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .foregroundStyle(VineyardTheme.olive)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 12)
+                .frame(maxWidth: .infinity)
+                .background(VineyardTheme.olive.opacity(0.1))
+                .clipShape(.rect(cornerRadius: 10))
+            }
+            .disabled(isFetchingWeather)
+
+            if let weatherFetchError {
+                Label(weatherFetchError, systemImage: "exclamationmark.triangle.fill")
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+                    .padding(10)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Color.orange.opacity(0.1))
+                    .clipShape(.rect(cornerRadius: 8))
+            } else if let source = weatherSource, let fetched = weatherFetchedAt {
+                let stationSuffix = weatherStationId.map { " • \($0)" } ?? ""
+                Text("\(source)\(stationSuffix) • \(fetched.formatted(date: .abbreviated, time: .shortened))")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+            }
+
             VStack(spacing: 10) {
                 HStack {
                     Label("Temperature", systemImage: "thermometer")
@@ -909,6 +961,53 @@ struct SprayCalculatorView: View {
 
     private func currentWeatherSnapshot() -> (temperature: Double?, windSpeed: Double?, windDirection: String, humidity: Double?) {
         (Double(temperatureText), Double(windSpeedText), windDirection, Double(humidityText))
+    }
+
+    private func resolveWeatherCoordinate() -> CLLocationCoordinate2D? {
+        for paddock in selectedPaddocks {
+            let pts = paddock.polygonPoints
+            guard !pts.isEmpty else { continue }
+            let lat = pts.map(\.latitude).reduce(0, +) / Double(pts.count)
+            let lon = pts.map(\.longitude).reduce(0, +) / Double(pts.count)
+            if lat != 0 || lon != 0 {
+                return CLLocationCoordinate2D(latitude: lat, longitude: lon)
+            }
+        }
+        return locationService.location?.coordinate
+    }
+
+    private func fetchWeather() async {
+        guard !isFetchingWeather else { return }
+        guard let coordinate = resolveWeatherCoordinate() else {
+            weatherFetchError = "No location available. Select a paddock with a boundary or enable location services."
+            return
+        }
+        isFetchingWeather = true
+        weatherFetchError = nil
+        defer { isFetchingWeather = false }
+
+        let stationId = store.settings.weatherStationId
+        let service = WeatherCurrentService()
+        do {
+            let snapshot = try await service.fetch(coordinate: coordinate, stationId: stationId)
+            if let t = snapshot.temperatureC {
+                temperatureText = String(format: "%.1f", t)
+            }
+            if let w = snapshot.windSpeedKmh {
+                windSpeedText = String(format: "%.1f", w)
+            }
+            if !snapshot.windDirection.isEmpty {
+                windDirection = snapshot.windDirection
+            }
+            if let h = snapshot.humidityPercent {
+                humidityText = String(format: "%.0f", h)
+            }
+            weatherFetchedAt = snapshot.observedAt
+            weatherStationId = snapshot.stationId
+            weatherSource = snapshot.source
+        } catch {
+            weatherFetchError = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+        }
     }
 
     private func saveAndStartJob() {
