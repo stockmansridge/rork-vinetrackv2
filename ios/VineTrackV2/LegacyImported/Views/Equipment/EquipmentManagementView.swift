@@ -324,10 +324,15 @@ struct TractorFormSheet: View {
 
     let tractor: Tractor?
 
+    @Environment(MigratedDataStore.self) private var storeForAI
     @State private var brand: String = ""
     @State private var model: String = ""
     @State private var modelYearText: String = ""
     @State private var fuelUsage: String = ""
+    @State private var fuelLookupLoading: Bool = false
+    @State private var fuelLookupError: String?
+    @State private var fuelLookupNotes: String?
+    @State private var fuelLookupConfidence: String?
 
     init(tractor: Tractor?) {
         self.tractor = tractor
@@ -364,10 +369,40 @@ struct TractorFormSheet: View {
                 Section {
                     TextField("e.g. 8.5", text: $fuelUsage)
                         .keyboardType(.decimalPad)
+                    if storeForAI.settings.aiSuggestionsEnabled {
+                        Button {
+                            Task { await estimateFuel() }
+                        } label: {
+                            HStack {
+                                if fuelLookupLoading {
+                                    ProgressView()
+                                    Text("Estimating…")
+                                } else {
+                                    Label("Estimate Fuel Use", systemImage: "sparkles")
+                                }
+                            }
+                        }
+                        .disabled(fuelLookupLoading || brand.trimmingCharacters(in: .whitespaces).isEmpty || model.trimmingCharacters(in: .whitespaces).isEmpty)
+                        if let fuelLookupError {
+                            Text(fuelLookupError)
+                                .font(.caption)
+                                .foregroundStyle(.red)
+                        }
+                        if let confidence = fuelLookupConfidence, !confidence.isEmpty {
+                            Text("Confidence: \(confidence.capitalized)")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        if let notes = fuelLookupNotes, !notes.isEmpty {
+                            Text(notes)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
                 } header: {
                     Text("Fuel Usage (L/hr)")
                 } footer: {
-                    Text("Fuel consumption rate in litres per hour under working load.")
+                    Text("Fuel consumption rate in litres per hour under working load. AI estimates are approximate — actual fuel use varies by load, terrain, implement, speed, and conditions.")
                 }
             }
             .navigationTitle(tractor == nil ? "New Tractor" : "Edit Tractor")
@@ -384,6 +419,27 @@ struct TractorFormSheet: View {
                     .disabled(!isValid)
                 }
             }
+        }
+    }
+
+    @MainActor
+    private func estimateFuel() async {
+        fuelLookupError = nil
+        fuelLookupNotes = nil
+        fuelLookupConfidence = nil
+        fuelLookupLoading = true
+        defer { fuelLookupLoading = false }
+        do {
+            let result = try await TractorFuelLookupService().lookupFuelUsage(
+                brand: brand.trimmingCharacters(in: .whitespaces),
+                model: model.trimmingCharacters(in: .whitespaces),
+                year: parsedYear
+            )
+            fuelUsage = String(format: "%.1f", result.fuelUsageLPerHour)
+            fuelLookupConfidence = result.confidence
+            fuelLookupNotes = result.notes
+        } catch {
+            fuelLookupError = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
         }
     }
 

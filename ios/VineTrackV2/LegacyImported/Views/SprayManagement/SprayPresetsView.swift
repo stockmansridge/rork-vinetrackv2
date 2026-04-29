@@ -154,6 +154,9 @@ struct EditSavedChemicalSheet: View {
     @State private var activeIngredient: String = ""
     @State private var modeOfAction: String = ""
     @State private var labelURL: String = ""
+    @State private var showAILookup: Bool = false
+    @State private var aiLoading: Bool = false
+    @State private var aiError: String?
 
     init(chemical: SavedChemical?) {
         self.chemical = chemical
@@ -179,6 +182,24 @@ struct EditSavedChemicalSheet: View {
     var body: some View {
         NavigationStack {
             Form {
+                if store.settings.aiSuggestionsEnabled {
+                    Section {
+                        Button {
+                            showAILookup = true
+                        } label: {
+                            Label(aiLoading ? "Looking up…" : "Search with AI", systemImage: "sparkles")
+                        }
+                        .disabled(aiLoading)
+                        if let aiError {
+                            Text(aiError)
+                                .font(.caption)
+                                .foregroundStyle(.red)
+                        }
+                    } footer: {
+                        Text("AI suggestions must be checked against the current product label, permit, SDS, and local regulations before use.")
+                    }
+                }
+
                 Section("Details") {
                     TextField("Chemical Name", text: $name)
                     TextField("Active Ingredient", text: $activeIngredient)
@@ -219,6 +240,11 @@ struct EditSavedChemicalSheet: View {
             }
             .navigationTitle(chemical == nil ? "New Chemical" : "Edit Chemical")
             .navigationBarTitleDisplayMode(.inline)
+            .sheet(isPresented: $showAILookup) {
+                ChemicalAILookupSheet(initialQuery: name) { result in
+                    Task { await applyAIResult(result) }
+                }
+            }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
@@ -231,6 +257,37 @@ struct EditSavedChemicalSheet: View {
                     .disabled(!isValid)
                 }
             }
+        }
+    }
+
+    @MainActor
+    private func applyAIResult(_ result: ChemicalSearchResult) async {
+        aiError = nil
+        aiLoading = true
+        defer { aiLoading = false }
+        if name.isEmpty { name = result.name }
+        if activeIngredient.isEmpty { activeIngredient = result.activeIngredient }
+        if manufacturer.isEmpty { manufacturer = result.brand }
+        if chemicalGroup.isEmpty { chemicalGroup = result.chemicalGroup }
+        if modeOfAction.isEmpty { modeOfAction = result.modeOfAction }
+        if use.isEmpty { use = result.primaryUse }
+        if problem.isEmpty { problem = result.primaryUse }
+
+        let country = store.selectedVineyard?.country ?? ""
+        do {
+            let info = try await ChemicalInfoService().lookupChemicalInfo(productName: result.name, country: country)
+            if activeIngredient.isEmpty { activeIngredient = info.activeIngredient }
+            if manufacturer.isEmpty { manufacturer = info.brand }
+            if chemicalGroup.isEmpty { chemicalGroup = info.chemicalGroup }
+            if labelURL.isEmpty { labelURL = info.labelURL }
+            if let moa = info.modeOfAction, modeOfAction.isEmpty { modeOfAction = moa }
+            if use.isEmpty { use = info.primaryUse }
+            unit = info.defaultUnit
+            if let rates = info.ratesPerHectare, let first = rates.first, ratePerHaText.isEmpty {
+                ratePerHaText = String(format: "%.2f", first.value)
+            }
+        } catch {
+            aiError = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
         }
     }
 
@@ -264,6 +321,137 @@ struct EditSavedChemicalSheet: View {
                 modeOfAction: modeOfAction
             )
             store.addSavedChemical(new)
+        }
+    }
+}
+
+// MARK: - Chemical AI Lookup Sheet
+
+struct ChemicalAILookupSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    @Environment(MigratedDataStore.self) private var store
+
+    let initialQuery: String
+    let onSelect: (ChemicalSearchResult) -> Void
+
+    @State private var query: String = ""
+    @State private var results: [ChemicalSearchResult] = []
+    @State private var isLoading: Bool = false
+    @State private var errorMessage: String?
+
+    init(initialQuery: String, onSelect: @escaping (ChemicalSearchResult) -> Void) {
+        self.initialQuery = initialQuery
+        self.onSelect = onSelect
+        _query = State(initialValue: initialQuery)
+    }
+
+    var body: some View {
+        NavigationStack {
+            List {
+                Section {
+                    HStack {
+                        TextField("Product or active ingredient", text: $query)
+                            .textInputAutocapitalization(.words)
+                            .onSubmit { Task { await search() } }
+                        Button {
+                            Task { await search() }
+                        } label: {
+                            Image(systemName: "magnifyingglass")
+                        }
+                        .disabled(isLoading || query.trimmingCharacters(in: .whitespaces).isEmpty)
+                    }
+                } footer: {
+                    Text("AI suggestions must be checked against the current label, permit, SDS, and local regulations before use.")
+                }
+
+                if isLoading {
+                    Section {
+                        HStack {
+                            ProgressView()
+                            Text("Searching…")
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
+
+                if let errorMessage {
+                    Section {
+                        Text(errorMessage)
+                            .foregroundStyle(.red)
+                            .font(.caption)
+                    }
+                }
+
+                if !results.isEmpty {
+                    Section("Results") {
+                        ForEach(results) { item in
+                            Button {
+                                onSelect(item)
+                                dismiss()
+                            } label: {
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text(item.name)
+                                        .font(.subheadline.weight(.medium))
+                                        .foregroundStyle(.primary)
+                                    if !item.activeIngredient.isEmpty {
+                                        Text(item.activeIngredient)
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                    }
+                                    HStack(spacing: 6) {
+                                        if !item.brand.isEmpty {
+                                            Text(item.brand).font(.caption2).foregroundStyle(.tertiary)
+                                        }
+                                        if !item.chemicalGroup.isEmpty {
+                                            Text("• \(item.chemicalGroup)").font(.caption2).foregroundStyle(.tertiary)
+                                        }
+                                        if !item.modeOfAction.isEmpty {
+                                            Text("• MOA \(item.modeOfAction)").font(.caption2).foregroundStyle(.tertiary)
+                                        }
+                                    }
+                                    if !item.primaryUse.isEmpty {
+                                        Text(item.primaryUse)
+                                            .font(.caption2)
+                                            .foregroundStyle(.secondary)
+                                            .lineLimit(2)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            .navigationTitle("Search with AI")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Done") { dismiss() }
+                }
+            }
+            .task {
+                if !initialQuery.trimmingCharacters(in: .whitespaces).isEmpty && results.isEmpty {
+                    await search()
+                }
+            }
+        }
+    }
+
+    @MainActor
+    private func search() async {
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        errorMessage = nil
+        isLoading = true
+        defer { isLoading = false }
+        let country = store.selectedVineyard?.country ?? ""
+        do {
+            results = try await ChemicalInfoService().searchChemicals(query: trimmed, country: country)
+            if results.isEmpty {
+                errorMessage = "No products found."
+            }
+        } catch {
+            errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+            results = []
         }
     }
 }

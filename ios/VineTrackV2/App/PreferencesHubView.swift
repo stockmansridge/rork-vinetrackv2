@@ -15,6 +15,7 @@ struct PreferencesHubView: View {
     @State private var seasonStartMonth: Int = 7
     @State private var seasonStartDay: Int = 1
     @State private var timezoneIdentifier: String = TimeZone.current.identifier
+    @State private var aiSuggestionsEnabled: Bool = true
 
     @State private var showGrowthStages: Bool = false
     @State private var showWeatherStationPicker: Bool = false
@@ -29,6 +30,7 @@ struct PreferencesHubView: View {
             spraySection
             yieldSection
             photosSection
+            aiSection
             regionalSection
         }
         .navigationTitle("Preferences")
@@ -251,6 +253,21 @@ struct PreferencesHubView: View {
         }
     }
 
+    private var aiSection: some View {
+        Section {
+            Toggle("Enable AI Suggestions", isOn: $aiSuggestionsEnabled)
+                .onChange(of: aiSuggestionsEnabled) { _, newValue in
+                    var s = store.settings
+                    s.aiSuggestionsEnabled = newValue
+                    store.updateSettings(s)
+                }
+        } header: {
+            Text("AI Suggestions")
+        } footer: {
+            Text("AI suggestions are optional and must be checked against current product labels, permits, SDS, and local regulations before use.")
+        }
+    }
+
     private var regionalSection: some View {
         Section {
             Button {
@@ -287,6 +304,7 @@ struct PreferencesHubView: View {
         seasonStartMonth = s.seasonStartMonth
         seasonStartDay = s.seasonStartDay
         timezoneIdentifier = s.timezone
+        aiSuggestionsEnabled = s.aiSuggestionsEnabled
     }
 
     private func saveSamples() {
