@@ -86,9 +86,8 @@ struct SprayTripSetupSheet: View {
                     startTripFromRecord(record)
                 }
             }
-            .sheet(isPresented: $showCalculator) {
+            .sheet(isPresented: $showCalculator, onDismiss: { dismiss() }) {
                 SprayCalculatorView()
-                    .onDisappear { dismiss() }
             }
         }
     }
