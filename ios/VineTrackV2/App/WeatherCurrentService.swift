@@ -3,17 +3,14 @@ import CoreLocation
 
 /// Backend-safe current-weather fetcher.
 ///
-/// Fetches a current weather snapshot for spray jobs using the Weather
-/// Underground PWS API. Long-term this should move behind a Supabase
-/// Edge Function (so the API key never ships in the app); for now it
-/// reads `AppConfig.wundergroundAPIKey`, mirroring the existing
-/// `DegreeDayService` pattern.
+/// Calls the `weather-current` Supabase Edge Function which holds the
+/// `WUNDERGROUND_API_KEY` secret server-side. The API key never ships
+/// inside the iOS app.
 ///
-/// Strategy:
-/// 1. If a `stationId` is supplied (e.g. from `AppSettings.weatherStationId`),
-///    fetch current observations directly.
-/// 2. Otherwise, look up the nearest PWS station to the given coordinate
-///    and use that.
+/// As a transitional fallback, if `AppConfig.wundergroundAPIKey` is
+/// populated (via Info.plist or UserDefaults during development) the
+/// service will call Weather Underground directly. In production the
+/// Edge Function path is used.
 nonisolated struct WeatherCurrentService: Sendable {
 
     nonisolated struct Snapshot: Sendable {
@@ -35,7 +32,7 @@ nonisolated struct WeatherCurrentService: Sendable {
         var errorDescription: String? {
             switch self {
             case .missingAPIKey:
-                return "Weather Underground API key not configured. Add a key in settings to enable automatic weather."
+                return "Weather service is not configured. Please try again later or enter weather manually."
             case .noNearbyStation:
                 return "No nearby weather station found. Enter weather manually."
             case .noObservations:
@@ -47,18 +44,111 @@ nonisolated struct WeatherCurrentService: Sendable {
     }
 
     func fetch(coordinate: CLLocationCoordinate2D, stationId: String? = nil) async throws -> Snapshot {
+        // Prefer the Edge Function (server-side API key).
+        if AppConfig.isSupabaseConfigured {
+            do {
+                return try await fetchViaEdgeFunction(coordinate: coordinate, stationId: stationId)
+            } catch WeatherFetchError.missingAPIKey {
+                // fall through to direct call only if a local key is present
+            }
+        }
+
+        // Transitional fallback: direct call using a dev-only key.
         let apiKey = AppConfig.wundergroundAPIKey
         guard !apiKey.isEmpty else { throw WeatherFetchError.missingAPIKey }
-
         let resolvedStation: String
         if let stationId, !stationId.isEmpty {
             resolvedStation = stationId
         } else {
             resolvedStation = try await nearestStationId(coordinate: coordinate, apiKey: apiKey)
         }
-
         return try await currentObservation(stationId: resolvedStation, apiKey: apiKey)
     }
+
+    // MARK: - Edge Function path
+
+    nonisolated private struct EdgeFunctionResponse: Decodable, Sendable {
+        let temperatureC: Double?
+        let windSpeedKmh: Double?
+        let windDirection: String?
+        let humidityPercent: Double?
+        let observedAt: String?
+        let stationId: String?
+        let source: String?
+    }
+
+    nonisolated private struct EdgeFunctionError: Decodable, Sendable {
+        let error: String?
+    }
+
+    private func fetchViaEdgeFunction(
+        coordinate: CLLocationCoordinate2D,
+        stationId: String?
+    ) async throws -> Snapshot {
+        let base = AppConfig.supabaseURL.absoluteString
+            .trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        guard let url = URL(string: "\(base)/functions/v1/weather-current") else {
+            throw WeatherFetchError.network("Invalid edge function URL")
+        }
+        let anonKey = AppConfig.supabaseAnonKey
+        guard !anonKey.isEmpty else { throw WeatherFetchError.missingAPIKey }
+
+        var req = URLRequest(url: url)
+        req.httpMethod = "POST"
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.setValue(anonKey, forHTTPHeaderField: "apikey")
+        req.setValue("Bearer \(anonKey)", forHTTPHeaderField: "Authorization")
+
+        var payload: [String: Any] = [
+            "lat": coordinate.latitude,
+            "lon": coordinate.longitude,
+        ]
+        if let stationId, !stationId.isEmpty {
+            payload["stationId"] = stationId
+        }
+        req.httpBody = try JSONSerialization.data(withJSONObject: payload)
+
+        let (data, response) = try await URLSession.shared.data(for: req)
+        guard let http = response as? HTTPURLResponse else {
+            throw WeatherFetchError.network("No HTTP response")
+        }
+
+        if http.statusCode == 500 {
+            if let err = try? JSONDecoder().decode(EdgeFunctionError.self, from: data),
+               let msg = err.error,
+               msg.contains("WUNDERGROUND_API_KEY") {
+                throw WeatherFetchError.missingAPIKey
+            }
+        }
+        if http.statusCode == 404 {
+            throw WeatherFetchError.noObservations
+        }
+        guard (200..<300).contains(http.statusCode) else {
+            if let err = try? JSONDecoder().decode(EdgeFunctionError.self, from: data),
+               let msg = err.error {
+                throw WeatherFetchError.network(msg)
+            }
+            throw WeatherFetchError.network("HTTP \(http.statusCode)")
+        }
+
+        let decoded = try JSONDecoder().decode(EdgeFunctionResponse.self, from: data)
+        let observedAt: Date = {
+            if let s = decoded.observedAt,
+               let d = ISO8601DateFormatter().date(from: s) { return d }
+            return Date()
+        }()
+        return Snapshot(
+            temperatureC: decoded.temperatureC,
+            windSpeedKmh: decoded.windSpeedKmh,
+            windDirection: decoded.windDirection ?? "",
+            humidityPercent: decoded.humidityPercent,
+            observedAt: observedAt,
+            stationId: decoded.stationId,
+            source: decoded.source ?? "Weather Underground PWS"
+        )
+    }
+
+    // MARK: - Direct fallback (dev only)
 
     private func nearestStationId(coordinate: CLLocationCoordinate2D, apiKey: String) async throws -> String {
         let lat = String(format: "%.5f", coordinate.latitude)
