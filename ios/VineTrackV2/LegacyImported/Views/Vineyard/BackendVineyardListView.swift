@@ -17,6 +17,8 @@ struct BackendVineyardListView: View {
     @State private var vineyardPendingDeletion: Vineyard?
     @State private var rolesByVineyardId: [UUID: BackendRole] = [:]
     @State private var isLoadingRoles: Bool = false
+    @State private var refreshStatus: String?
+    @State private var processingInvitationId: UUID?
 
     init(
         vineyardRepository: any VineyardRepositoryProtocol = SupabaseVineyardRepository(),
@@ -28,10 +30,22 @@ struct BackendVineyardListView: View {
         self.logoStorage = logoStorage
     }
 
+    private var visiblePendingInvitations: [BackendInvitation] {
+        let userEmail = (auth.userEmail ?? "").lowercased()
+        let memberIds = Set(store.vineyards.map { $0.id })
+        var seen = Set<UUID>()
+        return auth.pendingInvitations
+            .filter { $0.status.lowercased() == "pending" }
+            .filter { userEmail.isEmpty || $0.email.lowercased() == userEmail }
+            .filter { !memberIds.contains($0.vineyardId) }
+            .sorted { ($0.createdAt ?? .distantPast) > ($1.createdAt ?? .distantPast) }
+            .filter { seen.insert($0.id).inserted }
+    }
+
     var body: some View {
         NavigationStack {
             Group {
-                if store.vineyards.isEmpty {
+                if store.vineyards.isEmpty && visiblePendingInvitations.isEmpty {
                     emptyState
                 } else {
                     vineyardList
@@ -81,15 +95,47 @@ struct BackendVineyardListView: View {
 
     private func refresh() async {
         isRefreshing = true
+        refreshStatus = nil
         defer { isRefreshing = false }
         do {
             let backendVineyards = try await vineyardRepository.listMyVineyards()
             store.mapBackendVineyardsIntoLocal(backendVineyards)
+            await auth.loadPendingInvitations()
+            await fetchMissingLogos()
+            await fetchRoles()
+            let count = visiblePendingInvitations.count
+            refreshStatus = count > 0
+                ? "\(count) pending invitation\(count == 1 ? "" : "s")"
+                : "No pending invitations"
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    private func accept(_ invitation: BackendInvitation) async {
+        processingInvitationId = invitation.id
+        defer { processingInvitationId = nil }
+        await auth.acceptInvitation(invitation)
+        do {
+            let backendVineyards = try await vineyardRepository.listMyVineyards()
+            store.mapBackendVineyardsIntoLocal(backendVineyards)
+            if let newVineyard = backendVineyards.first(where: { $0.id == invitation.vineyardId }),
+               let local = store.vineyards.first(where: { $0.id == newVineyard.id }) {
+                store.selectVineyard(local)
+            }
+            await auth.loadPendingInvitations()
             await fetchMissingLogos()
             await fetchRoles()
         } catch {
             errorMessage = error.localizedDescription
         }
+    }
+
+    private func decline(_ invitation: BackendInvitation) async {
+        processingInvitationId = invitation.id
+        defer { processingInvitationId = nil }
+        await auth.declineInvitation(invitation)
+        await auth.loadPendingInvitations()
     }
 
     private func fetchRoles() async {
@@ -157,17 +203,126 @@ struct BackendVineyardListView: View {
 
     private var vineyardList: some View {
         List {
-            ForEach(store.vineyards) { vineyard in
-                BackendVineyardCardRow(
-                    vineyard: vineyard,
-                    isSelected: vineyard.id == store.selectedVineyardId,
-                    role: rolesByVineyardId[vineyard.id],
-                    isLoadingRole: isLoadingRoles && rolesByVineyardId[vineyard.id] == nil,
-                    vineyardRepository: vineyardRepository
-                )
+            if !visiblePendingInvitations.isEmpty {
+                Section {
+                    ForEach(visiblePendingInvitations, id: \.id) { invitation in
+                        invitationRow(invitation)
+                    }
+                } header: {
+                    Text("Pending Invitations")
+                } footer: {
+                    Text("You've been invited to join these vineyards. Accept to add them to your list.")
+                        .font(.caption)
+                }
+            }
+
+            Section {
+                if store.vineyards.isEmpty {
+                    Text("No vineyards yet.")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                } else {
+                    ForEach(store.vineyards) { vineyard in
+                        BackendVineyardCardRow(
+                            vineyard: vineyard,
+                            isSelected: vineyard.id == store.selectedVineyardId,
+                            role: rolesByVineyardId[vineyard.id],
+                            isLoadingRole: isLoadingRoles && rolesByVineyardId[vineyard.id] == nil,
+                            vineyardRepository: vineyardRepository
+                        )
+                    }
+                }
+            } header: {
+                HStack {
+                    Text("My Vineyards")
+                    Spacer()
+                    if let refreshStatus, !isRefreshing {
+                        Text(refreshStatus)
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                            .textCase(nil)
+                    }
+                }
             }
         }
         .listStyle(.insetGrouped)
+    }
+
+    @ViewBuilder
+    private func invitationRow(_ invitation: BackendInvitation) -> some View {
+        let isProcessing = processingInvitationId == invitation.id
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 12) {
+                ZStack {
+                    Circle()
+                        .fill(VineyardTheme.leafGreen.gradient)
+                        .frame(width: 36, height: 36)
+                    Image(systemName: "envelope.fill")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.white)
+                }
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Vineyard invitation")
+                        .font(.subheadline.weight(.semibold))
+                    Text(invitation.email)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+                Spacer()
+            }
+
+            HStack(spacing: 6) {
+                Text(invitation.role.rawValue.capitalized)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(VineyardTheme.leafGreen)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 3)
+                    .background(VineyardTheme.leafGreen.opacity(0.12), in: Capsule())
+                if let createdAt = invitation.createdAt {
+                    Text(createdAt.formatted(date: .abbreviated, time: .omitted))
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+            }
+
+            HStack(spacing: 8) {
+                Button {
+                    Task { await accept(invitation) }
+                } label: {
+                    HStack(spacing: 6) {
+                        if isProcessing {
+                            ProgressView().controlSize(.mini).tint(.white)
+                        } else {
+                            Image(systemName: "checkmark.circle.fill")
+                        }
+                        Text("Accept")
+                    }
+                    .font(.footnote.weight(.semibold))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 8)
+                    .background(VineyardTheme.leafGreen, in: Capsule())
+                    .foregroundStyle(.white)
+                }
+                .buttonStyle(.plain)
+                .disabled(isProcessing)
+
+                Button {
+                    Task { await decline(invitation) }
+                } label: {
+                    Text("Decline")
+                        .font(.footnote.weight(.semibold))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 8)
+                        .background(Color(.tertiarySystemFill), in: Capsule())
+                        .foregroundStyle(.primary)
+                }
+                .buttonStyle(.plain)
+                .disabled(isProcessing)
+            }
+        }
+        .padding(.vertical, 4)
     }
 }
 

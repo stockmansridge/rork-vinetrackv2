@@ -3,6 +3,7 @@ import SwiftUI
 struct NewBackendRootView: View {
     @Environment(NewBackendAuthService.self) private var auth
     @Environment(MigratedDataStore.self) private var store
+    @Environment(\.scenePhase) private var scenePhase
 
     @State private var didAttemptRestore: Bool = false
     @State private var onboardingCompleted: Bool = OnboardingState.isCompleted
@@ -53,6 +54,16 @@ struct NewBackendRootView: View {
         .task(id: store.selectedVineyardId) {
             if store.selectedVineyardId != nil {
                 DefaultDataSeeder.seedIfNeeded(store: store)
+            }
+        }
+        .task(id: auth.isSignedIn) {
+            if auth.isSignedIn {
+                await auth.loadPendingInvitations()
+            }
+        }
+        .onChange(of: scenePhase) { _, newPhase in
+            if newPhase == .active && auth.isSignedIn {
+                Task { await auth.loadPendingInvitations() }
             }
         }
     }

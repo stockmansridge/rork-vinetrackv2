@@ -22,6 +22,16 @@ struct BackendSettingsView: View {
 
     private let vineyardRepository: any VineyardRepositoryProtocol = SupabaseVineyardRepository()
 
+    private var pendingInvitationCount: Int {
+        let userEmail = (auth.userEmail ?? "").lowercased()
+        let memberIds = Set(store.vineyards.map { $0.id })
+        return auth.pendingInvitations
+            .filter { $0.status.lowercased() == "pending" }
+            .filter { userEmail.isEmpty || $0.email.lowercased() == userEmail }
+            .filter { !memberIds.contains($0.vineyardId) }
+            .count
+    }
+
     var body: some View {
         NavigationStack {
             Form {
@@ -129,8 +139,21 @@ struct BackendSettingsView: View {
             Button {
                 showVineyardSwitcher = true
             } label: {
-                Label("Change Vineyard", systemImage: "arrow.triangle.swap")
-                    .foregroundStyle(.primary)
+                HStack {
+                    Label("Change Vineyard", systemImage: "arrow.triangle.swap")
+                        .foregroundStyle(.primary)
+                    Spacer()
+                    let count = pendingInvitationCount
+                    if count > 0 {
+                        Text("\(count)")
+                            .font(.caption2.weight(.bold))
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 7)
+                            .padding(.vertical, 2)
+                            .background(Color.red, in: Capsule())
+                            .accessibilityLabel("\(count) pending invitations")
+                    }
+                }
             }
         } header: {
             Text("Vineyard")
