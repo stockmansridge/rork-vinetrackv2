@@ -691,7 +691,7 @@ struct SprayCalculatorView: View {
                         .frame(maxWidth: .infinity)
                         .frame(height: 120)
                         .padding(8)
-                        .background(Color(.tertiarySystemGroupedBackground))
+                        .background(Color.white)
                         .clipShape(.rect(cornerRadius: 8))
                     }
                 }
