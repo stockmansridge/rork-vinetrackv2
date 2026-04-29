@@ -172,7 +172,7 @@ extension MigratedDataStore {
             latitude: coordinate.latitude,
             longitude: coordinate.longitude,
             heading: heading,
-            buttonName: "EL \(stageCode)",
+            buttonName: "Growth Stage \(stageCode)",
             buttonColor: "darkgreen",
             side: side,
             mode: .growth,
