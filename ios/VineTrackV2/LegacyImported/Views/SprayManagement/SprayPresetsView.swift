@@ -81,7 +81,7 @@ struct SprayPresetsView: View {
                 Text("Chemicals")
             }
         } footer: {
-            Text("Saved chemicals link a name with its rate per hectare.")
+            Text("Saved chemicals are shared with all users of this vineyard.")
         }
     }
 
@@ -137,6 +137,26 @@ struct SprayPresetsView: View {
 
 // MARK: - Edit Saved Chemical Sheet
 
+private enum ChemicalFormType: String, CaseIterable, Identifiable {
+    case liquid = "Liquid"
+    case solid = "Solid"
+    var id: String { rawValue }
+
+    var units: [ChemicalUnit] {
+        switch self {
+        case .liquid: return [.litres, .millilitres]
+        case .solid: return [.kilograms, .grams]
+        }
+    }
+
+    static func from(unit: ChemicalUnit) -> ChemicalFormType {
+        switch unit {
+        case .litres, .millilitres: return .liquid
+        case .kilograms, .grams: return .solid
+        }
+    }
+}
+
 struct EditSavedChemicalSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(MigratedDataStore.self) private var store
@@ -144,6 +164,7 @@ struct EditSavedChemicalSheet: View {
     let chemical: SavedChemical?
 
     @State private var name: String = ""
+    @State private var formType: ChemicalFormType = .liquid
     @State private var unit: ChemicalUnit = .litres
     @State private var chemicalGroup: String = ""
     @State private var use: String = ""
@@ -151,28 +172,70 @@ struct EditSavedChemicalSheet: View {
     @State private var notes: String = ""
     @State private var problem: String = ""
     @State private var ratePerHaText: String = ""
+    @State private var ratePer100LText: String = ""
     @State private var activeIngredient: String = ""
     @State private var modeOfAction: String = ""
     @State private var labelURL: String = ""
+    @State private var trackPurchase: Bool = false
+    @State private var containerSizeText: String = ""
+    @State private var containerUnit: ChemicalUnit = .litres
+    @State private var costText: String = ""
     @State private var showAILookup: Bool = false
     @State private var aiLoading: Bool = false
     @State private var aiError: String?
+
+    private let existingPerHaRateId: UUID?
+    private let existingPer100LRateId: UUID?
 
     init(chemical: SavedChemical?) {
         self.chemical = chemical
         if let c = chemical {
             _name = State(initialValue: c.name)
             _unit = State(initialValue: c.unit)
+            _formType = State(initialValue: ChemicalFormType.from(unit: c.unit))
             _chemicalGroup = State(initialValue: c.chemicalGroup)
             _use = State(initialValue: c.use)
             _manufacturer = State(initialValue: c.manufacturer)
             _notes = State(initialValue: c.notes)
             _problem = State(initialValue: c.problem)
-            _ratePerHaText = State(initialValue: c.ratePerHa > 0 ? String(format: "%.2f", c.ratePerHa) : "")
             _activeIngredient = State(initialValue: c.activeIngredient)
             _modeOfAction = State(initialValue: c.modeOfAction)
             _labelURL = State(initialValue: c.labelURL)
+
+            let perHa = c.rates.first(where: { $0.basis == .perHectare })
+            let per100L = c.rates.first(where: { $0.basis == .per100Litres })
+            self.existingPerHaRateId = perHa?.id
+            self.existingPer100LRateId = per100L?.id
+
+            if let perHa {
+                _ratePerHaText = State(initialValue: Self.formatRate(c.unit.fromBase(perHa.value)))
+            } else if c.ratePerHa > 0 {
+                _ratePerHaText = State(initialValue: Self.formatRate(c.ratePerHa))
+            }
+            if let per100L {
+                _ratePer100LText = State(initialValue: Self.formatRate(c.unit.fromBase(per100L.value)))
+            }
+
+            if let p = c.purchase {
+                _trackPurchase = State(initialValue: true)
+                _containerSizeText = State(initialValue: Self.formatRate(p.containerSizeML))
+                _containerUnit = State(initialValue: p.containerUnit)
+                _costText = State(initialValue: p.costDollars > 0 ? Self.formatRate(p.costDollars) : "")
+            } else {
+                _containerUnit = State(initialValue: c.unit)
+            }
+        } else {
+            self.existingPerHaRateId = nil
+            self.existingPer100LRateId = nil
         }
+    }
+
+    private static func formatRate(_ value: Double) -> String {
+        if value == 0 { return "" }
+        if value.truncatingRemainder(dividingBy: 1) == 0 {
+            return String(format: "%.0f", value)
+        }
+        return String(format: "%.2f", value)
     }
 
     private var isValid: Bool {
@@ -183,60 +246,14 @@ struct EditSavedChemicalSheet: View {
         NavigationStack {
             Form {
                 if store.settings.aiSuggestionsEnabled {
-                    Section {
-                        Button {
-                            showAILookup = true
-                        } label: {
-                            Label(aiLoading ? "Looking up…" : "Search with AI", systemImage: "sparkles")
-                        }
-                        .disabled(aiLoading)
-                        if let aiError {
-                            Text(aiError)
-                                .font(.caption)
-                                .foregroundStyle(.red)
-                        }
-                    } footer: {
-                        Text("AI suggestions must be checked against the current product label, permit, SDS, and local regulations before use.")
-                    }
+                    aiSection
                 }
-
-                Section("Details") {
-                    TextField("Chemical Name", text: $name)
-                    TextField("Active Ingredient", text: $activeIngredient)
-                    TextField("Manufacturer", text: $manufacturer)
-                }
-
-                Section("Classification") {
-                    TextField("Chemical Group", text: $chemicalGroup)
-                    TextField("Mode of Action", text: $modeOfAction)
-                    TextField("Use / Target", text: $use)
-                    TextField("Problem (e.g. Powdery Mildew)", text: $problem)
-                }
-
-                Section("Default Rate") {
-                    Picker("Unit", selection: $unit) {
-                        ForEach(ChemicalUnit.allCases, id: \.self) { u in
-                            Text(u.rawValue).tag(u)
-                        }
-                    }
-                    HStack {
-                        TextField("Rate per Ha", text: $ratePerHaText)
-                            .keyboardType(.decimalPad)
-                        Text("\(unit.rawValue)/Ha")
-                            .foregroundStyle(.secondary)
-                    }
-                }
-
-                Section("Reference") {
-                    TextField("Label URL", text: $labelURL)
-                        .keyboardType(.URL)
-                        .autocapitalization(.none)
-                }
-
-                Section("Notes") {
-                    TextEditor(text: $notes)
-                        .frame(minHeight: 60)
-                }
+                productSection
+                detailsSection
+                ratesSection
+                purchaseSection
+                sharingSection
+                notesSection
             }
             .navigationTitle(chemical == nil ? "New Chemical" : "Edit Chemical")
             .navigationBarTitleDisplayMode(.inline)
@@ -257,6 +274,149 @@ struct EditSavedChemicalSheet: View {
                     .disabled(!isValid)
                 }
             }
+            .onChange(of: formType) { _, newValue in
+                if !newValue.units.contains(unit) {
+                    unit = newValue.units.first ?? .litres
+                }
+                if !newValue.units.contains(containerUnit) {
+                    containerUnit = newValue.units.first ?? .litres
+                }
+            }
+        }
+    }
+
+    private var aiSection: some View {
+        Section {
+            Button {
+                showAILookup = true
+            } label: {
+                Label(aiLoading ? "Looking up..." : "Search with AI", systemImage: "sparkles")
+            }
+            .disabled(aiLoading)
+            if let aiError {
+                Text(aiError)
+                    .font(.caption)
+                    .foregroundStyle(.red)
+            }
+        } footer: {
+            Text("AI suggestions must be checked against the current product label, permit, SDS, and local regulations before use.")
+        }
+    }
+
+    private var productSection: some View {
+        Section("Product") {
+            TextField("Chemical Name", text: $name)
+            Picker("Form", selection: $formType) {
+                ForEach(ChemicalFormType.allCases) { f in
+                    Text(f.rawValue).tag(f)
+                }
+            }
+            .pickerStyle(.segmented)
+            Picker("Unit", selection: $unit) {
+                ForEach(formType.units, id: \.self) { u in
+                    Text(u.rawValue).tag(u)
+                }
+            }
+        }
+    }
+
+    private var detailsSection: some View {
+        Section("Details") {
+            TextField("Active Ingredient", text: $activeIngredient)
+            TextField("Chemical Group", text: $chemicalGroup)
+            TextField("Use / Problem", text: $use)
+            TextField("Target Problem (e.g. Powdery Mildew)", text: $problem)
+            TextField("Manufacturer", text: $manufacturer)
+            TextField("Mode of Action (MOA)", text: $modeOfAction)
+            TextField("Label URL", text: $labelURL)
+                .keyboardType(.URL)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+        }
+    }
+
+    private var ratesSection: some View {
+        Section {
+            HStack {
+                Text("Per Ha")
+                Spacer()
+                TextField("0", text: $ratePerHaText)
+                    .keyboardType(.decimalPad)
+                    .multilineTextAlignment(.trailing)
+                    .frame(width: 90)
+                Text("\(unit.rawValue)/ha")
+                    .foregroundStyle(.secondary)
+            }
+            HStack {
+                Text("Per 100L Water")
+                Spacer()
+                TextField("0", text: $ratePer100LText)
+                    .keyboardType(.decimalPad)
+                    .multilineTextAlignment(.trailing)
+                    .frame(width: 90)
+                Text("\(unit.rawValue)/100L")
+                    .foregroundStyle(.secondary)
+            }
+        } header: {
+            Text("Rates")
+        } footer: {
+            Text("Enter either or both. The Spray Calculator lets the operator pick which basis to use per job.")
+        }
+    }
+
+    private var purchaseSection: some View {
+        Section {
+            Toggle("Track Purchase Info", isOn: $trackPurchase.animation())
+            if trackPurchase {
+                HStack {
+                    Text("Container Size")
+                    Spacer()
+                    TextField("0", text: $containerSizeText)
+                        .keyboardType(.decimalPad)
+                        .multilineTextAlignment(.trailing)
+                        .frame(width: 90)
+                    Picker("Unit", selection: $containerUnit) {
+                        ForEach(formType.units, id: \.self) { u in
+                            Text(u.rawValue).tag(u)
+                        }
+                    }
+                    .labelsHidden()
+                    .pickerStyle(.menu)
+                }
+                HStack {
+                    Text("Cost")
+                    Spacer()
+                    Text("$")
+                        .foregroundStyle(.secondary)
+                    TextField("0.00", text: $costText)
+                        .keyboardType(.decimalPad)
+                        .multilineTextAlignment(.trailing)
+                        .frame(width: 90)
+                }
+            }
+        } header: {
+            Text("Purchase Tracking")
+        } footer: {
+            Text("Used to calculate chemical cost in spray reports. AI does not fill in pricing — enter it from your invoice.")
+        }
+    }
+
+    private var sharingSection: some View {
+        Section {
+            HStack(spacing: 8) {
+                Image(systemName: "person.2.fill")
+                    .foregroundStyle(.secondary)
+                Text("Saved chemicals are shared with all users of this vineyard.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    private var notesSection: some View {
+        Section("Notes") {
+            TextEditor(text: $notes)
+                .frame(minHeight: 60)
         }
     }
 
@@ -283,8 +443,15 @@ struct EditSavedChemicalSheet: View {
             if let moa = info.modeOfAction, modeOfAction.isEmpty { modeOfAction = moa }
             if use.isEmpty { use = info.primaryUse }
             unit = info.defaultUnit
+            formType = ChemicalFormType.from(unit: info.defaultUnit)
+            if !formType.units.contains(containerUnit) {
+                containerUnit = info.defaultUnit
+            }
             if let rates = info.ratesPerHectare, let first = rates.first, ratePerHaText.isEmpty {
-                ratePerHaText = String(format: "%.2f", first.value)
+                ratePerHaText = Self.formatRate(first.value)
+            }
+            if let rates = info.ratesPer100L, let first = rates.first, ratePer100LText.isEmpty {
+                ratePer100LText = Self.formatRate(first.value)
             }
         } catch {
             aiError = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
@@ -292,7 +459,44 @@ struct EditSavedChemicalSheet: View {
     }
 
     private func save() {
-        let rate = Double(ratePerHaText) ?? 0
+        let perHaDisplay = Double(ratePerHaText) ?? 0
+        let per100LDisplay = Double(ratePer100LText) ?? 0
+
+        var rates: [ChemicalRate] = []
+        if perHaDisplay > 0 {
+            rates.append(ChemicalRate(
+                id: existingPerHaRateId ?? UUID(),
+                label: "Per Ha",
+                value: unit.toBase(perHaDisplay),
+                basis: .perHectare
+            ))
+        }
+        if per100LDisplay > 0 {
+            rates.append(ChemicalRate(
+                id: existingPer100LRateId ?? UUID(),
+                label: "Per 100L",
+                value: unit.toBase(per100LDisplay),
+                basis: .per100Litres
+            ))
+        }
+
+        var purchase: ChemicalPurchase? = nil
+        if trackPurchase {
+            let containerSize = Double(containerSizeText) ?? 0
+            let cost = Double(costText) ?? 0
+            if containerSize > 0 || cost > 0 {
+                purchase = ChemicalPurchase(
+                    brand: manufacturer,
+                    activeIngredient: activeIngredient,
+                    chemicalGroup: chemicalGroup,
+                    labelURL: labelURL,
+                    costDollars: cost,
+                    containerSizeML: containerSize,
+                    containerUnit: containerUnit
+                )
+            }
+        }
+
         if var existing = chemical {
             existing.name = name
             existing.unit = unit
@@ -301,15 +505,17 @@ struct EditSavedChemicalSheet: View {
             existing.manufacturer = manufacturer
             existing.notes = notes
             existing.problem = problem
-            existing.ratePerHa = rate
+            existing.ratePerHa = perHaDisplay
             existing.activeIngredient = activeIngredient
             existing.modeOfAction = modeOfAction
             existing.labelURL = labelURL
+            existing.rates = rates
+            existing.purchase = purchase
             store.updateSavedChemical(existing)
         } else {
             let new = SavedChemical(
                 name: name,
-                ratePerHa: rate,
+                ratePerHa: perHaDisplay,
                 unit: unit,
                 chemicalGroup: chemicalGroup,
                 use: use,
@@ -317,6 +523,8 @@ struct EditSavedChemicalSheet: View {
                 notes: notes,
                 problem: problem,
                 activeIngredient: activeIngredient,
+                rates: rates,
+                purchase: purchase,
                 labelURL: labelURL,
                 modeOfAction: modeOfAction
             )
@@ -368,7 +576,7 @@ struct ChemicalAILookupSheet: View {
                     Section {
                         HStack {
                             ProgressView()
-                            Text("Searching…")
+                            Text("Searching...")
                                 .foregroundStyle(.secondary)
                         }
                     }
