@@ -146,10 +146,7 @@ struct SprayCalculatorView: View {
                     equipmentSelection
                     waterRateSection
                     irrigationDataSection
-                    tractorSelection
                     chemicalLinesSection
-                    tripSetupSection
-                    weatherNoteSection
                     notesSection
                     actionButtons
 
@@ -701,6 +698,10 @@ struct SprayCalculatorView: View {
         }
     }
 
+    private var confirmTractorPicker: some View { tractorSelection }
+
+    private var confirmTripSetup: some View { tripSetupSection }
+
     private var tractorSelection: some View {
         VStack(alignment: .leading, spacing: 8) {
             SectionHeader(title: "Tractor (optional)", icon: "truck.pickup.side.fill")
@@ -912,25 +913,17 @@ struct SprayCalculatorView: View {
                     VStack(spacing: 0) {
                         confirmRow(label: "Operator", value: auth.userName?.isEmpty == false ? (auth.userName ?? "") : "—", icon: "person.fill")
                         Divider().padding(.leading, 44)
-                        confirmRow(label: "Tractor", value: selectedTractorName, icon: "truck.pickup.side.fill")
-                        Divider().padding(.leading, 44)
                         confirmRow(label: "Equipment", value: selectedEquipmentName, icon: "wrench.and.screwdriver.fill")
-                        Divider().padding(.leading, 44)
-                        confirmRow(label: "No. Fans/Jets", value: numberOfFansJets.isEmpty ? "—" : numberOfFansJets, icon: "fan")
-                        Divider().padding(.leading, 44)
-                        confirmRow(label: "Track Pattern", value: trackingPatternChoice.title, icon: "arrow.triangle.swap")
-                        Divider().padding(.leading, 44)
-                        confirmRow(
-                            label: "Start From",
-                            value: totalPreviewRows > 0
-                                ? "Row \(startingRow)\(reversedDirection ? " (reversed)" : "")"
-                                : "—",
-                            icon: "flag"
-                        )
                     }
                     .background(Color(.secondarySystemGroupedBackground))
                     .clipShape(.rect(cornerRadius: 12))
                     .padding(.horizontal)
+
+                    confirmTractorPicker
+                        .padding(.horizontal)
+
+                    confirmTripSetup
+                        .padding(.horizontal)
 
                     if !pathSequencePreview.isEmpty {
                         VStack(alignment: .leading, spacing: 8) {
