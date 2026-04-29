@@ -29,17 +29,20 @@ struct TripView: View {
     var body: some View {
         NavigationStack {
             Group {
-                if store.trips.isEmpty {
+                if let active = tracking.activeTrip {
+                    ActiveTripView(trip: active)
+                } else if pastTrips.isEmpty {
                     emptyStateView
                 } else {
                     tripHistoryList
                 }
             }
-            .navigationTitle("Trips")
+            .navigationTitle(tracking.activeTrip != nil ? "Active Trip" : "Trips")
+            .navigationBarTitleDisplayMode(tracking.activeTrip != nil ? .inline : .large)
             .background(Color(.systemGroupedBackground))
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    if !store.trips.isEmpty {
+                    if tracking.activeTrip == nil, !pastTrips.isEmpty {
                         Menu {
                             Picker("Sort By", selection: $tripSortOption) {
                                 ForEach(TripSortOption.allCases, id: \.self) { option in
@@ -54,25 +57,21 @@ struct TripView: View {
                 }
             }
             .safeAreaInset(edge: .bottom) {
-                VStack(spacing: 10) {
-                    if tracking.activeTrip != nil {
-                        ActiveTripCard()
-                    } else {
-                        Button {
-                            showTripChoice = true
-                        } label: {
-                            Label("Start Trip", systemImage: "play.fill")
-                                .font(.headline)
-                                .frame(maxWidth: .infinity)
-                        }
-                        .buttonStyle(.borderedProminent)
-                        .tint(VineyardTheme.leafGreen)
-                        .controlSize(.large)
-                        .disabled(!accessControl.canCreateOperationalRecords)
+                if tracking.activeTrip == nil {
+                    Button {
+                        showTripChoice = true
+                    } label: {
+                        Label("Start Trip", systemImage: "play.fill")
+                            .font(.headline)
+                            .frame(maxWidth: .infinity)
                     }
+                    .buttonStyle(.borderedProminent)
+                    .tint(VineyardTheme.leafGreen)
+                    .controlSize(.large)
+                    .disabled(!accessControl.canCreateOperationalRecords)
+                    .padding()
+                    .background(.bar)
                 }
-                .padding()
-                .background(.bar)
             }
             .sheet(isPresented: $showTripChoice) {
                 TripTypeChoiceSheet { type in
@@ -124,8 +123,12 @@ struct TripView: View {
         store.sprayRecords.contains { $0.tripId == trip.id }
     }
 
+    private var pastTrips: [Trip] {
+        store.trips.filter { !$0.isActive }
+    }
+
     private var filteredAndSortedTrips: [Trip] {
-        var trips = store.trips
+        var trips = pastTrips
 
         switch tripTypeFilter {
         case .all:

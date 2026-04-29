@@ -13,29 +13,33 @@ struct NewMainTabView: View {
     @Environment(SprayRecordSyncService.self) private var sprayRecordSync
     @Environment(ButtonConfigSyncService.self) private var buttonConfigSync
     @Environment(\.scenePhase) private var scenePhase
+    @State private var selectedTab: Int = 0
 
     var body: some View {
-        TabView {
-            NewHomeTabView()
+        TabView(selection: $selectedTab) {
+            NewHomeTabView(selectedTab: $selectedTab)
                 .tabItem { Label("Home", systemImage: "house.fill") }
+                .tag(0)
 
             NavigationStack {
                 PinsView()
             }
             .tabItem { Label("Pins", systemImage: "mappin.and.ellipse") }
+            .tag(1)
 
-            NavigationStack {
-                TripView()
-            }
-            .tabItem { Label("Trip", systemImage: "steeringwheel") }
+            TripView()
+                .tabItem { Label("Trip", systemImage: "steeringwheel") }
+                .tag(2)
 
             NavigationStack {
                 SprayProgramView()
             }
             .tabItem { Label("Program", systemImage: "sprinkler.and.droplets.fill") }
+            .tag(3)
 
             BackendSettingsView()
                 .tabItem { Label("Settings", systemImage: "gearshape.fill") }
+                .tag(4)
         }
         .environment(\.accessControl, accessControl.legacyAccessControl)
         .onAppear {
@@ -76,6 +80,7 @@ struct NewMainTabView: View {
 // MARK: - Home Tab
 
 private struct NewHomeTabView: View {
+    @Binding var selectedTab: Int
     @Environment(NewBackendAuthService.self) private var auth
     @Environment(MigratedDataStore.self) private var store
     @Environment(BackendAccessControl.self) private var accessControl
@@ -97,8 +102,13 @@ private struct NewHomeTabView: View {
                 VStack(spacing: 20) {
                     titleHeader
                     if tripTracking.activeTrip != nil {
-                        ActiveTripCard()
-                            .padding(.horizontal)
+                        Button {
+                            selectedTab = 2
+                        } label: {
+                            ActiveTripCard()
+                        }
+                        .buttonStyle(.plain)
+                        .padding(.horizontal)
                     }
                     todaySection
                     vineyardOverviewSection
