@@ -66,7 +66,7 @@ struct TripView: View {
                             .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.borderedProminent)
-                    .tint(VineyardTheme.leafGreen)
+                    .tint(.blue)
                     .controlSize(.large)
                     .disabled(!accessControl.canCreateOperationalRecords)
                     .padding()

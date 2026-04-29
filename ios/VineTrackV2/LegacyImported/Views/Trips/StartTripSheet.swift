@@ -331,9 +331,9 @@ struct StartTripSheet: View {
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 14)
-            .background(VineyardTheme.leafGreen, in: .rect(cornerRadius: 14))
+            .background(Color.blue, in: .rect(cornerRadius: 14))
             .foregroundStyle(.white)
-            .shadow(color: VineyardTheme.leafGreen.opacity(0.25), radius: 6, y: 3)
+            .shadow(color: Color.blue.opacity(0.25), radius: 6, y: 3)
         }
         .buttonStyle(.plain)
         .padding(.horizontal)
