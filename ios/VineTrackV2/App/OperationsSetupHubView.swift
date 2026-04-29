@@ -14,6 +14,9 @@ struct VineyardSetupHubView: View {
     @State private var latitudeText: String = ""
     @State private var longitudeText: String = ""
     @State private var elevationText: String = ""
+
+    private enum LocationField: Hashable { case latitude, longitude, elevation }
+    @FocusState private var focusedField: LocationField?
     @State private var calculationMode: GDDCalculationMode = .bedd
     @State private var resetMode: GDDResetMode = .budburst
 
@@ -229,6 +232,7 @@ struct VineyardSetupHubView: View {
                             .keyboardType(.numbersAndPunctuation)
                             .multilineTextAlignment(.trailing)
                             .font(.body.weight(.semibold))
+                            .focused($focusedField, equals: .latitude)
                             .onSubmit { saveLatLon() }
                         Text("\u{00B0}").foregroundStyle(.secondary)
                     }
@@ -240,6 +244,7 @@ struct VineyardSetupHubView: View {
                             .keyboardType(.numbersAndPunctuation)
                             .multilineTextAlignment(.trailing)
                             .font(.body.weight(.semibold))
+                            .focused($focusedField, equals: .longitude)
                             .onSubmit { saveLatLon() }
                         Text("\u{00B0}").foregroundStyle(.secondary)
                     }
@@ -251,6 +256,7 @@ struct VineyardSetupHubView: View {
                             .keyboardType(.numbersAndPunctuation)
                             .multilineTextAlignment(.trailing)
                             .font(.body.weight(.semibold))
+                            .focused($focusedField, equals: .elevation)
                             .onSubmit { saveElevation() }
                         Text("m").foregroundStyle(.secondary)
                     }
@@ -283,6 +289,16 @@ struct VineyardSetupHubView: View {
                         s.resetMode = newValue
                         store.updateSettings(s)
                     }
+                }
+            }
+            .onChange(of: focusedField) { oldValue, _ in
+                switch oldValue {
+                case .latitude, .longitude:
+                    saveLatLon()
+                case .elevation:
+                    saveElevation()
+                case .none:
+                    break
                 }
             }
 
