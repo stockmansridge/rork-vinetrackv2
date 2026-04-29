@@ -295,11 +295,11 @@ private struct NewHomeTabView: View {
                         }
                         Divider()
                         HStack(spacing: 0) {
-                            overviewStat(value: "\(store.paddocks.count)", label: "Blocks")
-                            Divider().frame(height: 32)
-                            overviewStat(value: formattedHectares(totalHectares), label: "Hectares")
-                            Divider().frame(height: 32)
-                            overviewStat(value: formattedNumber(totalVines), label: "Vines")
+                            overviewStat(icon: "square.grid.2x2.fill", iconColor: VineyardTheme.leafGreen, value: "\(store.paddocks.count)", label: "Blocks")
+                            Divider().frame(height: 44)
+                            overviewStat(icon: "square.dashed", iconColor: .orange, value: formattedHectares(totalHectares), label: "Hectares")
+                            Divider().frame(height: 44)
+                            overviewStat(icon: "leaf.fill", iconColor: VineyardTheme.darkGreen, value: formattedNumber(totalVines), label: "Vines")
                         }
                     }
                 }
@@ -309,8 +309,11 @@ private struct NewHomeTabView: View {
         }
     }
 
-    private func overviewStat(value: String, label: String) -> some View {
+    private func overviewStat(icon: String, iconColor: Color, value: String, label: String) -> some View {
         VStack(spacing: 4) {
+            Image(systemName: icon)
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(iconColor)
             Text(value)
                 .font(.title3.weight(.bold))
                 .foregroundStyle(.primary)
