@@ -5,6 +5,8 @@ struct OperatorCategoriesView: View {
     @Environment(\.accessControl) private var accessControl
     @State private var showAddSheet: Bool = false
     @State private var editingCategory: OperatorCategory?
+    @State private var removedDuplicateCount: Int = 0
+    @State private var showDuplicateRemovedAlert: Bool = false
 
     var body: some View {
         List {
@@ -54,6 +56,18 @@ struct OperatorCategoriesView: View {
         }
         .navigationTitle("Operator Categories")
         .navigationBarTitleDisplayMode(.inline)
+        .onAppear {
+            let removed = store.deduplicateOperatorCategories()
+            if removed > 0 {
+                removedDuplicateCount = removed
+                showDuplicateRemovedAlert = true
+            }
+        }
+        .alert("Duplicates Removed", isPresented: $showDuplicateRemovedAlert) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text("Removed \(removedDuplicateCount) duplicate operator \(removedDuplicateCount == 1 ? "category" : "categories").")
+        }
         .sheet(isPresented: $showAddSheet) {
             OperatorCategoryFormSheet(category: nil)
         }

@@ -234,6 +234,58 @@ extension MigratedDataStore {
         persistenceStore.save(all, key: MgmtKeys.operatorCategories)
     }
 
+    @discardableResult
+    func deduplicateOperatorCategories() -> Int {
+        guard let vineyardId = selectedVineyardId else { return 0 }
+        var seen: [String: OperatorCategory] = [:]
+        var keptOrder: [OperatorCategory] = []
+        var duplicateIdToKeptId: [UUID: UUID] = [:]
+
+        for cat in operatorCategories {
+            let key = cat.name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            if let existing = seen[key] {
+                let winner = (cat.costPerHour > existing.costPerHour) ? cat : existing
+                let loser = (winner.id == cat.id) ? existing : cat
+                if winner.id != existing.id {
+                    if let idx = keptOrder.firstIndex(where: { $0.id == existing.id }) {
+                        keptOrder[idx] = winner
+                    }
+                    seen[key] = winner
+                }
+                duplicateIdToKeptId[loser.id] = winner.id
+            } else {
+                seen[key] = cat
+                keptOrder.append(cat)
+            }
+        }
+
+        let removedCount = operatorCategories.count - keptOrder.count
+        guard removedCount > 0 else { return 0 }
+
+        operatorCategories = keptOrder
+        saveOperatorCategoriesToDisk()
+
+        if let vineyardIndex = vineyards.firstIndex(where: { $0.id == vineyardId }) {
+            var updated = vineyards[vineyardIndex]
+            var changed = false
+            for i in updated.users.indices {
+                if let cid = updated.users[i].operatorCategoryId, let newId = duplicateIdToKeptId[cid] {
+                    updated.users[i].operatorCategoryId = newId
+                    changed = true
+                }
+            }
+            if changed {
+                updateVineyard(updated)
+            }
+        }
+
+        for (dupId, _) in duplicateIdToKeptId {
+            onOperatorCategoryDeleted?(dupId)
+        }
+
+        return removedCount
+    }
+
     // MARK: - Grape Varieties (CRUD)
 
     private func saveGrapeVarietiesToDisk() {
