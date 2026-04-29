@@ -96,21 +96,49 @@ final class NewBackendAuthService {
         pendingInvitations = []
     }
 
-    func sendPasswordReset(email: String) async {
+    @discardableResult
+    func sendPasswordReset(email: String) async -> Bool {
         isLoading = true
         errorMessage = nil
         passwordResetSuccessMessage = nil
         defer { isLoading = false }
         let trimmedEmail = email.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedEmail.isEmpty else {
+            errorMessage = "Please enter your email address."
+            return false
+        }
         do {
             try await authRepository.sendPasswordReset(
                 email: trimmedEmail,
                 redirectTo: nil
             )
-            passwordResetSuccessMessage = "We emailed you a 6-digit code. Enter it below to reset your password."
+            #if DEBUG
+            print("[Auth] Password reset code requested for \(trimmedEmail)")
+            #endif
+            passwordResetSuccessMessage = "We emailed a 6-digit code to \(trimmedEmail). Enter it below with your new password."
+            return true
         } catch {
-            errorMessage = error.localizedDescription
+            #if DEBUG
+            print("[Auth] sendPasswordReset failed: \(error)")
+            #endif
+            errorMessage = friendlyResetError(error)
+            return false
         }
+    }
+
+    private func friendlyResetError(_ error: Error) -> String {
+        let raw = error.localizedDescription
+        let lower = raw.lowercased()
+        if lower.contains("rate") || lower.contains("too many") {
+            return "Too many requests. Wait a minute and try again. (Supabase email rate limit)"
+        }
+        if lower.contains("smtp") {
+            return "Email could not be sent. Check Supabase SMTP / email provider settings."
+        }
+        if lower.contains("invalid") && lower.contains("email") {
+            return "That email address looks invalid."
+        }
+        return raw
     }
 
     func resetPasswordWithPin(email: String, pin: String, newPassword: String) async -> Bool {
