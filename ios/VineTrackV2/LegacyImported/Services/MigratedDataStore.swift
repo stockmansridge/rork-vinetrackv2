@@ -80,6 +80,20 @@ final class MigratedDataStore {
     /// Called when growth buttons change locally.
     var onGrowthButtonsChanged: ((Date) -> Void)?
 
+    // Phase 15C: management data sync hooks.
+    var onSavedChemicalChanged: ((UUID) -> Void)?
+    var onSavedChemicalDeleted: ((UUID) -> Void)?
+    var onSavedSprayPresetChanged: ((UUID) -> Void)?
+    var onSavedSprayPresetDeleted: ((UUID) -> Void)?
+    var onSprayEquipmentChanged: ((UUID) -> Void)?
+    var onSprayEquipmentDeleted: ((UUID) -> Void)?
+    var onTractorChanged: ((UUID) -> Void)?
+    var onTractorDeleted: ((UUID) -> Void)?
+    var onFuelPurchaseChanged: ((UUID) -> Void)?
+    var onFuelPurchaseDeleted: ((UUID) -> Void)?
+    var onOperatorCategoryChanged: ((UUID) -> Void)?
+    var onOperatorCategoryDeleted: ((UUID) -> Void)?
+
     // MARK: - Repositories
 
     let vineyardRepo: VineyardRepository

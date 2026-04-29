@@ -12,6 +12,12 @@ struct NewMainTabView: View {
     @Environment(TripSyncService.self) private var tripSync
     @Environment(SprayRecordSyncService.self) private var sprayRecordSync
     @Environment(ButtonConfigSyncService.self) private var buttonConfigSync
+    @Environment(SavedChemicalSyncService.self) private var savedChemicalSync
+    @Environment(SavedSprayPresetSyncService.self) private var savedSprayPresetSync
+    @Environment(SprayEquipmentSyncService.self) private var sprayEquipmentSync
+    @Environment(TractorSyncService.self) private var tractorSync
+    @Environment(FuelPurchaseSyncService.self) private var fuelPurchaseSync
+    @Environment(OperatorCategorySyncService.self) private var operatorCategorySync
     @Environment(\.scenePhase) private var scenePhase
     @State private var selectedTab: Int = 0
 
@@ -54,6 +60,12 @@ struct NewMainTabView: View {
             tripSync.configure(store: store, auth: auth)
             sprayRecordSync.configure(store: store, auth: auth)
             buttonConfigSync.configure(store: store, auth: auth)
+            savedChemicalSync.configure(store: store, auth: auth)
+            savedSprayPresetSync.configure(store: store, auth: auth)
+            sprayEquipmentSync.configure(store: store, auth: auth)
+            tractorSync.configure(store: store, auth: auth)
+            fuelPurchaseSync.configure(store: store, auth: auth)
+            operatorCategorySync.configure(store: store, auth: auth)
         }
         .task(id: store.selectedVineyardId) {
             await accessControl.refresh(for: store.selectedVineyardId, auth: auth)
@@ -62,6 +74,12 @@ struct NewMainTabView: View {
             await tripSync.syncTripsForSelectedVineyard()
             await sprayRecordSync.syncSprayRecordsForSelectedVineyard()
             await buttonConfigSync.syncButtonConfigForSelectedVineyard()
+            await savedChemicalSync.syncForSelectedVineyard()
+            await savedSprayPresetSync.syncForSelectedVineyard()
+            await sprayEquipmentSync.syncForSelectedVineyard()
+            await tractorSync.syncForSelectedVineyard()
+            await fuelPurchaseSync.syncForSelectedVineyard()
+            await operatorCategorySync.syncForSelectedVineyard()
         }
         .onChange(of: scenePhase) { _, newPhase in
             if newPhase == .active {
@@ -71,6 +89,12 @@ struct NewMainTabView: View {
                     await tripSync.syncTripsForSelectedVineyard()
                     await sprayRecordSync.syncSprayRecordsForSelectedVineyard()
                     await buttonConfigSync.syncButtonConfigForSelectedVineyard()
+                    await savedChemicalSync.syncForSelectedVineyard()
+                    await savedSprayPresetSync.syncForSelectedVineyard()
+                    await sprayEquipmentSync.syncForSelectedVineyard()
+                    await tractorSync.syncForSelectedVineyard()
+                    await fuelPurchaseSync.syncForSelectedVineyard()
+                    await operatorCategorySync.syncForSelectedVineyard()
                 }
             }
         }

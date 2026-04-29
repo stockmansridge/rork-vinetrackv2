@@ -23,6 +23,7 @@ extension MigratedDataStore {
         entry.vineyardId = vineyardId
         sprayEquipment.append(entry)
         sprayRepo.saveEquipmentSlice(sprayEquipment, for: vineyardId)
+        onSprayEquipmentChanged?(entry.id)
     }
 
     func updateSprayEquipment(_ item: SprayEquipmentItem) {
@@ -30,12 +31,45 @@ extension MigratedDataStore {
         guard let idx = sprayEquipment.firstIndex(where: { $0.id == item.id }) else { return }
         sprayEquipment[idx] = item
         sprayRepo.saveEquipmentSlice(sprayEquipment, for: vineyardId)
+        onSprayEquipmentChanged?(item.id)
     }
 
     func deleteSprayEquipment(_ item: SprayEquipmentItem) {
         guard let vineyardId = selectedVineyardId else { return }
         sprayEquipment.removeAll { $0.id == item.id }
         sprayRepo.saveEquipmentSlice(sprayEquipment, for: vineyardId)
+        onSprayEquipmentDeleted?(item.id)
+    }
+
+    func applyRemoteSprayEquipmentUpsert(_ item: SprayEquipmentItem) {
+        if selectedVineyardId == item.vineyardId {
+            if let idx = sprayEquipment.firstIndex(where: { $0.id == item.id }) {
+                sprayEquipment[idx] = item
+            } else {
+                sprayEquipment.append(item)
+            }
+            sprayRepo.saveEquipmentSlice(sprayEquipment, for: item.vineyardId)
+        } else {
+            var all = sprayRepo.loadAllEquipment()
+            if let idx = all.firstIndex(where: { $0.id == item.id }) {
+                all[idx] = item
+            } else {
+                all.append(item)
+            }
+            sprayRepo.replaceEquipment(all.filter { $0.vineyardId == item.vineyardId }, for: item.vineyardId)
+        }
+    }
+
+    func applyRemoteSprayEquipmentDelete(_ id: UUID) {
+        if let vineyardId = selectedVineyardId {
+            sprayEquipment.removeAll { $0.id == id }
+            sprayRepo.saveEquipmentSlice(sprayEquipment, for: vineyardId)
+        }
+        var all = sprayRepo.loadAllEquipment()
+        if let removed = all.first(where: { $0.id == id }) {
+            all.removeAll { $0.id == id }
+            sprayRepo.replaceEquipment(all.filter { $0.vineyardId == removed.vineyardId }, for: removed.vineyardId)
+        }
     }
 
     // MARK: - Tractors
@@ -54,17 +88,42 @@ extension MigratedDataStore {
         entry.vineyardId = vineyardId
         tractors.append(entry)
         saveTractorsToDisk()
+        onTractorChanged?(entry.id)
     }
 
     func updateTractor(_ tractor: Tractor) {
         guard let idx = tractors.firstIndex(where: { $0.id == tractor.id }) else { return }
         tractors[idx] = tractor
         saveTractorsToDisk()
+        onTractorChanged?(tractor.id)
     }
 
     func deleteTractor(_ tractor: Tractor) {
         tractors.removeAll { $0.id == tractor.id }
         saveTractorsToDisk()
+        onTractorDeleted?(tractor.id)
+    }
+
+    func applyRemoteTractorUpsert(_ tractor: Tractor) {
+        if let idx = tractors.firstIndex(where: { $0.id == tractor.id }) {
+            tractors[idx] = tractor
+        } else {
+            tractors.append(tractor)
+        }
+        var all: [Tractor] = persistenceStore.load(key: MgmtKeys.tractors) ?? []
+        if let idx = all.firstIndex(where: { $0.id == tractor.id }) {
+            all[idx] = tractor
+        } else {
+            all.append(tractor)
+        }
+        persistenceStore.save(all, key: MgmtKeys.tractors)
+    }
+
+    func applyRemoteTractorDelete(_ id: UUID) {
+        tractors.removeAll { $0.id == id }
+        var all: [Tractor] = persistenceStore.load(key: MgmtKeys.tractors) ?? []
+        all.removeAll { $0.id == id }
+        persistenceStore.save(all, key: MgmtKeys.tractors)
     }
 
     // MARK: - Fuel Purchases
@@ -83,17 +142,42 @@ extension MigratedDataStore {
         entry.vineyardId = vineyardId
         fuelPurchases.append(entry)
         saveFuelPurchasesToDisk()
+        onFuelPurchaseChanged?(entry.id)
     }
 
     func updateFuelPurchase(_ purchase: FuelPurchase) {
         guard let idx = fuelPurchases.firstIndex(where: { $0.id == purchase.id }) else { return }
         fuelPurchases[idx] = purchase
         saveFuelPurchasesToDisk()
+        onFuelPurchaseChanged?(purchase.id)
     }
 
     func deleteFuelPurchase(_ purchase: FuelPurchase) {
         fuelPurchases.removeAll { $0.id == purchase.id }
         saveFuelPurchasesToDisk()
+        onFuelPurchaseDeleted?(purchase.id)
+    }
+
+    func applyRemoteFuelPurchaseUpsert(_ purchase: FuelPurchase) {
+        if let idx = fuelPurchases.firstIndex(where: { $0.id == purchase.id }) {
+            fuelPurchases[idx] = purchase
+        } else {
+            fuelPurchases.append(purchase)
+        }
+        var all: [FuelPurchase] = persistenceStore.load(key: MgmtKeys.fuelPurchases) ?? []
+        if let idx = all.firstIndex(where: { $0.id == purchase.id }) {
+            all[idx] = purchase
+        } else {
+            all.append(purchase)
+        }
+        persistenceStore.save(all, key: MgmtKeys.fuelPurchases)
+    }
+
+    func applyRemoteFuelPurchaseDelete(_ id: UUID) {
+        fuelPurchases.removeAll { $0.id == id }
+        var all: [FuelPurchase] = persistenceStore.load(key: MgmtKeys.fuelPurchases) ?? []
+        all.removeAll { $0.id == id }
+        persistenceStore.save(all, key: MgmtKeys.fuelPurchases)
     }
 
     // MARK: - Operator Categories
@@ -112,17 +196,42 @@ extension MigratedDataStore {
         entry.vineyardId = vineyardId
         operatorCategories.append(entry)
         saveOperatorCategoriesToDisk()
+        onOperatorCategoryChanged?(entry.id)
     }
 
     func updateOperatorCategory(_ category: OperatorCategory) {
         guard let idx = operatorCategories.firstIndex(where: { $0.id == category.id }) else { return }
         operatorCategories[idx] = category
         saveOperatorCategoriesToDisk()
+        onOperatorCategoryChanged?(category.id)
     }
 
     func deleteOperatorCategory(_ category: OperatorCategory) {
         operatorCategories.removeAll { $0.id == category.id }
         saveOperatorCategoriesToDisk()
+        onOperatorCategoryDeleted?(category.id)
+    }
+
+    func applyRemoteOperatorCategoryUpsert(_ category: OperatorCategory) {
+        if let idx = operatorCategories.firstIndex(where: { $0.id == category.id }) {
+            operatorCategories[idx] = category
+        } else {
+            operatorCategories.append(category)
+        }
+        var all: [OperatorCategory] = persistenceStore.load(key: MgmtKeys.operatorCategories) ?? []
+        if let idx = all.firstIndex(where: { $0.id == category.id }) {
+            all[idx] = category
+        } else {
+            all.append(category)
+        }
+        persistenceStore.save(all, key: MgmtKeys.operatorCategories)
+    }
+
+    func applyRemoteOperatorCategoryDelete(_ id: UUID) {
+        operatorCategories.removeAll { $0.id == id }
+        var all: [OperatorCategory] = persistenceStore.load(key: MgmtKeys.operatorCategories) ?? []
+        all.removeAll { $0.id == id }
+        persistenceStore.save(all, key: MgmtKeys.operatorCategories)
     }
 
     // MARK: - Grape Varieties (CRUD)

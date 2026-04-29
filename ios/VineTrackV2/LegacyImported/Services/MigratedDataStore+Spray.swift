@@ -28,6 +28,7 @@ extension MigratedDataStore {
         item.vineyardId = vineyardId
         savedChemicals.append(item)
         sprayRepo.saveChemicalsSlice(savedChemicals, for: vineyardId)
+        onSavedChemicalChanged?(item.id)
     }
 
     func updateSavedChemical(_ chemical: SavedChemical) {
@@ -35,12 +36,45 @@ extension MigratedDataStore {
         guard let idx = savedChemicals.firstIndex(where: { $0.id == chemical.id }) else { return }
         savedChemicals[idx] = chemical
         sprayRepo.saveChemicalsSlice(savedChemicals, for: vineyardId)
+        onSavedChemicalChanged?(chemical.id)
     }
 
     func deleteSavedChemical(_ chemical: SavedChemical) {
         guard let vineyardId = selectedVineyardId else { return }
         savedChemicals.removeAll { $0.id == chemical.id }
         sprayRepo.saveChemicalsSlice(savedChemicals, for: vineyardId)
+        onSavedChemicalDeleted?(chemical.id)
+    }
+
+    func applyRemoteSavedChemicalUpsert(_ chemical: SavedChemical) {
+        if selectedVineyardId == chemical.vineyardId {
+            if let idx = savedChemicals.firstIndex(where: { $0.id == chemical.id }) {
+                savedChemicals[idx] = chemical
+            } else {
+                savedChemicals.append(chemical)
+            }
+            sprayRepo.saveChemicalsSlice(savedChemicals, for: chemical.vineyardId)
+        } else {
+            var all = sprayRepo.loadAllChemicals()
+            if let idx = all.firstIndex(where: { $0.id == chemical.id }) {
+                all[idx] = chemical
+            } else {
+                all.append(chemical)
+            }
+            sprayRepo.replaceChemicals(all.filter { $0.vineyardId == chemical.vineyardId }, for: chemical.vineyardId)
+        }
+    }
+
+    func applyRemoteSavedChemicalDelete(_ id: UUID) {
+        if let vineyardId = selectedVineyardId {
+            savedChemicals.removeAll { $0.id == id }
+            sprayRepo.saveChemicalsSlice(savedChemicals, for: vineyardId)
+        }
+        var all = sprayRepo.loadAllChemicals()
+        if let removed = all.first(where: { $0.id == id }) {
+            all.removeAll { $0.id == id }
+            sprayRepo.replaceChemicals(all.filter { $0.vineyardId == removed.vineyardId }, for: removed.vineyardId)
+        }
     }
 
     // MARK: - Saved spray presets
@@ -51,6 +85,7 @@ extension MigratedDataStore {
         item.vineyardId = vineyardId
         savedSprayPresets.append(item)
         sprayRepo.savePresetsSlice(savedSprayPresets, for: vineyardId)
+        onSavedSprayPresetChanged?(item.id)
     }
 
     func updateSavedSprayPreset(_ preset: SavedSprayPreset) {
@@ -58,12 +93,45 @@ extension MigratedDataStore {
         guard let idx = savedSprayPresets.firstIndex(where: { $0.id == preset.id }) else { return }
         savedSprayPresets[idx] = preset
         sprayRepo.savePresetsSlice(savedSprayPresets, for: vineyardId)
+        onSavedSprayPresetChanged?(preset.id)
     }
 
     func deleteSavedSprayPreset(_ preset: SavedSprayPreset) {
         guard let vineyardId = selectedVineyardId else { return }
         savedSprayPresets.removeAll { $0.id == preset.id }
         sprayRepo.savePresetsSlice(savedSprayPresets, for: vineyardId)
+        onSavedSprayPresetDeleted?(preset.id)
+    }
+
+    func applyRemoteSavedSprayPresetUpsert(_ preset: SavedSprayPreset) {
+        if selectedVineyardId == preset.vineyardId {
+            if let idx = savedSprayPresets.firstIndex(where: { $0.id == preset.id }) {
+                savedSprayPresets[idx] = preset
+            } else {
+                savedSprayPresets.append(preset)
+            }
+            sprayRepo.savePresetsSlice(savedSprayPresets, for: preset.vineyardId)
+        } else {
+            var all = sprayRepo.loadAllPresets()
+            if let idx = all.firstIndex(where: { $0.id == preset.id }) {
+                all[idx] = preset
+            } else {
+                all.append(preset)
+            }
+            sprayRepo.replacePresets(all.filter { $0.vineyardId == preset.vineyardId }, for: preset.vineyardId)
+        }
+    }
+
+    func applyRemoteSavedSprayPresetDelete(_ id: UUID) {
+        if let vineyardId = selectedVineyardId {
+            savedSprayPresets.removeAll { $0.id == id }
+            sprayRepo.savePresetsSlice(savedSprayPresets, for: vineyardId)
+        }
+        var all = sprayRepo.loadAllPresets()
+        if let removed = all.first(where: { $0.id == id }) {
+            all.removeAll { $0.id == id }
+            sprayRepo.replacePresets(all.filter { $0.vineyardId == removed.vineyardId }, for: removed.vineyardId)
+        }
     }
 
     // MARK: - Equipment options (autocomplete entries)

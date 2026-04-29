@@ -21,6 +21,12 @@ struct VineTrackV2App: App {
     @State private var tripSyncService = TripSyncService()
     @State private var sprayRecordSyncService = SprayRecordSyncService()
     @State private var buttonConfigSyncService = ButtonConfigSyncService()
+    @State private var savedChemicalSyncService = SavedChemicalSyncService()
+    @State private var savedSprayPresetSyncService = SavedSprayPresetSyncService()
+    @State private var sprayEquipmentSyncService = SprayEquipmentSyncService()
+    @State private var tractorSyncService = TractorSyncService()
+    @State private var fuelPurchaseSyncService = FuelPurchaseSyncService()
+    @State private var operatorCategorySyncService = OperatorCategorySyncService()
 
     init() {
         VineyardTheme.applyGlobalAppearance()
@@ -52,6 +58,12 @@ struct VineTrackV2App: App {
                         .environment(tripSyncService)
                         .environment(sprayRecordSyncService)
                         .environment(buttonConfigSyncService)
+                        .environment(savedChemicalSyncService)
+                        .environment(savedSprayPresetSyncService)
+                        .environment(sprayEquipmentSyncService)
+                        .environment(tractorSyncService)
+                        .environment(fuelPurchaseSyncService)
+                        .environment(operatorCategorySyncService)
                 } else {
                     ContentView()
                 }

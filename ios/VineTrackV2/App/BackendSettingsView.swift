@@ -365,6 +365,12 @@ struct SyncSettingsView: View {
     @Environment(TripSyncService.self) private var tripSync
     @Environment(SprayRecordSyncService.self) private var sprayRecordSync
     @Environment(ButtonConfigSyncService.self) private var buttonConfigSync
+    @Environment(SavedChemicalSyncService.self) private var savedChemicalSync
+    @Environment(SavedSprayPresetSyncService.self) private var savedSprayPresetSync
+    @Environment(SprayEquipmentSyncService.self) private var sprayEquipmentSync
+    @Environment(TractorSyncService.self) private var tractorSync
+    @Environment(FuelPurchaseSyncService.self) private var fuelPurchaseSync
+    @Environment(OperatorCategorySyncService.self) private var operatorCategorySync
 
     var body: some View {
         Form {
@@ -409,7 +415,61 @@ struct SyncSettingsView: View {
                 .disabled(isSyncing(buttonConfigSync.syncStatus))
                 VineyardSyncStatusRow(label: "button config", state: buttonConfigStateFrom(buttonConfigSync.syncStatus, lastSync: buttonConfigSync.lastSyncDate))
             } footer: {
-                Text("Pins, paddocks, trips, spray records, and button config sync to Supabase. Other data stays on this device for now.")
+                Text("Pins, paddocks, trips, spray records, and button config sync to Supabase.")
+            }
+
+            Section {
+                Button {
+                    Task { await savedChemicalSync.syncForSelectedVineyard() }
+                } label: {
+                    syncButtonLabel(title: "Sync Saved Chemicals", icon: "flask.fill", isSyncing: isSyncingMgmt(savedChemicalSync.syncStatus))
+                }
+                .disabled(isSyncingMgmt(savedChemicalSync.syncStatus))
+                VineyardSyncStatusRow(label: "saved chemicals", state: mgmtStateFrom(savedChemicalSync.syncStatus, lastSync: savedChemicalSync.lastSyncDate))
+
+                Button {
+                    Task { await savedSprayPresetSync.syncForSelectedVineyard() }
+                } label: {
+                    syncButtonLabel(title: "Sync Spray Presets", icon: "slider.horizontal.3", isSyncing: isSyncingMgmt(savedSprayPresetSync.syncStatus))
+                }
+                .disabled(isSyncingMgmt(savedSprayPresetSync.syncStatus))
+                VineyardSyncStatusRow(label: "spray presets", state: mgmtStateFrom(savedSprayPresetSync.syncStatus, lastSync: savedSprayPresetSync.lastSyncDate))
+
+                Button {
+                    Task { await sprayEquipmentSync.syncForSelectedVineyard() }
+                } label: {
+                    syncButtonLabel(title: "Sync Spray Equipment", icon: "sprinkler.and.droplets.fill", isSyncing: isSyncingMgmt(sprayEquipmentSync.syncStatus))
+                }
+                .disabled(isSyncingMgmt(sprayEquipmentSync.syncStatus))
+                VineyardSyncStatusRow(label: "spray equipment", state: mgmtStateFrom(sprayEquipmentSync.syncStatus, lastSync: sprayEquipmentSync.lastSyncDate))
+
+                Button {
+                    Task { await tractorSync.syncForSelectedVineyard() }
+                } label: {
+                    syncButtonLabel(title: "Sync Tractors", icon: "car.fill", isSyncing: isSyncingMgmt(tractorSync.syncStatus))
+                }
+                .disabled(isSyncingMgmt(tractorSync.syncStatus))
+                VineyardSyncStatusRow(label: "tractors", state: mgmtStateFrom(tractorSync.syncStatus, lastSync: tractorSync.lastSyncDate))
+
+                Button {
+                    Task { await fuelPurchaseSync.syncForSelectedVineyard() }
+                } label: {
+                    syncButtonLabel(title: "Sync Fuel Purchases", icon: "fuelpump.fill", isSyncing: isSyncingMgmt(fuelPurchaseSync.syncStatus))
+                }
+                .disabled(isSyncingMgmt(fuelPurchaseSync.syncStatus))
+                VineyardSyncStatusRow(label: "fuel purchases", state: mgmtStateFrom(fuelPurchaseSync.syncStatus, lastSync: fuelPurchaseSync.lastSyncDate))
+
+                Button {
+                    Task { await operatorCategorySync.syncForSelectedVineyard() }
+                } label: {
+                    syncButtonLabel(title: "Sync Operator Categories", icon: "person.2.fill", isSyncing: isSyncingMgmt(operatorCategorySync.syncStatus))
+                }
+                .disabled(isSyncingMgmt(operatorCategorySync.syncStatus))
+                VineyardSyncStatusRow(label: "operator categories", state: mgmtStateFrom(operatorCategorySync.syncStatus, lastSync: operatorCategorySync.lastSyncDate))
+            } header: {
+                Text("Spray Management")
+            } footer: {
+                Text("Saved chemicals, presets, equipment, tractors, fuel and operator categories sync across vineyard members.")
             }
         }
         .navigationTitle("Sync")
@@ -464,6 +524,20 @@ struct SyncSettingsView: View {
         }
     }
     private func buttonConfigStateFrom(_ status: ButtonConfigSyncService.Status, lastSync: Date?) -> VineyardSyncState {
+        switch status {
+        case .idle: return .idle
+        case .syncing: return .syncing
+        case .success: return .success(lastSync)
+        case .failure(let m): return .failure(m)
+        }
+    }
+
+    private func isSyncingMgmt(_ status: ManagementSyncStatus) -> Bool {
+        if case .syncing = status { return true }
+        return false
+    }
+
+    private func mgmtStateFrom(_ status: ManagementSyncStatus, lastSync: Date?) -> VineyardSyncState {
         switch status {
         case .idle: return .idle
         case .syncing: return .syncing
