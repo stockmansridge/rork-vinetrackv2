@@ -29,6 +29,14 @@ final class SupabaseProfileRepository: ProfileRepositoryProtocol {
             .upsert(ProfileUpsert(id: user.id, email: email ?? user.email ?? "", fullName: fullName, avatarURL: nil))
             .execute()
     }
+
+    func updateDefaultVineyard(vineyardId: UUID?) async throws {
+        guard provider.isConfigured else { throw BackendRepositoryError.missingSupabaseConfiguration }
+        guard provider.client.auth.currentUser != nil else { throw BackendRepositoryError.missingAuthenticatedUser }
+        try await provider.client
+            .rpc("set_default_vineyard", params: SetDefaultVineyardParams(p_vineyard_id: vineyardId))
+            .execute()
+    }
 }
 
 nonisolated private struct ProfileUpsert: Encodable, Sendable {
@@ -43,4 +51,8 @@ nonisolated private struct ProfileUpsert: Encodable, Sendable {
         case fullName = "full_name"
         case avatarURL = "avatar_url"
     }
+}
+
+nonisolated private struct SetDefaultVineyardParams: Encodable, Sendable {
+    let p_vineyard_id: UUID?
 }

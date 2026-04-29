@@ -154,9 +154,20 @@ struct BackendSettingsView: View {
                     HStack(spacing: 12) {
                         vineyardThumbnail(vineyard)
                         VStack(alignment: .leading, spacing: 2) {
-                            Text(vineyard.name)
-                                .font(.headline)
-                                .foregroundStyle(.primary)
+                            HStack(spacing: 6) {
+                                Text(vineyard.name)
+                                    .font(.headline)
+                                    .foregroundStyle(.primary)
+                                if vineyard.id == auth.defaultVineyardId {
+                                    Label("Default", systemImage: "star.fill")
+                                        .labelStyle(.titleAndIcon)
+                                        .font(.caption2.weight(.semibold))
+                                        .foregroundStyle(.orange)
+                                        .padding(.horizontal, 6)
+                                        .padding(.vertical, 2)
+                                        .background(Color.orange.opacity(0.15), in: Capsule())
+                                }
+                            }
                             if !vineyard.country.isEmpty {
                                 Text(vineyard.country)
                                     .font(.caption)
@@ -167,6 +178,28 @@ struct BackendSettingsView: View {
                         Image(systemName: "chevron.right")
                             .font(.caption.weight(.semibold))
                             .foregroundStyle(.tertiary)
+                    }
+                }
+                if let defaultId = auth.defaultVineyardId,
+                   let defaultVineyard = store.vineyards.first(where: { $0.id == defaultId }),
+                   defaultId != vineyard.id {
+                    HStack(spacing: 12) {
+                        SettingsIconTile(symbol: "star.fill", color: .orange)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Default Vineyard")
+                                .font(.subheadline.weight(.medium))
+                            Text(defaultVineyard.name)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                    }
+                } else if auth.defaultVineyardId == nil {
+                    Button {
+                        Task { await auth.setDefaultVineyard(vineyard.id) }
+                    } label: {
+                        Label("Make this vineyard default", systemImage: "star")
+                            .foregroundStyle(.orange)
                     }
                 }
             } else {

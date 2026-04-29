@@ -13,6 +13,7 @@ final class NewBackendAuthService {
     var pendingInvitations: [BackendInvitation] = []
     var isInPasswordRecovery: Bool = false
     var passwordResetSuccessMessage: String?
+    var defaultVineyardId: UUID?
 
     private let authRepository: any AuthRepository
     private let profileRepository: any ProfileRepositoryProtocol
@@ -94,6 +95,7 @@ final class NewBackendAuthService {
         }
         applyUser(nil)
         pendingInvitations = []
+        defaultVineyardId = nil
     }
 
     @discardableResult
@@ -254,9 +256,23 @@ final class NewBackendAuthService {
                 if let fullName = profile.fullName, !fullName.isEmpty {
                     userName = fullName
                 }
+                defaultVineyardId = profile.defaultVineyardId
             }
         } catch {
             // Silent — profile fetch failure should not block sign-in flow.
+        }
+    }
+
+    @discardableResult
+    func setDefaultVineyard(_ vineyardId: UUID?) async -> Bool {
+        guard isSignedIn else { return false }
+        do {
+            try await profileRepository.updateDefaultVineyard(vineyardId: vineyardId)
+            defaultVineyardId = vineyardId
+            return true
+        } catch {
+            errorMessage = error.localizedDescription
+            return false
         }
     }
 }

@@ -11,8 +11,11 @@ struct NewBackendRootView: View {
     @State private var didCheckDisclaimer: Bool = false
     @State private var isCheckingDisclaimer: Bool = false
     @State private var disclaimerError: String?
+    @State private var didApplyDefaultVineyard: Bool = false
+    @State private var isLoadingVineyards: Bool = false
 
     private let disclaimerRepository: any DisclaimerRepositoryProtocol = SupabaseDisclaimerRepository(currentVersion: DisclaimerInfo.version)
+    private let vineyardRepository: any VineyardRepositoryProtocol = SupabaseVineyardRepository()
 
     var body: some View {
         Group {
@@ -31,6 +34,8 @@ struct NewBackendRootView: View {
                 DisclaimerAcceptanceView {
                     disclaimerAccepted = true
                 }
+            } else if !didApplyDefaultVineyard {
+                vineyardLoadingView
             } else if store.selectedVineyard == nil {
                 BackendVineyardListView()
             } else {
@@ -49,6 +54,12 @@ struct NewBackendRootView: View {
             } else {
                 disclaimerAccepted = false
                 didCheckDisclaimer = false
+                didApplyDefaultVineyard = false
+            }
+        }
+        .task(id: disclaimerAccepted) {
+            if disclaimerAccepted && !didApplyDefaultVineyard {
+                await loadVineyardsAndApplyDefault()
             }
         }
         .task(id: store.selectedVineyardId) {
@@ -66,6 +77,37 @@ struct NewBackendRootView: View {
                 Task { await auth.loadPendingInvitations() }
             }
         }
+    }
+
+    private var vineyardLoadingView: some View {
+        ZStack {
+            VineyardTheme.appBackground.ignoresSafeArea()
+            VStack(spacing: 16) {
+                ProgressView()
+                Text(isLoadingVineyards ? "Loading vineyards…" : "Preparing…")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    private func loadVineyardsAndApplyDefault() async {
+        isLoadingVineyards = true
+        defer { isLoadingVineyards = false }
+        do {
+            let backendVineyards = try await vineyardRepository.listMyVineyards()
+            store.mapBackendVineyardsIntoLocal(backendVineyards)
+            store.applyDefaultVineyardSelection(defaultId: auth.defaultVineyardId)
+            // If profile pointed at a vineyard the user no longer belongs to, clear it remotely.
+            if let defaultId = auth.defaultVineyardId,
+               !store.vineyards.contains(where: { $0.id == defaultId }) {
+                _ = await auth.setDefaultVineyard(nil)
+            }
+        } catch {
+            // Network/listing failed — fall back to whatever local state exists.
+            store.applyDefaultVineyardSelection(defaultId: auth.defaultVineyardId)
+        }
+        didApplyDefaultVineyard = true
     }
 
     private var loadingView: some View {

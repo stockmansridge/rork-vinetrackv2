@@ -286,6 +286,38 @@ final class MigratedDataStore {
         reloadCurrentVineyardData()
     }
 
+    /// Resolve which vineyard should be active using:
+    /// 1. profile default if user is still a member
+    /// 2. existing local selection if still valid
+    /// 3. first available vineyard
+    /// 4. nil (caller should show picker)
+    func applyDefaultVineyardSelection(defaultId: UUID?) {
+        let memberIds = Set(vineyards.map { $0.id })
+
+        if let defaultId, memberIds.contains(defaultId) {
+            if selectedVineyardId != defaultId {
+                selectedVineyardId = defaultId
+                persistence.save(SelectedVineyardWrapper(id: defaultId), key: Keys.selectedVineyardId)
+                reloadCurrentVineyardData()
+            }
+            return
+        }
+
+        if let id = selectedVineyardId, memberIds.contains(id) {
+            return
+        }
+
+        if let first = vineyards.first {
+            selectedVineyardId = first.id
+            persistence.save(SelectedVineyardWrapper(id: first.id), key: Keys.selectedVineyardId)
+            reloadCurrentVineyardData()
+        } else {
+            selectedVineyardId = nil
+            persistence.remove(key: Keys.selectedVineyardId)
+            reloadCurrentVineyardData()
+        }
+    }
+
     // MARK: - Vineyard upsert
 
     func upsertLocalVineyard(_ vineyard: Vineyard) {

@@ -122,6 +122,9 @@ struct BackendVineyardListView: View {
             if let newVineyard = backendVineyards.first(where: { $0.id == invitation.vineyardId }),
                let local = store.vineyards.first(where: { $0.id == newVineyard.id }) {
                 store.selectVineyard(local)
+                if auth.defaultVineyardId == nil {
+                    _ = await auth.setDefaultVineyard(local.id)
+                }
             }
             await auth.loadPendingInvitations()
             await fetchMissingLogos()
@@ -226,9 +229,12 @@ struct BackendVineyardListView: View {
                         BackendVineyardCardRow(
                             vineyard: vineyard,
                             isSelected: vineyard.id == store.selectedVineyardId,
+                            isDefault: vineyard.id == auth.defaultVineyardId,
                             role: rolesByVineyardId[vineyard.id],
                             isLoadingRole: isLoadingRoles && rolesByVineyardId[vineyard.id] == nil,
-                            vineyardRepository: vineyardRepository
+                            vineyardRepository: vineyardRepository,
+                            onMakeDefault: { Task { await auth.setDefaultVineyard(vineyard.id) } },
+                            onClearDefault: { Task { await auth.setDefaultVineyard(nil) } }
                         )
                     }
                 }
@@ -329,9 +335,12 @@ struct BackendVineyardListView: View {
 struct BackendVineyardCardRow: View {
     let vineyard: Vineyard
     let isSelected: Bool
+    let isDefault: Bool
     let role: BackendRole?
     let isLoadingRole: Bool
     let vineyardRepository: any VineyardRepositoryProtocol
+    let onMakeDefault: () -> Void
+    let onClearDefault: () -> Void
     @Environment(MigratedDataStore.self) private var store
     @State private var showDetail: Bool = false
 
@@ -350,9 +359,20 @@ struct BackendVineyardCardRow: View {
                 }
 
                 VStack(alignment: .leading, spacing: 6) {
-                    Text(vineyard.name)
-                        .font(.headline)
-                        .foregroundStyle(.primary)
+                    HStack(spacing: 6) {
+                        Text(vineyard.name)
+                            .font(.headline)
+                            .foregroundStyle(.primary)
+                        if isDefault {
+                            Label("Default", systemImage: "star.fill")
+                                .labelStyle(.titleAndIcon)
+                                .font(.caption2.weight(.semibold))
+                                .foregroundStyle(.orange)
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(Color.orange.opacity(0.15), in: Capsule())
+                        }
+                    }
 
                     HStack(spacing: 8) {
                         if !vineyard.country.isEmpty {
@@ -384,6 +404,38 @@ struct BackendVineyardCardRow: View {
         }
         .sheet(isPresented: $showDetail) {
             BackendVineyardDetailSheet(vineyard: vineyard, vineyardRepository: vineyardRepository)
+        }
+        .swipeActions(edge: .leading, allowsFullSwipe: false) {
+            if isDefault {
+                Button {
+                    onClearDefault()
+                } label: {
+                    Label("Clear Default", systemImage: "star.slash")
+                }
+                .tint(.gray)
+            } else {
+                Button {
+                    onMakeDefault()
+                } label: {
+                    Label("Make Default", systemImage: "star.fill")
+                }
+                .tint(.orange)
+            }
+        }
+        .contextMenu {
+            if isDefault {
+                Button {
+                    onClearDefault()
+                } label: {
+                    Label("Clear Default", systemImage: "star.slash")
+                }
+            } else {
+                Button {
+                    onMakeDefault()
+                } label: {
+                    Label("Make Default", systemImage: "star.fill")
+                }
+            }
         }
     }
 
