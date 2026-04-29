@@ -356,10 +356,10 @@ struct FillingActionTile: View {
     var body: some View {
         Button(action: onTap) {
             VStack(spacing: 8) {
-                Image(systemName: ButtonIconMap.icon(for: button.name))
-                    .font(.title.weight(.semibold))
+                Image(systemName: "mappin")
+                    .font(.title2.weight(.semibold))
                 Text(button.name)
-                    .font(.title3.weight(.heavy))
+                    .font(.headline.weight(.heavy))
                     .lineLimit(2)
                     .multilineTextAlignment(.center)
                     .minimumScaleFactor(0.7)
