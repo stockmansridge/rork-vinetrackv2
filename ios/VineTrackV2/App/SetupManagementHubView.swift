@@ -10,11 +10,11 @@ struct SetupManagementHubView: View {
                 NavigationLink {
                     BlocksHubView()
                 } label: {
-                    hubRow(
+                    SettingsRow(
                         title: "Blocks / Paddocks",
                         subtitle: "\(store.paddocks.count) paddock\(store.paddocks.count == 1 ? "" : "s")",
-                        icon: "square.grid.2x2.fill",
-                        tint: VineyardTheme.leafGreen
+                        symbol: "square.grid.2x2.fill",
+                        color: VineyardTheme.leafGreen
                     )
                 }
                 NavigationLink {
@@ -23,13 +23,13 @@ struct SetupManagementHubView: View {
                     HStack(spacing: 12) {
                         ZStack {
                             RoundedRectangle(cornerRadius: 8)
-                                .fill(VineyardTheme.leafGreen.opacity(0.15))
-                                .frame(width: 36, height: 36)
-                            GrapeLeafIcon(size: 18, color: VineyardTheme.leafGreen)
+                                .fill(VineyardTheme.leafGreen.gradient)
+                                .frame(width: 32, height: 32)
+                            GrapeLeafIcon(size: 16, color: .white)
                         }
                         VStack(alignment: .leading, spacing: 2) {
                             Text("Grape Varieties")
-                                .font(.headline)
+                                .font(.subheadline.weight(.medium))
                                 .foregroundStyle(.primary)
                             Text("\(currentVineyardVarieties) variet\(currentVineyardVarieties == 1 ? "y" : "ies")")
                                 .font(.caption)
@@ -39,7 +39,7 @@ struct SetupManagementHubView: View {
                     }
                 }
             } header: {
-                Text("Vineyard Setup")
+                SettingsSectionHeader(title: "Vineyard Setup", symbol: "square.grid.2x2.fill", color: VineyardTheme.leafGreen)
             }
 
             if accessControl.canChangeSettings {
@@ -47,45 +47,45 @@ struct SetupManagementHubView: View {
                     NavigationLink {
                         SprayManagementSettingsView()
                     } label: {
-                        hubRow(
+                        SettingsRow(
                             title: "Spray Management",
                             subtitle: "Chemicals, presets, programs",
-                            icon: "flask.fill",
-                            tint: VineyardTheme.info
+                            symbol: "flask.fill",
+                            color: .teal
                         )
                     }
                     NavigationLink {
                         EquipmentManagementView()
                     } label: {
-                        hubRow(
+                        SettingsRow(
                             title: "Equipment & Tractors",
                             subtitle: "Sprayers, tractors, fuel",
-                            icon: "wrench.and.screwdriver",
-                            tint: VineyardTheme.earthBrown
+                            symbol: "wrench.and.screwdriver.fill",
+                            color: VineyardTheme.earthBrown
                         )
                     }
                     NavigationLink {
                         OperatorCategoriesView()
                     } label: {
-                        hubRow(
+                        SettingsRow(
                             title: "Operators & Costs",
                             subtitle: "\(currentVineyardOperatorCategories) categor\(currentVineyardOperatorCategories == 1 ? "y" : "ies")",
-                            icon: "person.badge.clock",
-                            tint: VineyardTheme.olive
+                            symbol: "person.badge.clock.fill",
+                            color: .blue
                         )
                     }
                     NavigationLink {
                         ButtonsAndQuickActionsView()
                     } label: {
-                        hubRow(
+                        SettingsRow(
                             title: "Buttons & Quick Actions",
                             subtitle: "Repair & growth buttons",
-                            icon: "square.grid.2x2",
-                            tint: .orange
+                            symbol: "square.grid.2x2.fill",
+                            color: .orange
                         )
                     }
                 } header: {
-                    Text("Management")
+                    SettingsSectionHeader(title: "Management", symbol: "wrench.adjustable.fill", color: .orange)
                 } footer: {
                     Text("Manage saved chemicals, equipment, operators, and quick action buttons.")
                 }
@@ -106,23 +106,6 @@ struct SetupManagementHubView: View {
     }
 
     private func hubRow(title: String, subtitle: String, icon: String, tint: Color) -> some View {
-        HStack(spacing: 12) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 8)
-                    .fill(tint.opacity(0.15))
-                    .frame(width: 36, height: 36)
-                Image(systemName: icon)
-                    .foregroundStyle(tint)
-            }
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                    .font(.headline)
-                    .foregroundStyle(.primary)
-                Text(subtitle)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-            Spacer()
-        }
+        SettingsRow(title: title, subtitle: subtitle, symbol: icon, color: tint)
     }
 }

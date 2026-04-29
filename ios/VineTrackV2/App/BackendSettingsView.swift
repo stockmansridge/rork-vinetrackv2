@@ -45,24 +45,45 @@ struct BackendSettingsView: View {
                     NavigationLink {
                         SetupManagementHubView()
                     } label: {
-                        Label("Setup & Management", systemImage: "slider.horizontal.below.rectangle")
+                        SettingsRow(
+                            title: "Setup & Management",
+                            subtitle: "Blocks, spray, equipment & operators",
+                            symbol: "slider.horizontal.below.rectangle",
+                            color: VineyardTheme.leafGreen
+                        )
                     }
                     NavigationLink {
                         OperationsHubView()
                     } label: {
-                        Label("Operations", systemImage: "rectangle.stack.fill")
+                        SettingsRow(
+                            title: "Operations",
+                            subtitle: "Tasks, maintenance, yield & phenology",
+                            symbol: "rectangle.stack.fill",
+                            color: .orange
+                        )
                     }
                     NavigationLink {
                         PreferencesHubView()
                     } label: {
-                        Label("Preferences", systemImage: "slider.horizontal.3")
+                        SettingsRow(
+                            title: "Preferences",
+                            subtitle: "Appearance, season, tracking & photos",
+                            symbol: "slider.horizontal.3",
+                            color: .indigo
+                        )
                     }
-                }
-
-                NavigationLink {
-                    SyncSettingsView()
-                } label: {
-                    Label("Sync", systemImage: "icloud.and.arrow.up")
+                    NavigationLink {
+                        SyncSettingsView()
+                    } label: {
+                        SettingsRow(
+                            title: "Sync",
+                            subtitle: "Cloud sync for pins, paddocks & trips",
+                            symbol: "icloud.and.arrow.up",
+                            color: .blue
+                        )
+                    }
+                } header: {
+                    SettingsSectionHeader(title: "Setup & Data", symbol: "gearshape.fill", color: .indigo)
                 }
 
                 accountPrivacySection
@@ -102,16 +123,25 @@ struct BackendSettingsView: View {
             NavigationLink {
                 EditDisplayNameView()
             } label: {
-                HStack {
-                    Text("Name")
-                    Spacer()
-                    Text(auth.userName ?? "—")
+                SettingsRow(
+                    title: "Name",
+                    subtitle: auth.userName ?? "—",
+                    symbol: "person.crop.circle.fill",
+                    color: .gray
+                )
+            }
+            HStack(spacing: 12) {
+                SettingsIconTile(symbol: "envelope.fill", color: .blue)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Email")
+                        .font(.subheadline.weight(.medium))
+                    Text(auth.userEmail ?? "—")
+                        .font(.caption)
                         .foregroundStyle(.secondary)
                 }
             }
-            LabeledContent("Email", value: auth.userEmail ?? "—")
         } header: {
-            Text("Account")
+            SettingsSectionHeader(title: "Account", symbol: "person.fill", color: .gray)
         }
     }
 
@@ -165,7 +195,7 @@ struct BackendSettingsView: View {
                 }
             }
         } header: {
-            Text("Vineyard")
+            SettingsSectionHeader(title: "Vineyard", symbol: "building.2.fill", color: VineyardTheme.leafGreen)
         }
     }
 
@@ -192,15 +222,25 @@ struct BackendSettingsView: View {
             NavigationLink {
                 BackendTeamAccessView(vineyardId: vineyard.id, vineyardName: vineyard.name)
             } label: {
-                Label("Team & Access", systemImage: "person.2.fill")
+                SettingsRow(
+                    title: "Team & Access",
+                    subtitle: "Manage members and invitations",
+                    symbol: "person.2.fill",
+                    color: .teal
+                )
             }
             NavigationLink {
                 RolesPermissionsInfoView()
             } label: {
-                Label("Roles & Permissions", systemImage: "person.badge.shield.checkmark.fill")
+                SettingsRow(
+                    title: "Roles & Permissions",
+                    subtitle: "How access works for your team",
+                    symbol: "person.badge.shield.checkmark.fill",
+                    color: .purple
+                )
             }
         } header: {
-            Text("Team")
+            SettingsSectionHeader(title: "Team", symbol: "person.2.fill", color: .teal)
         }
     }
 
@@ -210,7 +250,7 @@ struct BackendSettingsView: View {
             LabeledContent("Disclaimer", value: "v\(DisclaimerInfo.version)")
             LabeledContent("Backend", value: SupabaseClientProvider.shared.isConfigured ? "Connected" : "Not configured")
         } header: {
-            Text("About")
+            SettingsSectionHeader(title: "About", symbol: "info.circle.fill", color: .gray)
         }
     }
 
@@ -218,29 +258,46 @@ struct BackendSettingsView: View {
         Section {
             if let url = URL(string: "https://vinetrack.com.au/privacy") {
                 Link(destination: url) {
-                    Label("Privacy Policy", systemImage: "hand.raised.fill")
-                        .foregroundStyle(.primary)
+                    SettingsRow(
+                        title: "Privacy Policy",
+                        subtitle: "How we handle your data",
+                        symbol: "hand.raised.fill",
+                        color: .blue
+                    )
                 }
             }
             if let url = URL(string: "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/") {
                 Link(destination: url) {
-                    Label("Terms of Use (EULA)", systemImage: "doc.text.fill")
-                        .foregroundStyle(.primary)
+                    SettingsRow(
+                        title: "Terms of Use (EULA)",
+                        subtitle: "Apple standard end-user license",
+                        symbol: "doc.text.fill",
+                        color: .gray
+                    )
                 }
             }
             NavigationLink {
                 DisclaimerInfoView()
             } label: {
-                Label("Disclaimer", systemImage: "exclamationmark.shield.fill")
+                SettingsRow(
+                    title: "Disclaimer",
+                    subtitle: "Important usage notes",
+                    symbol: "exclamationmark.shield.fill",
+                    color: .orange
+                )
             }
             NavigationLink {
                 AccountDeletionRequestView()
             } label: {
-                Label("Request Account Deletion", systemImage: "person.crop.circle.badge.xmark")
-                    .foregroundStyle(.red)
+                SettingsRow(
+                    title: "Request Account Deletion",
+                    subtitle: "Permanently remove your account",
+                    symbol: "person.crop.circle.badge.xmark",
+                    color: .red
+                )
             }
         } header: {
-            Text("Account & Privacy")
+            SettingsSectionHeader(title: "Account & Privacy", symbol: "lock.shield.fill", color: .blue)
         }
     }
 

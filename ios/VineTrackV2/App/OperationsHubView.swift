@@ -40,7 +40,7 @@ struct OperationsHubView: View {
                     )
                 }
             } header: {
-                Text("Operations")
+                SettingsSectionHeader(title: "Operations", symbol: "rectangle.stack.fill", color: .orange)
             }
 
             Section {
@@ -67,7 +67,7 @@ struct OperationsHubView: View {
                     )
                 }
             } header: {
-                Text("Phenology")
+                SettingsSectionHeader(title: "Phenology", symbol: "leaf.fill", color: VineyardTheme.leafGreen)
             }
         }
         .listStyle(.insetGrouped)
@@ -76,16 +76,10 @@ struct OperationsHubView: View {
 
     private func operationRow(title: String, subtitle: String, icon: String, tint: Color, count: Int?) -> some View {
         HStack(spacing: 12) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 8)
-                    .fill(tint.opacity(0.15))
-                    .frame(width: 36, height: 36)
-                Image(systemName: icon)
-                    .foregroundStyle(tint)
-            }
+            SettingsIconTile(symbol: icon, color: tint)
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
-                    .font(.headline)
+                    .font(.subheadline.weight(.medium))
                     .foregroundStyle(.primary)
                 Text(subtitle)
                     .font(.caption)
