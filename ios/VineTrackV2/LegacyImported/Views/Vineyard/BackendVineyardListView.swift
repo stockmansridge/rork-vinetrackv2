@@ -5,20 +5,26 @@ import SwiftUI
 /// `MigratedDataStore` so the rest of the (still-local) legacy app can use them.
 struct BackendVineyardListView: View {
     @Environment(MigratedDataStore.self) private var store
+    @Environment(NewBackendAuthService.self) private var auth
 
     private let vineyardRepository: any VineyardRepositoryProtocol
+    private let teamRepository: any TeamRepositoryProtocol
     private let logoStorage: VineyardLogoStorageService
 
     @State private var showAddVineyard: Bool = false
     @State private var isRefreshing: Bool = false
     @State private var errorMessage: String?
     @State private var vineyardPendingDeletion: Vineyard?
+    @State private var rolesByVineyardId: [UUID: BackendRole] = [:]
+    @State private var isLoadingRoles: Bool = false
 
     init(
         vineyardRepository: any VineyardRepositoryProtocol = SupabaseVineyardRepository(),
+        teamRepository: any TeamRepositoryProtocol = SupabaseTeamRepository(),
         logoStorage: VineyardLogoStorageService = VineyardLogoStorageService()
     ) {
         self.vineyardRepository = vineyardRepository
+        self.teamRepository = teamRepository
         self.logoStorage = logoStorage
     }
 
@@ -80,9 +86,35 @@ struct BackendVineyardListView: View {
             let backendVineyards = try await vineyardRepository.listMyVineyards()
             store.mapBackendVineyardsIntoLocal(backendVineyards)
             await fetchMissingLogos()
+            await fetchRoles()
         } catch {
             errorMessage = error.localizedDescription
         }
+    }
+
+    private func fetchRoles() async {
+        guard let userId = auth.userId else { return }
+        isLoadingRoles = true
+        defer { isLoadingRoles = false }
+        var updated: [UUID: BackendRole] = [:]
+        await withTaskGroup(of: (UUID, BackendRole?).self) { group in
+            for vineyard in store.vineyards {
+                let vineyardId = vineyard.id
+                let repo = teamRepository
+                group.addTask {
+                    do {
+                        let members = try await repo.listMembers(vineyardId: vineyardId)
+                        return (vineyardId, members.first { $0.userId == userId }?.role)
+                    } catch {
+                        return (vineyardId, nil)
+                    }
+                }
+            }
+            for await (id, role) in group {
+                if let role { updated[id] = role }
+            }
+        }
+        rolesByVineyardId = updated
     }
 
     private func fetchMissingLogos() async {
@@ -129,6 +161,8 @@ struct BackendVineyardListView: View {
                 BackendVineyardCardRow(
                     vineyard: vineyard,
                     isSelected: vineyard.id == store.selectedVineyardId,
+                    role: rolesByVineyardId[vineyard.id],
+                    isLoadingRole: isLoadingRoles && rolesByVineyardId[vineyard.id] == nil,
                     vineyardRepository: vineyardRepository
                 )
             }
@@ -140,6 +174,8 @@ struct BackendVineyardListView: View {
 struct BackendVineyardCardRow: View {
     let vineyard: Vineyard
     let isSelected: Bool
+    let role: BackendRole?
+    let isLoadingRole: Bool
     let vineyardRepository: any VineyardRepositoryProtocol
     @Environment(MigratedDataStore.self) private var store
     @State private var showDetail: Bool = false
@@ -158,7 +194,7 @@ struct BackendVineyardCardRow: View {
                         .foregroundStyle(isSelected ? .white : VineyardTheme.leafGreen)
                 }
 
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: 6) {
                     Text(vineyard.name)
                         .font(.headline)
                         .foregroundStyle(.primary)
@@ -175,6 +211,8 @@ struct BackendVineyardCardRow: View {
                     }
                     .font(.caption)
                     .foregroundStyle(.secondary)
+
+                    roleBadge
                 }
 
                 Spacer()
@@ -191,6 +229,80 @@ struct BackendVineyardCardRow: View {
         }
         .sheet(isPresented: $showDetail) {
             BackendVineyardDetailSheet(vineyard: vineyard, vineyardRepository: vineyardRepository)
+        }
+    }
+
+    @ViewBuilder
+    private var roleBadge: some View {
+        if let role {
+            HStack(spacing: 6) {
+                Label {
+                    Text(role.displayName)
+                        .fontWeight(.semibold)
+                } icon: {
+                    Image(systemName: role.iconName)
+                }
+                .labelStyle(.titleAndIcon)
+                .font(.caption2)
+                .foregroundStyle(role.tintColor)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 3)
+                .background(role.tintColor.opacity(0.15), in: Capsule())
+
+                Text(role.permissionSummary)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+        } else if isLoadingRole {
+            HStack(spacing: 6) {
+                ProgressView().controlSize(.mini)
+                Text("Loading access…")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+        } else {
+            Label("No access", systemImage: "lock.fill")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+        }
+    }
+}
+
+private extension BackendRole {
+    var displayName: String {
+        switch self {
+        case .owner: return "Owner"
+        case .manager: return "Manager"
+        case .supervisor: return "Supervisor"
+        case .operator: return "Operator"
+        }
+    }
+
+    var iconName: String {
+        switch self {
+        case .owner: return "crown.fill"
+        case .manager: return "person.badge.shield.checkmark.fill"
+        case .supervisor: return "person.2.fill"
+        case .operator: return "wrench.and.screwdriver.fill"
+        }
+    }
+
+    var tintColor: Color {
+        switch self {
+        case .owner: return .purple
+        case .manager: return .blue
+        case .supervisor: return .teal
+        case .operator: return .orange
+        }
+    }
+
+    var permissionSummary: String {
+        switch self {
+        case .owner: return "Full access"
+        case .manager: return "Financials & settings"
+        case .supervisor: return "Edit & delete records"
+        case .operator: return "Field operations only"
         }
     }
 }
