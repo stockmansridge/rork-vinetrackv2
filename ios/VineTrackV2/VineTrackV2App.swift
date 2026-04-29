@@ -57,6 +57,7 @@ struct VineTrackV2App: App {
                 }
             }
             .tint(VineyardTheme.olive)
+            .preferredColorScheme(migratedStore.settings.appearance.colorScheme)
         }
         .modelContainer(sharedModelContainer)
     }
