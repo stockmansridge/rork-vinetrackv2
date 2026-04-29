@@ -20,7 +20,7 @@ nonisolated enum CanopySize: String, CaseIterable, Sendable, Codable {
         case .small:
             URL(string: "https://r2-pub.rork.com/attachments/n9g6j5bjz0l47bkxhd42r.png")
         case .medium:
-            URL(string: "https://r2-pub.rork.com/attachments/rbyfiwm1v79mehjsw96dy.png")
+            URL(string: "https://pub-e001eb4506b145aa938b5d3badbff6a5.r2.dev/attachments/5dye3l0veago38uvra0ec.png")
         case .large:
             URL(string: "https://pub-e001eb4506b145aa938b5d3badbff6a5.r2.dev/attachments/00p3rr1b6qpdaht5ihsdh.png")
         case .full:

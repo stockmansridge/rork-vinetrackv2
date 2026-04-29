@@ -671,6 +671,29 @@ struct SprayCalculatorView: View {
                     Text(canopySize.description)
                         .font(.caption2)
                         .foregroundStyle(.tertiary)
+                    if let imageURL = canopySize.referenceImageURL {
+                        AsyncImage(url: imageURL) { phase in
+                            switch phase {
+                            case .success(let image):
+                                image
+                                    .resizable()
+                                    .aspectRatio(contentMode: .fit)
+                            case .failure:
+                                Image(systemName: "leaf")
+                                    .font(.title)
+                                    .foregroundStyle(.tertiary)
+                            case .empty:
+                                ProgressView()
+                            @unknown default:
+                                EmptyView()
+                            }
+                        }
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 120)
+                        .padding(8)
+                        .background(Color(.tertiarySystemGroupedBackground))
+                        .clipShape(.rect(cornerRadius: 8))
+                    }
                 }
 
                 VStack(alignment: .leading, spacing: 6) {
