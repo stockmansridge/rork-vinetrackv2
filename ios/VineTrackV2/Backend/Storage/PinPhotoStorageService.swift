@@ -49,24 +49,42 @@ final class PinPhotoStorageService {
                     upsert: true
                 )
             )
+        SharedImageCache.shared.saveImageData(
+            payload,
+            for: .pinPhoto(vineyardId: vineyardId, pinId: pinId),
+            remotePath: path,
+            remoteUpdatedAt: nil
+        )
         return path
     }
 
-    func downloadPhoto(path: String) async throws -> Data {
+    func downloadPhoto(path: String, vineyardId: UUID, pinId: UUID) async throws -> Data {
         guard provider.isConfigured else {
             throw BackendRepositoryError.missingSupabaseConfiguration
         }
-        return try await provider.client.storage
+        let data = try await provider.client.storage
             .from(PinPhotoStorage.bucket)
             .download(path: path)
+        SharedImageCache.shared.saveImageData(
+            data,
+            for: .pinPhoto(vineyardId: vineyardId, pinId: pinId),
+            remotePath: path,
+            remoteUpdatedAt: nil
+        )
+        return data
     }
 
-    func deletePhoto(path: String) async throws {
+    func deletePhoto(path: String, vineyardId: UUID? = nil, pinId: UUID? = nil) async throws {
         guard provider.isConfigured else {
             throw BackendRepositoryError.missingSupabaseConfiguration
         }
         _ = try await provider.client.storage
             .from(PinPhotoStorage.bucket)
             .remove(paths: [path])
+        if let vineyardId, let pinId {
+            SharedImageCache.shared.removeCachedImage(
+                for: .pinPhoto(vineyardId: vineyardId, pinId: pinId)
+            )
+        }
     }
 }

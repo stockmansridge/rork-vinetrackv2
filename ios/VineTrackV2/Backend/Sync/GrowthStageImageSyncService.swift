@@ -85,11 +85,20 @@ final class GrowthStageImageSyncService {
                 pendingStore.clearUpsert(vineyardId: vineyardId, stageCode: stageCode)
                 continue
             }
+            // Pre-warm the cache so a subsequent upload failure still leaves
+            // a usable image bytes locally on disk.
+            SharedImageCache.shared.saveImageData(
+                data,
+                for: .elStageImage(vineyardId: vineyardId, stageCode: stageCode),
+                remotePath: nil,
+                remoteUpdatedAt: ts
+            )
             do {
                 let path = try await storageService.uploadStageImage(
                     vineyardId: vineyardId,
                     stageCode: stageCode,
-                    imageData: data
+                    imageData: data,
+                    remoteUpdatedAt: ts
                 )
                 let id = pendingStore.idFor(vineyardId: vineyardId, stageCode: stageCode)
                 payloads.append(BackendGrowthStageImageUpsert(
@@ -129,7 +138,11 @@ final class GrowthStageImageSyncService {
                 try await repository.softDelete(id: id)
                 // Also remove the storage object; ignore errors.
                 let path = ELStageImageStorage.path(vineyardId: vineyardId, stageCode: stageCode)
-                try? await storageService.deleteStageImage(path: path)
+                try? await storageService.deleteStageImage(
+                    path: path,
+                    vineyardId: vineyardId,
+                    stageCode: stageCode
+                )
                 pendingStore.clearDelete(vineyardId: vineyardId, stageCode: stageCode)
             } catch {
                 if Self.isMissingRowError(error) {
@@ -158,16 +171,40 @@ final class GrowthStageImageSyncService {
             pendingStore.recordRemoteId(item.id, vineyardId: vineyardId, stageCode: item.stageCode)
 
             if item.deletedAt != nil {
+                SharedImageCache.shared.removeCachedImage(
+                    for: .elStageImage(vineyardId: vineyardId, stageCode: item.stageCode)
+                )
                 store.applyRemoteCustomELStageImageDelete(stageCode: item.stageCode)
                 continue
             }
+
+            // Skip download if the cache already has this exact remote
+            // version. Just make sure local storage on the store has it.
+            let cacheKey = SharedImageCacheKey.elStageImage(vineyardId: vineyardId, stageCode: item.stageCode)
+            let remoteUpdatedAt = item.clientUpdatedAt ?? item.updatedAt
+            if SharedImageCache.shared.isCacheCurrent(
+                for: cacheKey,
+                remotePath: item.imagePath,
+                remoteUpdatedAt: remoteUpdatedAt
+            ),
+               let cached = SharedImageCache.shared.cachedImageData(for: cacheKey) {
+                store.applyRemoteCustomELStageImage(data: cached, for: item.stageCode)
+                continue
+            }
+
             do {
-                let data = try await storageService.downloadStageImage(path: item.imagePath)
+                let data = try await storageService.downloadStageImage(
+                    path: item.imagePath,
+                    vineyardId: vineyardId,
+                    stageCode: item.stageCode,
+                    remoteUpdatedAt: remoteUpdatedAt
+                )
                 store.applyRemoteCustomELStageImage(data: data, for: item.stageCode)
             } catch {
                 #if DEBUG
                 print("[GrowthStageImageSync] download failed for \(item.stageCode): \(error.localizedDescription)")
                 #endif
+                // Keep showing the existing cached image (if any).
             }
         }
     }

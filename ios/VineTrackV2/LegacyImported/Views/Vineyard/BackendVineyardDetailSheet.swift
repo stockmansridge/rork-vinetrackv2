@@ -211,6 +211,14 @@ struct BackendVineyardDetailSheet: View {
                 vineyardId: vineyard.id,
                 logoPath: path
             )
+            // Re-stamp the cache with the authoritative server timestamp so the
+            // next sync doesn't think the cached copy is stale.
+            SharedImageCache.shared.saveImageData(
+                jpeg,
+                for: .vineyardLogo(vineyardId: vineyard.id),
+                remotePath: path,
+                remoteUpdatedAt: updatedAt
+            )
             var updated = vineyard
             updated.logoData = jpeg
             updated.logoPath = path
@@ -231,7 +239,9 @@ struct BackendVineyardDetailSheet: View {
                 logoPath: nil
             )
             if let existingPath {
-                try? await logoStorage.deleteLogo(path: existingPath)
+                try? await logoStorage.deleteLogo(path: existingPath, vineyardId: vineyard.id)
+            } else {
+                SharedImageCache.shared.removeCachedImage(for: .vineyardLogo(vineyardId: vineyard.id))
             }
             var updated = vineyard
             updated.logoData = nil
@@ -244,9 +254,32 @@ struct BackendVineyardDetailSheet: View {
     }
 
     private func ensureLogoCached() async {
-        guard let path = vineyard.logoPath, vineyard.logoData == nil else { return }
+        guard let path = vineyard.logoPath else { return }
+        let key = SharedImageCacheKey.vineyardLogo(vineyardId: vineyard.id)
+
+        // Hydrate from disk cache first if needed — this avoids the empty
+        // logo flash on cold launch before any sync has run.
+        if vineyard.logoData == nil, let cached = SharedImageCache.shared.cachedImageData(for: key) {
+            var updated = vineyard
+            updated.logoData = cached
+            store.upsertLocalVineyard(updated)
+        }
+
+        // Skip the network round-trip if the cache is already current.
+        if SharedImageCache.shared.isCacheCurrent(
+            for: key,
+            remotePath: path,
+            remoteUpdatedAt: vineyard.logoUpdatedAt
+        ), vineyard.logoData != nil {
+            return
+        }
+
         do {
-            let data = try await logoStorage.downloadLogo(path: path)
+            let data = try await logoStorage.downloadLogo(
+                path: path,
+                vineyardId: vineyard.id,
+                remoteUpdatedAt: vineyard.logoUpdatedAt
+            )
             var updated = vineyard
             updated.logoData = data
             store.upsertLocalVineyard(updated)
@@ -254,6 +287,7 @@ struct BackendVineyardDetailSheet: View {
             #if DEBUG
             print("[VineyardLogo] download failed:", error.localizedDescription)
             #endif
+            // Keep showing whatever cached data we already have.
         }
     }
 

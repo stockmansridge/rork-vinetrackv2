@@ -151,6 +151,7 @@ final class MigratedDataStore {
 
     func load() {
         vineyards = vineyardRepo.loadAll()
+        hydrateVineyardLogosFromCache()
 
         if let stored: SelectedVineyardWrapper = persistence.load(key: Keys.selectedVineyardId) {
             selectedVineyardId = stored.id
@@ -325,6 +326,28 @@ final class MigratedDataStore {
         }
     }
 
+    // MARK: - Image cache hydration
+
+    /// On cold launch, refill any missing `logoData` from the on-disk shared
+    /// image cache so the vineyard logo is visible immediately, before any
+    /// network sync has run.
+    private func hydrateVineyardLogosFromCache() {
+        var changed = false
+        for index in vineyards.indices {
+            let vineyard = vineyards[index]
+            guard vineyard.logoData == nil, vineyard.logoPath != nil else { continue }
+            if let cached = SharedImageCache.shared.cachedImageData(
+                for: .vineyardLogo(vineyardId: vineyard.id)
+            ) {
+                vineyards[index].logoData = cached
+                changed = true
+            }
+        }
+        if changed {
+            vineyardRepo.saveAll(vineyards)
+        }
+    }
+
     // MARK: - Vineyard upsert
 
     func upsertLocalVineyard(_ vineyard: Vineyard) {
@@ -359,22 +382,40 @@ final class MigratedDataStore {
                 let remoteUpdated = backend.logoUpdatedAt
                 let localUpdated = local.logoUpdatedAt
                 if backend.logoPath == nil {
+                    // Remote authoritatively says no logo — clear local cache.
                     updated.logoData = nil
                     updated.logoUpdatedAt = nil
+                    SharedImageCache.shared.removeCachedImage(
+                        for: .vineyardLogo(vineyardId: backend.id)
+                    )
                 } else if let remoteUpdated, localUpdated != remoteUpdated {
-                    updated.logoData = nil
+                    // Remote logo changed. Keep showing the existing cached
+                    // image until the new one downloads successfully; just
+                    // mark the cache stale and update the timestamp pointer.
+                    SharedImageCache.shared.markStale(
+                        for: .vineyardLogo(vineyardId: backend.id)
+                    )
                     updated.logoUpdatedAt = remoteUpdated
                 } else {
                     updated.logoUpdatedAt = remoteUpdated ?? localUpdated
                 }
+                if updated.logoData == nil, updated.logoPath != nil,
+                   let cached = SharedImageCache.shared.cachedImageData(
+                       for: .vineyardLogo(vineyardId: backend.id)
+                   ) {
+                    updated.logoData = cached
+                }
                 merged.append(updated)
             } else {
+                let cached = SharedImageCache.shared.cachedImageData(
+                    for: .vineyardLogo(vineyardId: backend.id)
+                )
                 let mapped = Vineyard(
                     id: backend.id,
                     name: backend.name,
                     users: [],
                     createdAt: backend.createdAt ?? Date(),
-                    logoData: nil,
+                    logoData: cached,
                     country: backend.country ?? "",
                     logoPath: backend.logoPath,
                     logoUpdatedAt: backend.logoUpdatedAt

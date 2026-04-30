@@ -34,7 +34,7 @@ final class ELStageImageStorageService {
     }
 
     @discardableResult
-    func uploadStageImage(vineyardId: UUID, stageCode: String, imageData: Data) async throws -> String {
+    func uploadStageImage(vineyardId: UUID, stageCode: String, imageData: Data, remoteUpdatedAt: Date? = nil) async throws -> String {
         guard provider.isConfigured else {
             throw BackendRepositoryError.missingSupabaseConfiguration
         }
@@ -51,24 +51,42 @@ final class ELStageImageStorageService {
                     upsert: true
                 )
             )
+        SharedImageCache.shared.saveImageData(
+            payload,
+            for: .elStageImage(vineyardId: vineyardId, stageCode: stageCode),
+            remotePath: path,
+            remoteUpdatedAt: remoteUpdatedAt
+        )
         return path
     }
 
-    func downloadStageImage(path: String) async throws -> Data {
+    func downloadStageImage(path: String, vineyardId: UUID, stageCode: String, remoteUpdatedAt: Date? = nil) async throws -> Data {
         guard provider.isConfigured else {
             throw BackendRepositoryError.missingSupabaseConfiguration
         }
-        return try await provider.client.storage
+        let data = try await provider.client.storage
             .from(ELStageImageStorage.bucket)
             .download(path: path)
+        SharedImageCache.shared.saveImageData(
+            data,
+            for: .elStageImage(vineyardId: vineyardId, stageCode: stageCode),
+            remotePath: path,
+            remoteUpdatedAt: remoteUpdatedAt
+        )
+        return data
     }
 
-    func deleteStageImage(path: String) async throws {
+    func deleteStageImage(path: String, vineyardId: UUID? = nil, stageCode: String? = nil) async throws {
         guard provider.isConfigured else {
             throw BackendRepositoryError.missingSupabaseConfiguration
         }
         _ = try await provider.client.storage
             .from(ELStageImageStorage.bucket)
             .remove(paths: [path])
+        if let vineyardId, let stageCode {
+            SharedImageCache.shared.removeCachedImage(
+                for: .elStageImage(vineyardId: vineyardId, stageCode: stageCode)
+            )
+        }
     }
 }

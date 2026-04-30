@@ -19,7 +19,7 @@ final class VineyardLogoStorageService {
     /// Uploads (or replaces) the logo for the given vineyard. Returns the
     /// storage path that should be stored in `vineyards.logo_path`.
     @discardableResult
-    func uploadLogo(vineyardId: UUID, imageData: Data) async throws -> String {
+    func uploadLogo(vineyardId: UUID, imageData: Data, remoteUpdatedAt: Date? = nil) async throws -> String {
         guard provider.isConfigured else {
             throw BackendRepositoryError.missingSupabaseConfiguration
         }
@@ -35,24 +35,40 @@ final class VineyardLogoStorageService {
                     upsert: true
                 )
             )
+        SharedImageCache.shared.saveImageData(
+            imageData,
+            for: .vineyardLogo(vineyardId: vineyardId),
+            remotePath: path,
+            remoteUpdatedAt: remoteUpdatedAt
+        )
         return path
     }
 
-    func downloadLogo(path: String) async throws -> Data {
+    func downloadLogo(path: String, vineyardId: UUID, remoteUpdatedAt: Date? = nil) async throws -> Data {
         guard provider.isConfigured else {
             throw BackendRepositoryError.missingSupabaseConfiguration
         }
-        return try await provider.client.storage
+        let data = try await provider.client.storage
             .from(VineyardLogoStorage.bucket)
             .download(path: path)
+        SharedImageCache.shared.saveImageData(
+            data,
+            for: .vineyardLogo(vineyardId: vineyardId),
+            remotePath: path,
+            remoteUpdatedAt: remoteUpdatedAt
+        )
+        return data
     }
 
-    func deleteLogo(path: String) async throws {
+    func deleteLogo(path: String, vineyardId: UUID? = nil) async throws {
         guard provider.isConfigured else {
             throw BackendRepositoryError.missingSupabaseConfiguration
         }
         _ = try await provider.client.storage
             .from(VineyardLogoStorage.bucket)
             .remove(paths: [path])
+        if let vineyardId {
+            SharedImageCache.shared.removeCachedImage(for: .vineyardLogo(vineyardId: vineyardId))
+        }
     }
 }

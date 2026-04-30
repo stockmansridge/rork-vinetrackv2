@@ -104,6 +104,14 @@ final class PinSyncService {
                 guard var pin = pinsById[pinId], pin.vineyardId == vineyardId else { continue }
                 // If the pin has local photo bytes but no synced path yet, upload first.
                 if let data = pin.photoData, pin.photoPath == nil {
+                    // Cache locally first so even an upload failure leaves a
+                    // hot cache entry for the next sync attempt.
+                    SharedImageCache.shared.saveImageData(
+                        data,
+                        for: .pinPhoto(vineyardId: vineyardId, pinId: pin.id),
+                        remotePath: nil,
+                        remoteUpdatedAt: nil
+                    )
                     do {
                         let path = try await photoStorage.uploadPhoto(
                             vineyardId: vineyardId,
@@ -226,18 +234,38 @@ final class PinSyncService {
 
         guard var mapped = backendPin.toVinePin(preservingPhoto: existingPhotoData) else { return }
 
-        // If the remote has a photoPath we don't have cached locally (or it changed),
-        // download it. Failures are non-fatal.
+        // If the remote has a photoPath, try the disk cache first, then
+        // fall back to a network download. Failures are non-fatal — we keep
+        // whatever cached/local bytes we already have.
         if let remotePath = mapped.photoPath {
-            let needsDownload = mapped.photoData == nil || existingPhotoPath != remotePath
+            let cacheKey = SharedImageCacheKey.pinPhoto(vineyardId: vineyardId, pinId: backendPin.id)
+            let pathChanged = existingPhotoPath != remotePath
+
+            if mapped.photoData == nil || pathChanged {
+                if !pathChanged,
+                   let cached = SharedImageCache.shared.cachedImageData(for: cacheKey) {
+                    mapped.photoData = cached
+                }
+            }
+
+            let needsDownload = mapped.photoData == nil || pathChanged
             if needsDownload {
                 do {
-                    let data = try await photoStorage.downloadPhoto(path: remotePath)
+                    let data = try await photoStorage.downloadPhoto(
+                        path: remotePath,
+                        vineyardId: vineyardId,
+                        pinId: backendPin.id
+                    )
                     mapped.photoData = data
                 } catch {
                     #if DEBUG
                     print("[PinSync] photo download failed for \(backendPin.id) at \(remotePath): \(error.localizedDescription)")
                     #endif
+                    // Keep existing cached bytes if any.
+                    if mapped.photoData == nil,
+                       let cached = SharedImageCache.shared.cachedImageData(for: cacheKey) {
+                        mapped.photoData = cached
+                    }
                 }
             }
         }

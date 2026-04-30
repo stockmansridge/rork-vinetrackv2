@@ -168,9 +168,33 @@ struct BackendVineyardListView: View {
 
     private func fetchMissingLogos() async {
         for vineyard in store.vineyards {
-            guard let path = vineyard.logoPath, vineyard.logoData == nil else { continue }
+            guard let path = vineyard.logoPath else { continue }
+            let key = SharedImageCacheKey.vineyardLogo(vineyardId: vineyard.id)
+
+            // First hydrate any in-memory `logoData` from disk cache so the UI
+            // can show the existing image immediately.
+            if vineyard.logoData == nil,
+               let cached = SharedImageCache.shared.cachedImageData(for: key),
+               var current = store.vineyards.first(where: { $0.id == vineyard.id }) {
+                current.logoData = cached
+                store.upsertLocalVineyard(current)
+            }
+
+            // Then only download if the cache is missing or known stale.
+            let isCurrent = SharedImageCache.shared.isCacheCurrent(
+                for: key,
+                remotePath: path,
+                remoteUpdatedAt: vineyard.logoUpdatedAt
+            )
+            let hasCachedBytes = SharedImageCache.shared.cachedImageData(for: key) != nil
+            if isCurrent && hasCachedBytes { continue }
+
             do {
-                let data = try await logoStorage.downloadLogo(path: path)
+                let data = try await logoStorage.downloadLogo(
+                    path: path,
+                    vineyardId: vineyard.id,
+                    remoteUpdatedAt: vineyard.logoUpdatedAt
+                )
                 if var current = store.vineyards.first(where: { $0.id == vineyard.id }) {
                     current.logoData = data
                     store.upsertLocalVineyard(current)
@@ -179,6 +203,7 @@ struct BackendVineyardListView: View {
                 #if DEBUG
                 print("[VineyardLogo] download failed for \(vineyard.name):", error.localizedDescription)
                 #endif
+                // Keep showing whatever was in cache; do not clear local logoData.
             }
         }
     }
