@@ -65,6 +65,18 @@ final class SupabaseAuthRepository: AuthRepository {
         return user
     }
 
+    func signInWithApple(idToken: String, nonce: String?) async throws -> AppUser {
+        guard provider.isConfigured else { throw BackendRepositoryError.missingSupabaseConfiguration }
+        let credentials = OpenIDConnectCredentials(
+            provider: .apple,
+            idToken: idToken,
+            nonce: nonce
+        )
+        try await provider.client.auth.signInWithIdToken(credentials: credentials)
+        let session = try await provider.client.auth.session
+        return appUser(from: session.user)
+    }
+
     private func appUser(from user: User, fallbackEmail: String? = nil, fallbackDisplayName: String? = nil) -> AppUser {
         let email = user.email ?? fallbackEmail ?? ""
         return AppUser(

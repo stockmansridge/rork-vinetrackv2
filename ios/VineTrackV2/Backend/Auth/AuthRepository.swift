@@ -10,5 +10,6 @@ protocol AuthRepository: Sendable {
     func updatePassword(_ newPassword: String) async throws
     func resetPasswordWithPin(email: String, pin: String, newPassword: String) async throws -> AppUser
     func handlePasswordRecoveryURL(_ url: URL) async throws -> AppUser
+    func signInWithApple(idToken: String, nonce: String?) async throws -> AppUser
     var currentUserId: UUID? { get }
 }

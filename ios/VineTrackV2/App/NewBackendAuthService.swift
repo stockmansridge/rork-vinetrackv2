@@ -84,6 +84,45 @@ final class NewBackendAuthService {
         }
     }
 
+    func signInWithApple(idToken: String, nonce: String?, fullName: String?) async {
+        isLoading = true
+        errorMessage = nil
+        defer { isLoading = false }
+        do {
+            let user = try await authRepository.signInWithApple(idToken: idToken, nonce: nonce)
+            applyUser(user)
+            if isSignedIn {
+                let trimmedName = fullName?.trimmingCharacters(in: .whitespacesAndNewlines)
+                let nameToSave = (trimmedName?.isEmpty == false) ? trimmedName : nil
+                if nameToSave != nil {
+                    try? await profileRepository.upsertMyProfile(
+                        fullName: nameToSave,
+                        email: user.email.isEmpty ? nil : user.email
+                    )
+                    if let nameToSave { userName = nameToSave }
+                }
+                await refreshProfile()
+            }
+        } catch {
+            errorMessage = friendlyAppleError(error)
+        }
+    }
+
+    private func friendlyAppleError(_ error: Error) -> String {
+        let raw = error.localizedDescription
+        let lower = raw.lowercased()
+        if lower.contains("cancel") {
+            return "Sign in with Apple was cancelled."
+        }
+        if lower.contains("nonce") {
+            return "Apple sign-in failed (nonce mismatch). Please try again."
+        }
+        if lower.contains("identity token") || lower.contains("id token") {
+            return "Apple did not return a valid identity token. Please try again."
+        }
+        return raw
+    }
+
     func signOut() async {
         isLoading = true
         errorMessage = nil

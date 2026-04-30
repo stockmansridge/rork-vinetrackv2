@@ -1,4 +1,5 @@
 import SwiftUI
+import AuthenticationServices
 
 struct NewBackendLoginView: View {
     @Environment(NewBackendAuthService.self) private var auth
@@ -20,6 +21,7 @@ struct NewBackendLoginView: View {
     @State private var resetNewPassword: String = ""
     @State private var resetConfirmPassword: String = ""
     @State private var resetLocalError: String?
+    @State private var currentNonce: String?
 
     private enum ResetStep {
         case enterEmail
@@ -38,6 +40,8 @@ struct NewBackendLoginView: View {
                     modePicker
                     formCard
                     actionButton
+                    dividerWithOr
+                    appleSignInButton
                     footerLinks
                     if let errorMessage = auth.errorMessage {
                         Text(errorMessage)
@@ -139,6 +143,67 @@ struct NewBackendLoginView: View {
         }
         .buttonStyle(.vineyardPrimary)
         .disabled(auth.isLoading || !canSubmit)
+    }
+
+    private var dividerWithOr: some View {
+        HStack(spacing: 12) {
+            Rectangle()
+                .fill(VineyardTheme.stone.opacity(0.4))
+                .frame(height: 1)
+            Text("or")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+            Rectangle()
+                .fill(VineyardTheme.stone.opacity(0.4))
+                .frame(height: 1)
+        }
+        .padding(.horizontal, 8)
+    }
+
+    private var appleSignInButton: some View {
+        SignInWithAppleButton(.signIn) { request in
+            let nonce = AppleSignInHelper.randomNonce()
+            currentNonce = nonce
+            request.requestedScopes = [.fullName, .email]
+            request.nonce = AppleSignInHelper.sha256(nonce)
+        } onCompletion: { result in
+            handleAppleResult(result)
+        }
+        .signInWithAppleButtonStyle(.black)
+        .frame(height: 50)
+        .clipShape(.rect(cornerRadius: 12))
+        .disabled(auth.isLoading)
+    }
+
+    private func handleAppleResult(_ result: Result<ASAuthorization, Error>) {
+        switch result {
+        case .failure(let error):
+            let nsError = error as NSError
+            if nsError.code == ASAuthorizationError.canceled.rawValue { return }
+            Task { @MainActor in
+                auth.errorMessage = error.localizedDescription
+            }
+        case .success(let authorization):
+            guard let credential = authorization.credential as? ASAuthorizationAppleIDCredential,
+                  let tokenData = credential.identityToken,
+                  let idToken = String(data: tokenData, encoding: .utf8) else {
+                Task { @MainActor in
+                    auth.errorMessage = "Apple did not return a valid identity token."
+                }
+                return
+            }
+            let fullName = credential.fullName.flatMap { components -> String? in
+                let parts = [components.givenName, components.middleName, components.familyName]
+                    .compactMap { $0 }
+                    .filter { !$0.isEmpty }
+                return parts.isEmpty ? nil : parts.joined(separator: " ")
+            }
+            let nonce = currentNonce
+            Task {
+                await auth.signInWithApple(idToken: idToken, nonce: nonce, fullName: fullName)
+                currentNonce = nil
+            }
+        }
     }
 
     private var footerLinks: some View {
