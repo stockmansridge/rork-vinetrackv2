@@ -46,12 +46,12 @@ nonisolated enum AppConfig {
 
     /// Production RevenueCat iOS public SDK key. Placeholder until paywall is enabled.
     static var revenueCatIOSAPIKey: String {
-        string(for: "REVENUECAT_IOS_API_KEY") ?? ""
+        string(for: "REVENUECAT_IOS_API_KEY", expoFallbackKey: "EXPO_PUBLIC_REVENUECAT_IOS_API_KEY") ?? ""
     }
 
     /// Sandbox / test RevenueCat key. Placeholder until paywall is enabled.
     static var revenueCatTestAPIKey: String {
-        string(for: "REVENUECAT_TEST_API_KEY") ?? ""
+        string(for: "REVENUECAT_TEST_API_KEY", expoFallbackKey: "EXPO_PUBLIC_REVENUECAT_TEST_API_KEY") ?? ""
     }
 
     // MARK: - Google Sign-In (client-safe, placeholder for later)
