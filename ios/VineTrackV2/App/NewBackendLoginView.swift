@@ -62,13 +62,13 @@ struct NewBackendLoginView: View {
 
     private var header: some View {
         VStack(spacing: 12) {
-            ZStack {
-                Circle()
-                    .fill(VineyardTheme.leafGreen.gradient)
-                    .frame(width: 80, height: 80)
-                GrapeLeafIcon(size: 40, color: .white)
-            }
-            Text("VineTrackV2")
+            Image("vinetrack_logo")
+                .resizable()
+                .aspectRatio(contentMode: .fill)
+                .frame(width: 96, height: 96)
+                .clipShape(.rect(cornerRadius: 22))
+                .shadow(color: .black.opacity(0.15), radius: 8, x: 0, y: 4)
+            Text("VineTrack")
                 .font(.largeTitle.weight(.bold))
                 .foregroundStyle(VineyardTheme.olive)
             Text("Manage your vineyard, your way.")
