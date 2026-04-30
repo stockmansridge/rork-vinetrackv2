@@ -8,6 +8,8 @@
 
 /* Begin PBXBuildFile section */
 		XX50D61ED0BAE05FA2F8E9XX /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = XX1C9FF110ABBCE8BF456CXX /* Supabase */; };
+		XX8B396B3FA3FD44EAFD5FXX /* RevenueCat in Frameworks */ = {isa = PBXBuildFile; productRef = XX1966B1DB54EE9354D0E2XX /* RevenueCat */; };
+		XXAB21E82A9C2BDFBBDE29XX /* RevenueCatUI in Frameworks */ = {isa = PBXBuildFile; productRef = XX215E5AC150AE3FEF8365XX /* RevenueCatUI */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -33,30 +35,14 @@
 		105FC5932E9EAD3200EA8BCF /* VineTrackV2UITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = VineTrackV2UITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
-/* Begin PBXFileSystemSynchronizedRootGroup section */
-		105FC57C2E9EAD3100EA8BCF /* VineTrackV2 */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = VineTrackV2;
-			sourceTree = "<group>";
-		};
-		105FC58C2E9EAD3200EA8BCF /* VineTrackV2Tests */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = VineTrackV2Tests;
-			sourceTree = "<group>";
-		};
-		105FC5962E9EAD3200EA8BCF /* VineTrackV2UITests */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = VineTrackV2UITests;
-			sourceTree = "<group>";
-		};
-/* End PBXFileSystemSynchronizedRootGroup section */
-
 /* Begin PBXFrameworksBuildPhase section */
 		105FC5772E9EAD3100EA8BCF /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 				XX50D61ED0BAE05FA2F8E9XX /* Supabase in Frameworks */,
+				XX8B396B3FA3FD44EAFD5FXX /* RevenueCat in Frameworks */,
+				XXAB21E82A9C2BDFBBDE29XX /* RevenueCatUI in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -75,6 +61,24 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		105FC57C2E9EAD3100EA8BCF /* VineTrackV2 */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = VineTrackV2;
+			sourceTree = "<group>";
+		};
+		105FC58C2E9EAD3200EA8BCF /* VineTrackV2Tests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = VineTrackV2Tests;
+			sourceTree = "<group>";
+		};
+		105FC5962E9EAD3200EA8BCF /* VineTrackV2UITests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = VineTrackV2UITests;
+			sourceTree = "<group>";
+		};
+/* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXGroup section */
 		105FC5712E9EAD3100EA8BCF = {
@@ -118,6 +122,8 @@
 			name = VineTrackV2;
 			packageProductDependencies = (
 				XX1C9FF110ABBCE8BF456CXX /* Supabase */,
+				XX1966B1DB54EE9354D0E2XX /* RevenueCat */,
+				XX215E5AC150AE3FEF8365XX /* RevenueCatUI */,
 			);
 			productName = VineTrackV2;
 			productReference = 105FC57A2E9EAD3100EA8BCF /* VineTrackV2.app */;
@@ -203,7 +209,8 @@
 			mainGroup = 105FC5712E9EAD3100EA8BCF;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
-				XX20EB7F6EA71E9F2E096CXX /* XCRemoteSwiftPackageReference "supabase-swift.git" */,
+				XX20EB7F6EA71E9F2E096CXX /* XCRemoteSwiftPackageReference "supabase-swift" */,
+				XX0C0147E54E38ECB4F48AXX /* XCRemoteSwiftPackageReference "purchases-ios" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 105FC57B2E9EAD3100EA8BCF /* Products */;
@@ -604,7 +611,15 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
-		XX20EB7F6EA71E9F2E096CXX /* XCRemoteSwiftPackageReference "supabase-swift.git" */ = {
+		XX0C0147E54E38ECB4F48AXX /* XCRemoteSwiftPackageReference "purchases-ios" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/RevenueCat/purchases-ios.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 5.21.0;
+			};
+		};
+		XX20EB7F6EA71E9F2E096CXX /* XCRemoteSwiftPackageReference "supabase-swift" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/supabase/supabase-swift.git";
 			requirement = {
@@ -615,10 +630,20 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		XX1966B1DB54EE9354D0E2XX /* RevenueCat */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = XX0C0147E54E38ECB4F48AXX /* XCRemoteSwiftPackageReference "purchases-ios" */;
+			productName = RevenueCat;
+		};
 		XX1C9FF110ABBCE8BF456CXX /* Supabase */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = XX20EB7F6EA71E9F2E096CXX /* XCRemoteSwiftPackageReference "supabase-swift.git" */;
+			package = XX20EB7F6EA71E9F2E096CXX /* XCRemoteSwiftPackageReference "supabase-swift" */;
 			productName = Supabase;
+		};
+		XX215E5AC150AE3FEF8365XX /* RevenueCatUI */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = XX0C0147E54E38ECB4F48AXX /* XCRemoteSwiftPackageReference "purchases-ios" */;
+			productName = RevenueCatUI;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

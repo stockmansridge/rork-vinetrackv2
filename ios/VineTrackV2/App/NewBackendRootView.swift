@@ -3,6 +3,7 @@ import SwiftUI
 struct NewBackendRootView: View {
     @Environment(NewBackendAuthService.self) private var auth
     @Environment(MigratedDataStore.self) private var store
+    @Environment(SubscriptionService.self) private var subscription
     @Environment(\.scenePhase) private var scenePhase
 
     @State private var didAttemptRestore: Bool = false
@@ -38,6 +39,12 @@ struct NewBackendRootView: View {
                 vineyardLoadingView
             } else if store.selectedVineyard == nil {
                 BackendVineyardListView()
+            } else if !subscription.hasResolvedStatus {
+                subscriptionLoadingView
+            } else if !subscription.isSubscribed {
+                NavigationStack {
+                    SubscriptionPaywallView(allowDismiss: false)
+                }
             } else {
                 NewMainTabView()
             }
@@ -51,10 +58,14 @@ struct NewBackendRootView: View {
         .task(id: auth.isSignedIn) {
             if auth.isSignedIn {
                 await checkDisclaimer()
+                if let userId = auth.userId {
+                    await subscription.login(userId: userId)
+                }
             } else {
                 disclaimerAccepted = false
                 didCheckDisclaimer = false
                 didApplyDefaultVineyard = false
+                await subscription.logout()
             }
         }
         .task(id: disclaimerAccepted) {
@@ -75,6 +86,18 @@ struct NewBackendRootView: View {
         .onChange(of: scenePhase) { _, newPhase in
             if newPhase == .active && auth.isSignedIn {
                 Task { await auth.loadPendingInvitations() }
+            }
+        }
+    }
+
+    private var subscriptionLoadingView: some View {
+        ZStack {
+            VineyardTheme.appBackground.ignoresSafeArea()
+            VStack(spacing: 16) {
+                ProgressView()
+                Text("Checking subscription…")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
             }
         }
     }

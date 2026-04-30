@@ -4,6 +4,7 @@ struct BackendSettingsView: View {
     @Environment(NewBackendAuthService.self) private var auth
     @Environment(MigratedDataStore.self) private var store
     @Environment(BackendAccessControl.self) private var accessControl
+    @Environment(SubscriptionService.self) private var subscription
     @Environment(PinSyncService.self) private var pinSync
     @Environment(PaddockSyncService.self) private var paddockSync
     @Environment(TripSyncService.self) private var tripSync
@@ -43,6 +44,16 @@ struct BackendSettingsView: View {
                 }
 
                 Section {
+                    NavigationLink {
+                        SubscriptionSettingsView()
+                    } label: {
+                        SettingsRow(
+                            title: "Subscription",
+                            subtitle: subscriptionSubtitle,
+                            symbol: "creditcard.fill",
+                            color: .pink
+                        )
+                    }
                     NavigationLink {
                         PreferencesHubView()
                     } label: {
@@ -385,6 +396,14 @@ struct BackendSettingsView: View {
     }
 
     // MARK: - Helpers
+
+    private var subscriptionSubtitle: String {
+        if subscription.isSubscribed { return "Vineyard Tracker Pro — active" }
+        switch subscription.status {
+        case .loading, .unknown: return "Checking…"
+        default: return "Manage your plan"
+        }
+    }
 
     private var appVersion: String {
         Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
