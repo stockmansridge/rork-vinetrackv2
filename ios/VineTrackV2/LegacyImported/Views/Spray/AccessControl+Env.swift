@@ -11,6 +11,10 @@ struct LegacyAccessControl {
     var canViewFinancials: Bool = false
     var canFinalizeRecords: Bool = false
     var canReopenRecords: Bool = false
+    /// Owner/manager only — controls who can create, edit, or delete shared
+    /// vineyard setup data such as chemicals, presets, equipment, tractors,
+    /// operator categories, varieties, and button templates.
+    var canManageSetup: Bool = false
 }
 
 private struct LegacyAccessControlKey: EnvironmentKey {

@@ -7,6 +7,8 @@ struct ChemicalsManagementView: View {
     @State private var editingChemical: SavedChemical?
     @State private var searchText: String = ""
 
+    private var canManageSetup: Bool { accessControl?.canManageSetup ?? false }
+
     private var filteredChemicals: [SavedChemical] {
         guard !searchText.trimmingCharacters(in: .whitespaces).isEmpty else {
             return store.savedChemicals
@@ -19,14 +21,27 @@ struct ChemicalsManagementView: View {
 
     var body: some View {
         List {
+            if !canManageSetup && !filteredChemicals.isEmpty {
+                Section {
+                    Label("Setup data is managed by vineyard owners and managers.", systemImage: "lock.fill")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
             ForEach(filteredChemicals) { chemical in
-                Button {
-                    editingChemical = chemical
-                } label: {
-                    ChemicalDetailRow(chemical: chemical)
+                Group {
+                    if canManageSetup {
+                        Button {
+                            editingChemical = chemical
+                        } label: {
+                            ChemicalDetailRow(chemical: chemical)
+                        }
+                    } else {
+                        ChemicalDetailRow(chemical: chemical)
+                    }
                 }
                 .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                    if accessControl?.canDelete ?? false {
+                    if canManageSetup {
                         Button(role: .destructive) {
                             store.deleteSavedChemical(chemical)
                         } label: {
@@ -41,11 +56,13 @@ struct ChemicalsManagementView: View {
         .navigationBarTitleDisplayMode(.inline)
         .searchable(text: $searchText, prompt: "Search chemicals...")
         .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Button {
-                    showAddSheet = true
-                } label: {
-                    Image(systemName: "plus")
+            if canManageSetup {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        showAddSheet = true
+                    } label: {
+                        Image(systemName: "plus")
+                    }
                 }
             }
         }

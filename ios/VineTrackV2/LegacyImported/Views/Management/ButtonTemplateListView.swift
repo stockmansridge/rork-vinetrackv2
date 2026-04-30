@@ -8,6 +8,8 @@ struct ButtonTemplateListView: View {
     @State private var editingTemplate: ButtonTemplate?
     @State private var showAddTemplate: Bool = false
 
+    private var canManageSetup: Bool { accessControl?.canManageSetup ?? false }
+
     private var templates: [ButtonTemplate] {
         store.buttonTemplates(for: mode)
     }
@@ -23,27 +25,36 @@ struct ButtonTemplateListView: View {
                     }
                 } else {
                     ForEach(templates) { template in
-                        Button {
-                            editingTemplate = template
-                        } label: {
-                            templateRow(template)
+                        Group {
+                            if canManageSetup {
+                                Button { editingTemplate = template } label: { templateRow(template) }
+                            } else {
+                                templateRow(template)
+                            }
                         }
                         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                            if accessControl?.canDelete ?? false {
+                            if canManageSetup {
                                 Button(role: .destructive) {
                                     store.deleteButtonTemplate(template)
                                 } label: {
                                     Label("Delete", systemImage: "trash")
                                 }
-                            }
 
-                            Button {
-                                store.applyButtonTemplate(template)
-                                dismiss()
-                            } label: {
-                                Label("Apply", systemImage: "checkmark.circle")
+                                Button {
+                                    store.applyButtonTemplate(template)
+                                    dismiss()
+                                } label: {
+                                    Label("Apply", systemImage: "checkmark.circle")
+                                }
+                                .tint(.green)
                             }
-                            .tint(.green)
+                        }
+                    }
+                    if !canManageSetup {
+                        Section {
+                            Label("Setup data is managed by vineyard owners and managers.", systemImage: "lock.fill")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
                         }
                     }
                 }
@@ -55,11 +66,13 @@ struct ButtonTemplateListView: View {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Done") { dismiss() }
                 }
-                ToolbarItem(placement: .primaryAction) {
-                    Button {
-                        showAddTemplate = true
-                    } label: {
-                        Image(systemName: "plus")
+                if canManageSetup {
+                    ToolbarItem(placement: .primaryAction) {
+                        Button {
+                            showAddTemplate = true
+                        } label: {
+                            Image(systemName: "plus")
+                        }
                     }
                 }
             }

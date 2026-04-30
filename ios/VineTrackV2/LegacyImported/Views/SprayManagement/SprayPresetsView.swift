@@ -8,6 +8,8 @@ struct SprayPresetsView: View {
     @State private var editingChemical: SavedChemical?
     @State private var editingPreset: SavedSprayPreset?
 
+    private var canManageSetup: Bool { accessControl?.canManageSetup ?? false }
+
     var body: some View {
         List {
             chemicalsSection
@@ -32,33 +34,17 @@ struct SprayPresetsView: View {
     private var chemicalsSection: some View {
         Section {
             ForEach(store.savedChemicals) { chemical in
-                Button {
-                    editingChemical = chemical
-                } label: {
-                    HStack {
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text(chemical.name)
-                                .font(.subheadline.weight(.medium))
-                                .foregroundStyle(.primary)
-                            if !chemical.activeIngredient.isEmpty {
-                                Text(chemical.activeIngredient)
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                                    .lineLimit(1)
-                            } else {
-                                Text("\(String(format: "%.2f", chemical.ratePerHa)) \(chemical.unit.rawValue)/Ha")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
-                        Spacer()
-                        Image(systemName: "chevron.right")
-                            .font(.caption)
-                            .foregroundStyle(.tertiary)
+                Group {
+                    if canManageSetup {
+                        Button {
+                            editingChemical = chemical
+                        } label: { chemicalRowContent(chemical) }
+                    } else {
+                        chemicalRowContent(chemical)
                     }
                 }
                 .swipeActions(edge: .trailing) {
-                    if accessControl?.canDelete ?? false {
+                    if canManageSetup {
                         Button(role: .destructive) {
                             store.deleteSavedChemical(chemical)
                         } label: {
@@ -68,10 +54,12 @@ struct SprayPresetsView: View {
                 }
             }
 
-            Button {
-                showAddChemical = true
-            } label: {
-                Label("Add Chemical", systemImage: "plus.circle")
+            if canManageSetup {
+                Button {
+                    showAddChemical = true
+                } label: {
+                    Label("Add Chemical", systemImage: "plus.circle")
+                }
             }
         } header: {
             HStack(spacing: 6) {
@@ -81,33 +69,55 @@ struct SprayPresetsView: View {
                 Text("Chemicals")
             }
         } footer: {
-            Text("Saved chemicals are shared with all users of this vineyard.")
+            if canManageSetup {
+                Text("Saved chemicals are shared with all users of this vineyard.")
+            } else {
+                Text("Setup data is managed by vineyard owners and managers.")
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func chemicalRowContent(_ chemical: SavedChemical) -> some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 3) {
+                Text(chemical.name)
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(.primary)
+                if !chemical.activeIngredient.isEmpty {
+                    Text(chemical.activeIngredient)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                } else {
+                    Text("\(String(format: "%.2f", chemical.ratePerHa)) \(chemical.unit.rawValue)/Ha")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            Spacer()
+            if canManageSetup {
+                Image(systemName: "chevron.right")
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+            }
         }
     }
 
     private var tankPresetsSection: some View {
         Section {
             ForEach(store.savedSprayPresets) { preset in
-                Button {
-                    editingPreset = preset
-                } label: {
-                    HStack {
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text(preset.name)
-                                .font(.subheadline.weight(.medium))
-                                .foregroundStyle(.primary)
-                            Text("\(Int(preset.waterVolume))L • \(Int(preset.sprayRatePerHa))L/Ha • CF \(String(format: "%.1f", preset.concentrationFactor))")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                        Spacer()
-                        Image(systemName: "chevron.right")
-                            .font(.caption)
-                            .foregroundStyle(.tertiary)
+                Group {
+                    if canManageSetup {
+                        Button {
+                            editingPreset = preset
+                        } label: { presetRowContent(preset) }
+                    } else {
+                        presetRowContent(preset)
                     }
                 }
                 .swipeActions(edge: .trailing) {
-                    if accessControl?.canDelete ?? false {
+                    if canManageSetup {
                         Button(role: .destructive) {
                             store.deleteSavedSprayPreset(preset)
                         } label: {
@@ -117,10 +127,12 @@ struct SprayPresetsView: View {
                 }
             }
 
-            Button {
-                showAddPreset = true
-            } label: {
-                Label("Add Tank Preset", systemImage: "plus.circle")
+            if canManageSetup {
+                Button {
+                    showAddPreset = true
+                } label: {
+                    Label("Add Tank Preset", systemImage: "plus.circle")
+                }
             }
         } header: {
             HStack(spacing: 6) {
@@ -131,6 +143,26 @@ struct SprayPresetsView: View {
             }
         } footer: {
             Text("Tank presets save Water Volume, Spray Rate, and Concentration Factor.")
+        }
+    }
+
+    @ViewBuilder
+    private func presetRowContent(_ preset: SavedSprayPreset) -> some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 3) {
+                Text(preset.name)
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(.primary)
+                Text("\(Int(preset.waterVolume))L • \(Int(preset.sprayRatePerHa))L/Ha • CF \(String(format: "%.1f", preset.concentrationFactor))")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
+            if canManageSetup {
+                Image(systemName: "chevron.right")
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+            }
         }
     }
 }

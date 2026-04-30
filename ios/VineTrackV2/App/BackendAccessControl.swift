@@ -45,7 +45,8 @@ final class BackendAccessControl {
             canExportFinancialPDF: canExportFinancialReports,
             canViewFinancials: canViewFinancials,
             canFinalizeRecords: canDeleteOperationalRecords,
-            canReopenRecords: canDeleteOperationalRecords
+            canReopenRecords: canDeleteOperationalRecords,
+            canManageSetup: canChangeSettings
         )
     }
 

@@ -8,32 +8,25 @@ struct OperatorCategoriesView: View {
     @State private var removedDuplicateCount: Int = 0
     @State private var showDuplicateRemovedAlert: Bool = false
 
+    private var canManageSetup: Bool { accessControl?.canManageSetup ?? false }
+
     var body: some View {
         List {
             Section {
                 ForEach(store.operatorCategories) { category in
-                    Button {
-                        editingCategory = category
-                    } label: {
-                        HStack {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(category.name)
-                                    .font(.headline)
-                                    .foregroundStyle(.primary)
-                                if accessControl?.canViewFinancials ?? false {
-                                    Text(String(format: "$%.2f /hr", category.costPerHour))
-                                        .font(.subheadline)
-                                        .foregroundStyle(.secondary)
-                                }
+                    Group {
+                        if canManageSetup {
+                            Button {
+                                editingCategory = category
+                            } label: {
+                                operatorRow(category)
                             }
-                            Spacer()
-                            Image(systemName: "chevron.right")
-                                .font(.caption)
-                                .foregroundStyle(.tertiary)
+                        } else {
+                            operatorRow(category, showChevron: false)
                         }
                     }
                     .swipeActions(edge: .trailing) {
-                        if accessControl?.canDelete ?? false {
+                        if canManageSetup {
                             Button(role: .destructive) {
                                 store.deleteOperatorCategory(category)
                             } label: {
@@ -43,20 +36,27 @@ struct OperatorCategoriesView: View {
                     }
                 }
 
-                Button {
-                    showAddSheet = true
-                } label: {
-                    Label("Add Category", systemImage: "plus.circle")
+                if canManageSetup {
+                    Button {
+                        showAddSheet = true
+                    } label: {
+                        Label("Add Category", systemImage: "plus.circle")
+                    }
                 }
             } header: {
                 Text("Categories")
             } footer: {
-                Text("Define operator categories with hourly rates. Assign them to vineyard users to calculate operator costs on trip reports.")
+                if canManageSetup {
+                    Text("Define operator categories with hourly rates. Assign them to vineyard users to calculate operator costs on trip reports.")
+                } else {
+                    Text("Setup data is managed by vineyard owners and managers.")
+                }
             }
         }
         .navigationTitle("Operator Categories")
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
+            guard canManageSetup else { return }
             let removed = store.deduplicateOperatorCategories()
             if removed > 0 {
                 removedDuplicateCount = removed
@@ -73,6 +73,27 @@ struct OperatorCategoriesView: View {
         }
         .sheet(item: $editingCategory) { category in
             OperatorCategoryFormSheet(category: category)
+        }
+    }
+    @ViewBuilder
+    private func operatorRow(_ category: OperatorCategory, showChevron: Bool = true) -> some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(category.name)
+                    .font(.headline)
+                    .foregroundStyle(.primary)
+                if accessControl?.canViewFinancials ?? false {
+                    Text(String(format: "$%.2f /hr", category.costPerHour))
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            Spacer()
+            if showChevron {
+                Image(systemName: "chevron.right")
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+            }
         }
     }
 }

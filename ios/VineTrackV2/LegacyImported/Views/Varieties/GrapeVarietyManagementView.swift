@@ -6,6 +6,8 @@ struct GrapeVarietyManagementView: View {
     @State private var showAddSheet: Bool = false
     @State private var editingVariety: GrapeVariety?
 
+    private var canManageSetup: Bool { accessControl?.canManageSetup ?? false }
+
     private var sortedVarieties: [GrapeVariety] {
         store.grapeVarieties.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
     }
@@ -14,26 +16,15 @@ struct GrapeVarietyManagementView: View {
         List {
             Section {
                 ForEach(sortedVarieties) { variety in
-                    Button {
-                        editingVariety = variety
-                    } label: {
-                        HStack {
-                            VStack(alignment: .leading, spacing: 3) {
-                                Text(variety.name)
-                                    .font(.subheadline.weight(.semibold))
-                                    .foregroundStyle(.primary)
-                                Text("Optimal: \(Int(variety.optimalGDD)) GDD")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                            Spacer()
-                            Image(systemName: "chevron.right")
-                                .font(.caption)
-                                .foregroundStyle(.tertiary)
+                    Group {
+                        if canManageSetup {
+                            Button { editingVariety = variety } label: { varietyRow(variety) }
+                        } else {
+                            varietyRow(variety, showChevron: false)
                         }
                     }
                     .swipeActions(edge: .trailing) {
-                        if accessControl?.canDelete ?? false {
+                        if canManageSetup {
                             Button(role: .destructive) {
                                 store.deleteGrapeVariety(variety)
                             } label: {
@@ -45,17 +36,23 @@ struct GrapeVarietyManagementView: View {
             } header: {
                 Text("Master Variety List")
             } footer: {
-                Text("Optimal GDD (base 10°C) is the heat units typically needed for a variety to reach harvest ripeness.")
+                if canManageSetup {
+                    Text("Optimal GDD (base 10°C) is the heat units typically needed for a variety to reach harvest ripeness.")
+                } else {
+                    Text("Setup data is managed by vineyard owners and managers.")
+                }
             }
         }
         .navigationTitle("Grape Varieties")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Button {
-                    showAddSheet = true
-                } label: {
-                    Image(systemName: "plus")
+            if canManageSetup {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        showAddSheet = true
+                    } label: {
+                        Image(systemName: "plus")
+                    }
                 }
             }
         }
@@ -64,6 +61,26 @@ struct GrapeVarietyManagementView: View {
         }
         .sheet(item: $editingVariety) { variety in
             EditGrapeVarietySheet(variety: variety)
+        }
+    }
+
+    @ViewBuilder
+    private func varietyRow(_ variety: GrapeVariety, showChevron: Bool = true) -> some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 3) {
+                Text(variety.name)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.primary)
+                Text("Optimal: \(Int(variety.optimalGDD)) GDD")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
+            if showChevron {
+                Image(systemName: "chevron.right")
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+            }
         }
     }
 }

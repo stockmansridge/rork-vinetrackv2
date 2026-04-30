@@ -10,17 +10,21 @@ struct EquipmentManagementView: View {
     @State private var showAddFuelSheet: Bool = false
     @State private var editingFuelPurchase: FuelPurchase?
 
+    private var canManageSetup: Bool { accessControl?.canManageSetup ?? false }
+
     var body: some View {
         List {
             Section {
                 ForEach(store.sprayEquipment) { item in
-                    Button {
-                        editingEquipment = item
-                    } label: {
-                        EquipmentRow(equipment: item)
+                    Group {
+                        if canManageSetup {
+                            Button { editingEquipment = item } label: { EquipmentRow(equipment: item) }
+                        } else {
+                            EquipmentRow(equipment: item)
+                        }
                     }
                     .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                        if accessControl?.canDelete ?? false {
+                        if canManageSetup {
                             Button(role: .destructive) {
                                 store.deleteSprayEquipment(item)
                             } label: {
@@ -35,24 +39,32 @@ struct EquipmentManagementView: View {
                         .font(.caption.weight(.semibold))
                         .textCase(.uppercase)
                     Spacer()
-                    Button {
-                        showAddSheet = true
-                    } label: {
-                        Image(systemName: "plus.circle.fill")
-                            .font(.body)
+                    if canManageSetup {
+                        Button {
+                            showAddSheet = true
+                        } label: {
+                            Image(systemName: "plus.circle.fill")
+                                .font(.body)
+                        }
                     }
+                }
+            } footer: {
+                if !canManageSetup {
+                    Text("Setup data is managed by vineyard owners and managers.")
                 }
             }
 
             Section {
                 ForEach(store.tractors) { tractor in
-                    Button {
-                        editingTractor = tractor
-                    } label: {
-                        TractorRow(tractor: tractor)
+                    Group {
+                        if canManageSetup {
+                            Button { editingTractor = tractor } label: { TractorRow(tractor: tractor) }
+                        } else {
+                            TractorRow(tractor: tractor)
+                        }
                     }
                     .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                        if accessControl?.canDelete ?? false {
+                        if canManageSetup {
                             Button(role: .destructive) {
                                 store.deleteTractor(tractor)
                             } label: {
@@ -67,26 +79,32 @@ struct EquipmentManagementView: View {
                         .font(.caption.weight(.semibold))
                         .textCase(.uppercase)
                     Spacer()
-                    Button {
-                        showAddTractorSheet = true
-                    } label: {
-                        Image(systemName: "plus.circle.fill")
-                            .font(.body)
+                    if canManageSetup {
+                        Button {
+                            showAddTractorSheet = true
+                        } label: {
+                            Image(systemName: "plus.circle.fill")
+                                .font(.body)
+                        }
                     }
                 }
             } footer: {
-                Text("Fuel usage (L/hr) can typically be found in your tractor's user manual under engine specifications.")
+                if canManageSetup {
+                    Text("Fuel usage (L/hr) can typically be found in your tractor's user manual under engine specifications.")
+                }
             }
 
             Section {
                 ForEach(store.fuelPurchases.sorted(by: { $0.date > $1.date })) { purchase in
-                    Button {
-                        editingFuelPurchase = purchase
-                    } label: {
-                        FuelPurchaseRow(purchase: purchase)
+                    Group {
+                        if canManageSetup {
+                            Button { editingFuelPurchase = purchase } label: { FuelPurchaseRow(purchase: purchase) }
+                        } else {
+                            FuelPurchaseRow(purchase: purchase)
+                        }
                     }
                     .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                        if accessControl?.canDelete ?? false {
+                        if canManageSetup {
                             Button(role: .destructive) {
                                 store.deleteFuelPurchase(purchase)
                             } label: {
@@ -126,15 +144,19 @@ struct EquipmentManagementView: View {
                         .font(.caption.weight(.semibold))
                         .textCase(.uppercase)
                     Spacer()
-                    Button {
-                        showAddFuelSheet = true
-                    } label: {
-                        Image(systemName: "plus.circle.fill")
-                            .font(.body)
+                    if canManageSetup {
+                        Button {
+                            showAddFuelSheet = true
+                        } label: {
+                            Image(systemName: "plus.circle.fill")
+                                .font(.body)
+                        }
                     }
                 }
             } footer: {
-                Text("Record fuel purchases to calculate an average cost per litre for the season.")
+                if canManageSetup {
+                    Text("Record fuel purchases to calculate an average cost per litre for the season.")
+                }
             }
         }
         .listStyle(.insetGrouped)
