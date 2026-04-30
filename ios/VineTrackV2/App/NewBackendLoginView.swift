@@ -70,10 +70,11 @@ struct NewBackendLoginView: View {
                 .shadow(color: .black.opacity(0.15), radius: 8, x: 0, y: 4)
             Text("VineTrack")
                 .font(.largeTitle.weight(.bold))
-                .foregroundStyle(VineyardTheme.olive)
-            Text("Manage your vineyard, your way.")
+                .foregroundStyle(Color(red: 0.10, green: 0.30, blue: 0.16))
+            Text("Built by viticulturists, for viticulturists. Manager your vineyards, your way.")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
         }
     }
 
