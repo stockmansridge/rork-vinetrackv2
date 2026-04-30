@@ -11,6 +11,7 @@ nonisolated struct MaintenanceLog: Codable, Identifiable, Sendable {
     var labourCost: Double
     var date: Date
     var invoicePhotoData: Data?
+    var photoPath: String?
     var createdBy: String?
     var isArchived: Bool
     var archivedAt: Date?
@@ -30,6 +31,7 @@ nonisolated struct MaintenanceLog: Codable, Identifiable, Sendable {
         labourCost: Double = 0,
         date: Date = Date(),
         invoicePhotoData: Data? = nil,
+        photoPath: String? = nil,
         createdBy: String? = nil,
         isArchived: Bool = false,
         archivedAt: Date? = nil,
@@ -48,6 +50,7 @@ nonisolated struct MaintenanceLog: Codable, Identifiable, Sendable {
         self.labourCost = labourCost
         self.date = date
         self.invoicePhotoData = invoicePhotoData
+        self.photoPath = photoPath
         self.createdBy = createdBy
         self.isArchived = isArchived
         self.archivedAt = archivedAt
@@ -60,7 +63,7 @@ nonisolated struct MaintenanceLog: Codable, Identifiable, Sendable {
     var totalCost: Double { partsCost + labourCost }
 
     nonisolated enum CodingKeys: String, CodingKey {
-        case id, vineyardId, itemName, hours, workCompleted, partsUsed, partsCost, labourCost, date, invoicePhotoData, createdBy
+        case id, vineyardId, itemName, hours, workCompleted, partsUsed, partsCost, labourCost, date, invoicePhotoData, photoPath, createdBy
         case isArchived, archivedAt, archivedBy, isFinalized, finalizedAt, finalizedBy
     }
 
@@ -76,6 +79,7 @@ nonisolated struct MaintenanceLog: Codable, Identifiable, Sendable {
         labourCost = try container.decodeIfPresent(Double.self, forKey: .labourCost) ?? 0
         date = try container.decodeIfPresent(Date.self, forKey: .date) ?? Date()
         invoicePhotoData = try container.decodeIfPresent(Data.self, forKey: .invoicePhotoData)
+        photoPath = try container.decodeIfPresent(String.self, forKey: .photoPath)
         createdBy = try container.decodeIfPresent(String.self, forKey: .createdBy)
         isArchived = try container.decodeIfPresent(Bool.self, forKey: .isArchived) ?? false
         archivedAt = try container.decodeIfPresent(Date.self, forKey: .archivedAt)

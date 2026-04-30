@@ -2,6 +2,7 @@ import SwiftUI
 
 struct YieldReportsListView: View {
     @Environment(MigratedDataStore.self) private var store
+    @Environment(\.accessControl) private var accessControl
     @State private var showArchiveSheet: Bool = false
     @State private var showHistoricalDetail: HistoricalYieldRecord?
     @State private var historicalSortBy: HistoricalSort = .newest
@@ -491,10 +492,12 @@ struct YieldReportsListView: View {
                     }
                     .buttonStyle(.plain)
                     .contextMenu {
-                        Button(role: .destructive) {
-                            recordPendingDeletion = record
-                        } label: {
-                            Label("Delete", systemImage: "trash")
+                        if accessControl?.canDelete ?? false {
+                            Button(role: .destructive) {
+                                recordPendingDeletion = record
+                            } label: {
+                                Label("Delete", systemImage: "trash")
+                            }
                         }
                     }
                 }
@@ -847,6 +850,7 @@ private struct ArchiveYieldSheet: View {
 private struct HistoricalYieldDetailSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(MigratedDataStore.self) private var store
+    @Environment(\.accessControl) private var accessControl
     let record: HistoricalYieldRecord
     @State private var editingBlock: HistoricalBlockResult?
     @State private var showDeleteConfirm: Bool = false
@@ -962,12 +966,14 @@ private struct HistoricalYieldDetailSheet: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") { dismiss() }
                 }
-                ToolbarItem(placement: .topBarLeading) {
-                    Button(role: .destructive) {
-                        showDeleteConfirm = true
-                    } label: {
-                        Image(systemName: "trash")
-                            .foregroundStyle(.red)
+                if accessControl?.canDelete ?? false {
+                    ToolbarItem(placement: .topBarLeading) {
+                        Button(role: .destructive) {
+                            showDeleteConfirm = true
+                        } label: {
+                            Image(systemName: "trash")
+                                .foregroundStyle(.red)
+                        }
                     }
                 }
             }

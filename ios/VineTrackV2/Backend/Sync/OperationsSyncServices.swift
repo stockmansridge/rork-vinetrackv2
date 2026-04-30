@@ -185,11 +185,16 @@ final class MaintenanceLogSyncService {
     private weak var auth: NewBackendAuthService?
     private let repository: any MaintenanceLogSyncRepositoryProtocol
     private let metadata: OperationsSyncMetadata
+    private let photoStorage: MaintenancePhotoStorageService
     private var isConfigured: Bool = false
 
-    init(repository: (any MaintenanceLogSyncRepositoryProtocol)? = nil) {
+    init(
+        repository: (any MaintenanceLogSyncRepositoryProtocol)? = nil,
+        photoStorage: MaintenancePhotoStorageService? = nil
+    ) {
         self.repository = repository ?? SupabaseMaintenanceLogSyncRepository()
         self.metadata = OperationsSyncMetadata(key: "vinetrack_maintenance_log_sync_metadata")
+        self.photoStorage = photoStorage ?? MaintenancePhotoStorageService()
     }
 
     func configure(store: MigratedDataStore, auth: NewBackendAuthService) {
@@ -232,14 +237,43 @@ final class MaintenanceLogSyncService {
             let byId = Dictionary(uniqueKeysWithValues: store.maintenanceLogs.map { ($0.id, $0) })
             var payloads: [BackendMaintenanceLogUpsert] = []
             var pushed: [UUID] = []
+            var photoUploadFailures: [String] = []
             for (id, ts) in dirty {
-                guard let item = byId[id], item.vineyardId == vineyardId else { continue }
+                guard var item = byId[id], item.vineyardId == vineyardId else { continue }
+                // If the log has a local invoice photo but no synced path, upload first.
+                if let data = item.invoicePhotoData, item.photoPath == nil {
+                    SharedImageCache.shared.saveImageData(
+                        data,
+                        for: .maintenancePhoto(vineyardId: vineyardId, maintenanceId: item.id),
+                        remotePath: nil,
+                        remoteUpdatedAt: nil
+                    )
+                    do {
+                        let path = try await photoStorage.uploadPhoto(
+                            vineyardId: vineyardId,
+                            maintenanceId: item.id,
+                            imageData: data
+                        )
+                        item.photoPath = path
+                        store.applyRemoteMaintenanceLogUpsert(item)
+                    } catch {
+                        #if DEBUG
+                        print("[MaintenanceLogSync] photo upload failed for \(item.id): \(error.localizedDescription)")
+                        #endif
+                        photoUploadFailures.append(error.localizedDescription)
+                        // Still push log metadata; photo will retry next sync.
+                    }
+                }
                 payloads.append(BackendMaintenanceLog.upsert(from: item, createdBy: createdBy, clientUpdatedAt: ts))
                 pushed.append(id)
             }
             if !payloads.isEmpty {
                 try await repository.upsertMany(payloads)
                 metadata.clearDirty(pushed)
+            }
+            if !photoUploadFailures.isEmpty {
+                let first = photoUploadFailures.first ?? "unknown"
+                errorMessage = "Some maintenance photos failed to upload: \(first)"
             }
         }
         for (id, _) in metadata.pendingDeletes {
@@ -272,6 +306,11 @@ final class MaintenanceLogSyncService {
         }
         for item in remote {
             if item.deletedAt != nil {
+                if let local = store.maintenanceLogs.first(where: { $0.id == item.id }) {
+                    SharedImageCache.shared.removeCachedImage(
+                        for: .maintenancePhoto(vineyardId: local.vineyardId, maintenanceId: local.id)
+                    )
+                }
                 store.applyRemoteMaintenanceLogDelete(item.id)
                 metadata.clearDirty([item.id]); metadata.clearDeleted([item.id]); continue
             }
@@ -279,9 +318,46 @@ final class MaintenanceLogSyncService {
                 let remoteAt = item.clientUpdatedAt ?? item.updatedAt ?? .distantPast
                 if pendingAt > remoteAt { continue }
             }
-            // Preserve any existing local invoicePhotoData (not synced in this phase).
-            let existingPhoto = store.maintenanceLogs.first(where: { $0.id == item.id })?.invoicePhotoData
-            store.applyRemoteMaintenanceLogUpsert(item.toMaintenanceLog(preservingPhoto: existingPhoto))
+
+            let existingLocal = store.maintenanceLogs.first(where: { $0.id == item.id })
+            let existingPhotoData = existingLocal?.invoicePhotoData
+            let existingPhotoPath = existingLocal?.photoPath
+
+            var mapped = item.toMaintenanceLog(preservingPhoto: existingPhotoData)
+
+            if let remotePath = mapped.photoPath {
+                let cacheKey = SharedImageCacheKey.maintenancePhoto(vineyardId: vineyardId, maintenanceId: item.id)
+                let pathChanged = existingPhotoPath != remotePath
+
+                if mapped.invoicePhotoData == nil || pathChanged {
+                    if !pathChanged,
+                       let cached = SharedImageCache.shared.cachedImageData(for: cacheKey) {
+                        mapped.invoicePhotoData = cached
+                    }
+                }
+
+                let needsDownload = mapped.invoicePhotoData == nil || pathChanged
+                if needsDownload {
+                    do {
+                        let data = try await photoStorage.downloadPhoto(
+                            path: remotePath,
+                            vineyardId: vineyardId,
+                            maintenanceId: item.id
+                        )
+                        mapped.invoicePhotoData = data
+                    } catch {
+                        #if DEBUG
+                        print("[MaintenanceLogSync] photo download failed for \(item.id) at \(remotePath): \(error.localizedDescription)")
+                        #endif
+                        if mapped.invoicePhotoData == nil,
+                           let cached = SharedImageCache.shared.cachedImageData(for: cacheKey) {
+                            mapped.invoicePhotoData = cached
+                        }
+                    }
+                }
+            }
+
+            store.applyRemoteMaintenanceLogUpsert(mapped)
             metadata.clearDirty([item.id])
         }
     }

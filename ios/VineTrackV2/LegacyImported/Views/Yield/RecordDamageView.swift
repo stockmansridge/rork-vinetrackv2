@@ -3,9 +3,12 @@ import MapKit
 
 struct RecordDamageView: View {
     @Environment(MigratedDataStore.self) private var store
+    @Environment(\.accessControl) private var accessControl
     @Environment(\.dismiss) private var dismiss
     let paddock: Paddock
     let editingRecord: DamageRecord?
+
+    private var canDelete: Bool { accessControl?.canDelete ?? false }
 
     init(paddock: Paddock, editingRecord: DamageRecord? = nil) {
         self.paddock = paddock
@@ -79,7 +82,7 @@ struct RecordDamageView: View {
                 damageAreaInfo
                 damageDetailsSection
                 saveButton
-                if editingRecord != nil {
+                if editingRecord != nil && canDelete {
                     deleteButton
                 }
             }

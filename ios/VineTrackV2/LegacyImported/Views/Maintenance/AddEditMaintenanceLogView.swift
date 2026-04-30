@@ -18,6 +18,7 @@ struct AddEditMaintenanceLogView: View {
     @State private var labourCost: String = ""
     @State private var date: Date = Date()
     @State private var invoicePhotoData: Data?
+    @State private var photoChanged: Bool = false
     @State private var showCamera: Bool = false
     @State private var showPhotoSource: Bool = false
     @State private var showDeleteAlert: Bool = false
@@ -159,7 +160,10 @@ struct AddEditMaintenanceLogView: View {
                                 Spacer()
 
                                 Button(role: .destructive) {
-                                    withAnimation { invoicePhotoData = nil }
+                                    withAnimation {
+                                        invoicePhotoData = nil
+                                        photoChanged = true
+                                    }
                                 } label: {
                                     Label("Remove", systemImage: "trash")
                                         .font(.subheadline)
@@ -228,6 +232,7 @@ struct AddEditMaintenanceLogView: View {
                 CameraImagePicker { data in
                     if let data {
                         invoicePhotoData = data
+                        photoChanged = true
                     }
                 }
                 .ignoresSafeArea()
@@ -289,6 +294,11 @@ struct AddEditMaintenanceLogView: View {
         log.labourCost = Double(labourCost) ?? 0
         log.date = date
         log.invoicePhotoData = invoicePhotoData
+        // If the photo changed (added, replaced, or removed), clear the synced
+        // path so MaintenanceLogSyncService re-uploads or drops it on next sync.
+        if photoChanged {
+            log.photoPath = nil
+        }
         let userName = auth.userName ?? ""
         log.createdBy = userName.isEmpty ? nil : userName
 

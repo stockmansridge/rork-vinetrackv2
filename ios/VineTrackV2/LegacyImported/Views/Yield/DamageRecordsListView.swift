@@ -3,7 +3,9 @@ import MapKit
 
 struct DamageRecordsListView: View {
     @Environment(MigratedDataStore.self) private var store
-    // TODO: re-introduce access control when available
+    @Environment(\.accessControl) private var accessControl
+
+    private var canDelete: Bool { accessControl?.canDelete ?? false }
 
     private var paddocks: [Paddock] {
         store.orderedPaddocks.filter { $0.polygonPoints.count >= 3 }
@@ -180,7 +182,7 @@ struct DamageRecordsListView: View {
                     Label("Edit Record", systemImage: "pencil")
                 }
             }
-            if true { // TODO: access control
+            if canDelete {
                 Button(role: .destructive) {
                     store.deleteDamageRecord(record)
                 } label: {
