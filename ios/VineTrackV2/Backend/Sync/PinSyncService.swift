@@ -24,14 +24,17 @@ final class PinSyncService {
     private weak var auth: NewBackendAuthService?
     private let repository: any PinSyncRepositoryProtocol
     private let metadata: PinSyncMetadata
+    private let photoStorage: PinPhotoStorageService
     private var isConfigured: Bool = false
 
     init(
         repository: (any PinSyncRepositoryProtocol)? = nil,
-        metadata: PinSyncMetadata? = nil
+        metadata: PinSyncMetadata? = nil,
+        photoStorage: PinPhotoStorageService? = nil
     ) {
         self.repository = repository ?? SupabasePinSyncRepository()
         self.metadata = metadata ?? PinSyncMetadata()
+        self.photoStorage = photoStorage ?? PinPhotoStorageService()
     }
 
     // MARK: - Configuration
@@ -96,14 +99,36 @@ final class PinSyncService {
             let pinsById = Dictionary(uniqueKeysWithValues: store.pins.map { ($0.id, $0) })
             var payloads: [BackendPinUpsert] = []
             var pushedIds: [UUID] = []
+            var photoUploadFailures: [String] = []
             for (pinId, ts) in dirty {
-                guard let pin = pinsById[pinId], pin.vineyardId == vineyardId else { continue }
+                guard var pin = pinsById[pinId], pin.vineyardId == vineyardId else { continue }
+                // If the pin has local photo bytes but no synced path yet, upload first.
+                if let data = pin.photoData, pin.photoPath == nil {
+                    do {
+                        let path = try await photoStorage.uploadPhoto(
+                            vineyardId: vineyardId,
+                            pinId: pin.id,
+                            imageData: data
+                        )
+                        pin.photoPath = path
+                        store.applyRemotePinUpsert(pin)
+                    } catch {
+                        #if DEBUG
+                        print("[PinSync] photo upload failed for \(pin.id): \(error.localizedDescription)")
+                        #endif
+                        photoUploadFailures.append(error.localizedDescription)
+                        // Still upsert pin metadata; photo will retry next sync.
+                    }
+                }
                 payloads.append(BackendPin.upsert(from: pin, clientUpdatedAt: ts))
                 pushedIds.append(pinId)
             }
             if !payloads.isEmpty {
                 try await repository.upsertPins(payloads)
                 metadata.clearDirty(pushedIds)
+            }
+            if !photoUploadFailures.isEmpty {
+                errorMessage = "Some pin photos failed to upload: \(photoUploadFailures.first ?? "unknown")"
             }
         }
 
@@ -170,11 +195,11 @@ final class PinSyncService {
         }
 
         for backendPin in remote {
-            applyRemote(backendPin, vineyardId: vineyardId, store: store)
+            await applyRemote(backendPin, vineyardId: vineyardId, store: store)
         }
     }
 
-    private func applyRemote(_ backendPin: BackendPin, vineyardId: UUID, store: MigratedDataStore) {
+    private func applyRemote(_ backendPin: BackendPin, vineyardId: UUID, store: MigratedDataStore) async {
         let existingIndex = store.pins.firstIndex { $0.id == backendPin.id }
 
         // Soft-deleted remotely.
@@ -195,8 +220,28 @@ final class PinSyncService {
             }
         }
 
-        let existingPhoto: Data? = existingIndex.flatMap { store.pins[$0].photoData }
-        guard let mapped = backendPin.toVinePin(preservingPhoto: existingPhoto) else { return }
+        let existingPin: VinePin? = existingIndex.map { store.pins[$0] }
+        let existingPhotoData: Data? = existingPin?.photoData
+        let existingPhotoPath: String? = existingPin?.photoPath
+
+        guard var mapped = backendPin.toVinePin(preservingPhoto: existingPhotoData) else { return }
+
+        // If the remote has a photoPath we don't have cached locally (or it changed),
+        // download it. Failures are non-fatal.
+        if let remotePath = mapped.photoPath {
+            let needsDownload = mapped.photoData == nil || existingPhotoPath != remotePath
+            if needsDownload {
+                do {
+                    let data = try await photoStorage.downloadPhoto(path: remotePath)
+                    mapped.photoData = data
+                } catch {
+                    #if DEBUG
+                    print("[PinSync] photo download failed for \(backendPin.id) at \(remotePath): \(error.localizedDescription)")
+                    #endif
+                }
+            }
+        }
+
         store.applyRemotePinUpsert(mapped)
         metadata.clearDirty([backendPin.id])
     }

@@ -422,6 +422,7 @@ struct SyncSettingsView: View {
     @Environment(TractorSyncService.self) private var tractorSync
     @Environment(FuelPurchaseSyncService.self) private var fuelPurchaseSync
     @Environment(OperatorCategorySyncService.self) private var operatorCategorySync
+    @Environment(GrowthStageImageSyncService.self) private var growthStageImageSync
 
     var body: some View {
         Form {
@@ -521,6 +522,20 @@ struct SyncSettingsView: View {
                 Text("Spray Management")
             } footer: {
                 Text("Saved chemicals, presets, equipment, tractors, fuel and operator categories sync across vineyard members.")
+            }
+
+            Section {
+                Button {
+                    Task { await growthStageImageSync.syncForSelectedVineyard() }
+                } label: {
+                    syncButtonLabel(title: "Sync Growth Stage Images", icon: "photo.on.rectangle", isSyncing: isSyncingMgmt(growthStageImageSync.syncStatus))
+                }
+                .disabled(isSyncingMgmt(growthStageImageSync.syncStatus))
+                VineyardSyncStatusRow(label: "E-L stage images", state: mgmtStateFrom(growthStageImageSync.syncStatus, lastSync: growthStageImageSync.lastSyncDate))
+            } header: {
+                Text("Reference Images")
+            } footer: {
+                Text("Custom E-L growth stage reference images are shared with all vineyard members. Pin photos sync automatically with each pin.")
             }
         }
         .navigationTitle("Sync")

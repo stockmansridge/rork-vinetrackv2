@@ -19,6 +19,7 @@ nonisolated struct VinePin: Codable, Identifiable, Sendable, Hashable {
     var completedBy: String?
     var completedAt: Date?
     var photoData: Data?
+    var photoPath: String?
     var tripId: UUID?
     var growthStageCode: String?
     var notes: String?
@@ -45,6 +46,7 @@ nonisolated struct VinePin: Codable, Identifiable, Sendable, Hashable {
         completedBy: String? = nil,
         completedAt: Date? = nil,
         photoData: Data? = nil,
+        photoPath: String? = nil,
         tripId: UUID? = nil,
         growthStageCode: String? = nil,
         notes: String? = nil
@@ -66,6 +68,7 @@ nonisolated struct VinePin: Codable, Identifiable, Sendable, Hashable {
         self.completedBy = completedBy
         self.completedAt = completedAt
         self.photoData = photoData
+        self.photoPath = photoPath
         self.tripId = tripId
         self.growthStageCode = growthStageCode
         self.notes = notes

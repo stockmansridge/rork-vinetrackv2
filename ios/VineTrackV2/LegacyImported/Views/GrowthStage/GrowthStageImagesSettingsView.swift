@@ -3,8 +3,11 @@ import PhotosUI
 
 struct GrowthStageImagesSettingsView: View {
     @Environment(MigratedDataStore.self) private var store
+    @Environment(BackendAccessControl.self) private var accessControl
     @State private var selectedStage: GrowthStage?
     @State private var refreshID: UUID = UUID()
+
+    private var canManageSetup: Bool { accessControl.canChangeSettings }
 
     private var stagesWithImages: [GrowthStage] {
         GrowthStage.allStages.filter { $0.imageName != nil || store.hasCustomELStageImage(for: $0.code) }
@@ -42,7 +45,7 @@ struct GrowthStageImagesSettingsView: View {
         .navigationTitle("Growth Stage Images")
         .navigationBarTitleDisplayMode(.inline)
         .sheet(item: $selectedStage) { stage in
-            GrowthStageImageDetailSheet(stage: stage, onChanged: {
+            GrowthStageImageDetailSheet(stage: stage, canManageSetup: canManageSetup, onChanged: {
                 refreshID = UUID()
             })
         }
@@ -84,7 +87,17 @@ struct GrowthStageImagesSettingsView: View {
         }
     }
 
+    @ViewBuilder
     private func stageRowNoImage(_ stage: GrowthStage) -> some View {
+        // Read-only roles don't see entries for stages without images at all.
+        if !canManageSetup {
+            EmptyView()
+        } else {
+            stageRowNoImageButton(stage)
+        }
+    }
+
+    private func stageRowNoImageButton(_ stage: GrowthStage) -> some View {
         Button {
             selectedStage = stage
         } label: {
@@ -141,6 +154,7 @@ struct GrowthStageImageDetailSheet: View {
     @Environment(MigratedDataStore.self) private var store
     @Environment(\.dismiss) private var dismiss
     let stage: GrowthStage
+    let canManageSetup: Bool
     let onChanged: () -> Void
     @State private var selectedPhotoItem: PhotosPickerItem?
     @State private var showResetConfirm: Bool = false
@@ -246,7 +260,30 @@ struct GrowthStageImageDetailSheet: View {
         .clipShape(.rect(cornerRadius: 12))
     }
 
+    @ViewBuilder
     private var actionsSection: some View {
+        if !canManageSetup {
+            readOnlyNotice
+        } else {
+            editableActionsSection
+        }
+    }
+
+    private var readOnlyNotice: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "lock.fill")
+                .foregroundStyle(.secondary)
+            Text("Reference images are managed by vineyard owners and managers.")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+            Spacer()
+        }
+        .padding()
+        .background(Color(.secondarySystemGroupedBackground))
+        .clipShape(.rect(cornerRadius: 12))
+    }
+
+    private var editableActionsSection: some View {
         VStack(spacing: 12) {
             PhotosPicker(selection: $selectedPhotoItem, matching: .images) {
                 HStack(spacing: 8) {

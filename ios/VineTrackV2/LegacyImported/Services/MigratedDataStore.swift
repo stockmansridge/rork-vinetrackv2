@@ -94,6 +94,13 @@ final class MigratedDataStore {
     var onOperatorCategoryChanged: ((UUID) -> Void)?
     var onOperatorCategoryDeleted: ((UUID) -> Void)?
 
+    // Phase 15F: shared photo / image sync hooks.
+    /// Fired when an owner/manager saves a custom E-L stage image locally.
+    /// Args: (vineyardId, stageCode).
+    var onCustomELStageImageChanged: ((UUID, String) -> Void)?
+    /// Fired when a custom E-L stage image is removed locally.
+    var onCustomELStageImageDeleted: ((UUID, String) -> Void)?
+
     // MARK: - Repositories
 
     let vineyardRepo: VineyardRepository

@@ -27,6 +27,7 @@ struct VineTrackV2App: App {
     @State private var tractorSyncService = TractorSyncService()
     @State private var fuelPurchaseSyncService = FuelPurchaseSyncService()
     @State private var operatorCategorySyncService = OperatorCategorySyncService()
+    @State private var growthStageImageSyncService = GrowthStageImageSyncService()
 
     init() {
         VineyardTheme.applyGlobalAppearance()
@@ -64,6 +65,7 @@ struct VineTrackV2App: App {
                         .environment(tractorSyncService)
                         .environment(fuelPurchaseSyncService)
                         .environment(operatorCategorySyncService)
+                        .environment(growthStageImageSyncService)
                 } else {
                     ContentView()
                 }

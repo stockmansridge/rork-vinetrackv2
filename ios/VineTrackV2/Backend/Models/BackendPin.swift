@@ -22,6 +22,7 @@ nonisolated struct BackendPin: Codable, Sendable, Identifiable {
     let isCompleted: Bool
     let completedBy: String?
     let completedAt: Date?
+    let photoPath: String?
     let createdBy: UUID?
     let updatedBy: UUID?
     let createdAt: Date?
@@ -52,6 +53,7 @@ nonisolated struct BackendPin: Codable, Sendable, Identifiable {
         case isCompleted = "is_completed"
         case completedBy = "completed_by"
         case completedAt = "completed_at"
+        case photoPath = "photo_path"
         case createdBy = "created_by"
         case updatedBy = "updated_by"
         case createdAt = "created_at"
@@ -83,6 +85,7 @@ nonisolated struct BackendPinUpsert: Encodable, Sendable {
     let isCompleted: Bool
     let completedBy: String?
     let completedAt: Date?
+    let photoPath: String?
     let createdBy: UUID?
     let clientUpdatedAt: Date
 
@@ -104,6 +107,7 @@ nonisolated struct BackendPinUpsert: Encodable, Sendable {
         case isCompleted = "is_completed"
         case completedBy = "completed_by"
         case completedAt = "completed_at"
+        case photoPath = "photo_path"
         case createdBy = "created_by"
         case clientUpdatedAt = "client_updated_at"
     }
@@ -111,7 +115,8 @@ nonisolated struct BackendPinUpsert: Encodable, Sendable {
 
 extension BackendPin {
     /// Map a local VinePin into a BackendPin upsert payload.
-    /// Photo data is intentionally not synced — it stays local only.
+    /// `photoPath` is the Supabase Storage path; raw photo bytes are uploaded
+    /// separately to the `vineyard-pin-photos` bucket before upsert.
     static func upsert(from pin: VinePin, clientUpdatedAt: Date) -> BackendPinUpsert {
         BackendPinUpsert(
             id: pin.id,
@@ -131,6 +136,7 @@ extension BackendPin {
             isCompleted: pin.isCompleted,
             completedBy: pin.completedBy,
             completedAt: pin.completedAt,
+            photoPath: pin.photoPath,
             createdBy: UUID(uuidString: pin.createdBy ?? ""),
             clientUpdatedAt: clientUpdatedAt
         )
@@ -160,6 +166,7 @@ extension BackendPin {
             completedBy: completedBy,
             completedAt: completedAt,
             photoData: existingPhoto,
+            photoPath: photoPath,
             tripId: tripId,
             growthStageCode: growthStageCode,
             notes: notes

@@ -18,6 +18,7 @@ struct NewMainTabView: View {
     @Environment(TractorSyncService.self) private var tractorSync
     @Environment(FuelPurchaseSyncService.self) private var fuelPurchaseSync
     @Environment(OperatorCategorySyncService.self) private var operatorCategorySync
+    @Environment(GrowthStageImageSyncService.self) private var growthStageImageSync
     @Environment(\.scenePhase) private var scenePhase
     @State private var selectedTab: Int = 0
 
@@ -66,6 +67,7 @@ struct NewMainTabView: View {
             tractorSync.configure(store: store, auth: auth)
             fuelPurchaseSync.configure(store: store, auth: auth)
             operatorCategorySync.configure(store: store, auth: auth)
+            growthStageImageSync.configure(store: store, auth: auth)
         }
         .task(id: store.selectedVineyardId) {
             await accessControl.refresh(for: store.selectedVineyardId, auth: auth)
@@ -80,6 +82,7 @@ struct NewMainTabView: View {
             await tractorSync.syncForSelectedVineyard()
             await fuelPurchaseSync.syncForSelectedVineyard()
             await operatorCategorySync.syncForSelectedVineyard()
+            await growthStageImageSync.syncForSelectedVineyard()
         }
         .onChange(of: scenePhase) { _, newPhase in
             if newPhase == .active {
@@ -95,6 +98,7 @@ struct NewMainTabView: View {
                     await tractorSync.syncForSelectedVineyard()
                     await fuelPurchaseSync.syncForSelectedVineyard()
                     await operatorCategorySync.syncForSelectedVineyard()
+                    await growthStageImageSync.syncForSelectedVineyard()
                 }
             }
         }
