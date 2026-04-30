@@ -94,6 +94,18 @@ final class MigratedDataStore {
     var onOperatorCategoryChanged: ((UUID) -> Void)?
     var onOperatorCategoryDeleted: ((UUID) -> Void)?
 
+    // Phase 15G: operations sync hooks (work tasks, maintenance, yield, damage, historical).
+    var onWorkTaskChanged: ((UUID) -> Void)?
+    var onWorkTaskDeleted: ((UUID) -> Void)?
+    var onMaintenanceLogChanged: ((UUID) -> Void)?
+    var onMaintenanceLogDeleted: ((UUID) -> Void)?
+    var onYieldSessionChanged: ((UUID) -> Void)?
+    var onYieldSessionDeleted: ((UUID) -> Void)?
+    var onDamageRecordChanged: ((UUID) -> Void)?
+    var onDamageRecordDeleted: ((UUID) -> Void)?
+    var onHistoricalYieldRecordChanged: ((UUID) -> Void)?
+    var onHistoricalYieldRecordDeleted: ((UUID) -> Void)?
+
     // Phase 15F: shared photo / image sync hooks.
     /// Fired when an owner/manager saves a custom E-L stage image locally.
     /// Args: (vineyardId, stageCode).
@@ -732,6 +744,7 @@ final class MigratedDataStore {
         item.vineyardId = vineyardId
         maintenanceLogs.append(item)
         maintenanceLogRepo.saveSlice(maintenanceLogs, for: vineyardId)
+        onMaintenanceLogChanged?(item.id)
     }
 
     func updateMaintenanceLog(_ log: MaintenanceLog) {
@@ -739,12 +752,14 @@ final class MigratedDataStore {
         guard let index = maintenanceLogs.firstIndex(where: { $0.id == log.id }) else { return }
         maintenanceLogs[index] = log
         maintenanceLogRepo.saveSlice(maintenanceLogs, for: vineyardId)
+        onMaintenanceLogChanged?(log.id)
     }
 
     func deleteMaintenanceLog(_ logId: UUID) {
         guard let vineyardId = selectedVineyardId else { return }
         maintenanceLogs.removeAll { $0.id == logId }
         maintenanceLogRepo.saveSlice(maintenanceLogs, for: vineyardId)
+        onMaintenanceLogDeleted?(logId)
     }
 
     // MARK: - WorkTask CRUD
@@ -755,6 +770,7 @@ final class MigratedDataStore {
         item.vineyardId = vineyardId
         workTasks.append(item)
         workTaskRepo.saveSlice(workTasks, for: vineyardId)
+        onWorkTaskChanged?(item.id)
     }
 
     func updateWorkTask(_ task: WorkTask) {
@@ -762,12 +778,14 @@ final class MigratedDataStore {
         guard let index = workTasks.firstIndex(where: { $0.id == task.id }) else { return }
         workTasks[index] = task
         workTaskRepo.saveSlice(workTasks, for: vineyardId)
+        onWorkTaskChanged?(task.id)
     }
 
     func deleteWorkTask(_ taskId: UUID) {
         guard let vineyardId = selectedVineyardId else { return }
         workTasks.removeAll { $0.id == taskId }
         workTaskRepo.saveSlice(workTasks, for: vineyardId)
+        onWorkTaskDeleted?(taskId)
     }
 
     // MARK: - Settings

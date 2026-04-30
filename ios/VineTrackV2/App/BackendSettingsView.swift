@@ -423,6 +423,11 @@ struct SyncSettingsView: View {
     @Environment(FuelPurchaseSyncService.self) private var fuelPurchaseSync
     @Environment(OperatorCategorySyncService.self) private var operatorCategorySync
     @Environment(GrowthStageImageSyncService.self) private var growthStageImageSync
+    @Environment(WorkTaskSyncService.self) private var workTaskSync
+    @Environment(MaintenanceLogSyncService.self) private var maintenanceLogSync
+    @Environment(YieldEstimationSessionSyncService.self) private var yieldSessionSync
+    @Environment(DamageRecordSyncService.self) private var damageRecordSync
+    @Environment(HistoricalYieldRecordSyncService.self) private var historicalYieldSync
 
     var body: some View {
         Form {
@@ -526,6 +531,52 @@ struct SyncSettingsView: View {
 
             Section {
                 Button {
+                    Task { await workTaskSync.syncForSelectedVineyard() }
+                } label: {
+                    syncButtonLabel(title: "Sync Work Tasks", icon: "person.2.badge.gearshape.fill", isSyncing: isSyncingOps(workTaskSync.syncStatus))
+                }
+                .disabled(isSyncingOps(workTaskSync.syncStatus))
+                VineyardSyncStatusRow(label: "work tasks", state: opsStateFrom(workTaskSync.syncStatus, lastSync: workTaskSync.lastSyncDate))
+
+                Button {
+                    Task { await maintenanceLogSync.syncForSelectedVineyard() }
+                } label: {
+                    syncButtonLabel(title: "Sync Maintenance Logs", icon: "wrench.and.screwdriver.fill", isSyncing: isSyncingOps(maintenanceLogSync.syncStatus))
+                }
+                .disabled(isSyncingOps(maintenanceLogSync.syncStatus))
+                VineyardSyncStatusRow(label: "maintenance logs", state: opsStateFrom(maintenanceLogSync.syncStatus, lastSync: maintenanceLogSync.lastSyncDate))
+
+                Button {
+                    Task { await yieldSessionSync.syncForSelectedVineyard() }
+                } label: {
+                    syncButtonLabel(title: "Sync Yield Sessions", icon: "chart.bar.fill", isSyncing: isSyncingOps(yieldSessionSync.syncStatus))
+                }
+                .disabled(isSyncingOps(yieldSessionSync.syncStatus))
+                VineyardSyncStatusRow(label: "yield sessions", state: opsStateFrom(yieldSessionSync.syncStatus, lastSync: yieldSessionSync.lastSyncDate))
+
+                Button {
+                    Task { await damageRecordSync.syncForSelectedVineyard() }
+                } label: {
+                    syncButtonLabel(title: "Sync Damage Records", icon: "exclamationmark.triangle.fill", isSyncing: isSyncingOps(damageRecordSync.syncStatus))
+                }
+                .disabled(isSyncingOps(damageRecordSync.syncStatus))
+                VineyardSyncStatusRow(label: "damage records", state: opsStateFrom(damageRecordSync.syncStatus, lastSync: damageRecordSync.lastSyncDate))
+
+                Button {
+                    Task { await historicalYieldSync.syncForSelectedVineyard() }
+                } label: {
+                    syncButtonLabel(title: "Sync Historical Yields", icon: "calendar.badge.clock", isSyncing: isSyncingOps(historicalYieldSync.syncStatus))
+                }
+                .disabled(isSyncingOps(historicalYieldSync.syncStatus))
+                VineyardSyncStatusRow(label: "historical yields", state: opsStateFrom(historicalYieldSync.syncStatus, lastSync: historicalYieldSync.lastSyncDate))
+            } header: {
+                Text("Operations")
+            } footer: {
+                Text("Work tasks, maintenance logs, yield sessions, damage records and historical yields sync across vineyard members.")
+            }
+
+            Section {
+                Button {
                     Task { await growthStageImageSync.syncForSelectedVineyard() }
                 } label: {
                     syncButtonLabel(title: "Sync Growth Stage Images", icon: "photo.on.rectangle", isSyncing: isSyncingMgmt(growthStageImageSync.syncStatus))
@@ -604,6 +655,20 @@ struct SyncSettingsView: View {
     }
 
     private func mgmtStateFrom(_ status: ManagementSyncStatus, lastSync: Date?) -> VineyardSyncState {
+        switch status {
+        case .idle: return .idle
+        case .syncing: return .syncing
+        case .success: return .success(lastSync)
+        case .failure(let m): return .failure(m)
+        }
+    }
+
+    private func isSyncingOps(_ status: OperationsSyncStatus) -> Bool {
+        if case .syncing = status { return true }
+        return false
+    }
+
+    private func opsStateFrom(_ status: OperationsSyncStatus, lastSync: Date?) -> VineyardSyncState {
         switch status {
         case .idle: return .idle
         case .syncing: return .syncing

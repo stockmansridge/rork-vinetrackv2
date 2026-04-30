@@ -28,6 +28,11 @@ struct VineTrackV2App: App {
     @State private var fuelPurchaseSyncService = FuelPurchaseSyncService()
     @State private var operatorCategorySyncService = OperatorCategorySyncService()
     @State private var growthStageImageSyncService = GrowthStageImageSyncService()
+    @State private var workTaskSyncService = WorkTaskSyncService()
+    @State private var maintenanceLogSyncService = MaintenanceLogSyncService()
+    @State private var yieldEstimationSessionSyncService = YieldEstimationSessionSyncService()
+    @State private var damageRecordSyncService = DamageRecordSyncService()
+    @State private var historicalYieldRecordSyncService = HistoricalYieldRecordSyncService()
 
     init() {
         VineyardTheme.applyGlobalAppearance()
@@ -66,6 +71,11 @@ struct VineTrackV2App: App {
                         .environment(fuelPurchaseSyncService)
                         .environment(operatorCategorySyncService)
                         .environment(growthStageImageSyncService)
+                        .environment(workTaskSyncService)
+                        .environment(maintenanceLogSyncService)
+                        .environment(yieldEstimationSessionSyncService)
+                        .environment(damageRecordSyncService)
+                        .environment(historicalYieldRecordSyncService)
                 } else {
                     ContentView()
                 }

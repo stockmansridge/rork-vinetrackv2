@@ -40,12 +40,14 @@ extension MigratedDataStore {
             yieldSessions.append(item)
         }
         yieldRepo.saveSessionsSlice(yieldSessions, for: vineyardId)
+        onYieldSessionChanged?(item.id)
     }
 
     func deleteYieldSession(_ session: YieldEstimationSession) {
         guard let vineyardId = selectedVineyardId else { return }
         yieldSessions.removeAll { $0.id == session.id }
         yieldRepo.saveSessionsSlice(yieldSessions, for: vineyardId)
+        onYieldSessionDeleted?(session.id)
     }
 
     // MARK: - DamageRecord
@@ -73,6 +75,7 @@ extension MigratedDataStore {
         item.vineyardId = vineyardId
         damageRecords.append(item)
         yieldRepo.saveDamageSlice(damageRecords, for: vineyardId)
+        onDamageRecordChanged?(item.id)
     }
 
     func updateDamageRecord(_ record: DamageRecord) {
@@ -80,12 +83,14 @@ extension MigratedDataStore {
         guard let index = damageRecords.firstIndex(where: { $0.id == record.id }) else { return }
         damageRecords[index] = record
         yieldRepo.saveDamageSlice(damageRecords, for: vineyardId)
+        onDamageRecordChanged?(record.id)
     }
 
     func deleteDamageRecord(_ record: DamageRecord) {
         guard let vineyardId = selectedVineyardId else { return }
         damageRecords.removeAll { $0.id == record.id }
         yieldRepo.saveDamageSlice(damageRecords, for: vineyardId)
+        onDamageRecordDeleted?(record.id)
     }
 
     // MARK: - HistoricalYieldRecord
@@ -96,6 +101,7 @@ extension MigratedDataStore {
         item.vineyardId = vineyardId
         historicalYieldRecords.append(item)
         yieldRepo.saveHistoricalSlice(historicalYieldRecords, for: vineyardId)
+        onHistoricalYieldRecordChanged?(item.id)
     }
 
     func updateHistoricalYieldRecord(_ record: HistoricalYieldRecord) {
@@ -103,11 +109,13 @@ extension MigratedDataStore {
         guard let index = historicalYieldRecords.firstIndex(where: { $0.id == record.id }) else { return }
         historicalYieldRecords[index] = record
         yieldRepo.saveHistoricalSlice(historicalYieldRecords, for: vineyardId)
+        onHistoricalYieldRecordChanged?(record.id)
     }
 
     func deleteHistoricalYieldRecord(_ record: HistoricalYieldRecord) {
         guard let vineyardId = selectedVineyardId else { return }
         historicalYieldRecords.removeAll { $0.id == record.id }
         yieldRepo.saveHistoricalSlice(historicalYieldRecords, for: vineyardId)
+        onHistoricalYieldRecordDeleted?(record.id)
     }
 }

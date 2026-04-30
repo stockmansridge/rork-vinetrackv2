@@ -19,6 +19,11 @@ struct NewMainTabView: View {
     @Environment(FuelPurchaseSyncService.self) private var fuelPurchaseSync
     @Environment(OperatorCategorySyncService.self) private var operatorCategorySync
     @Environment(GrowthStageImageSyncService.self) private var growthStageImageSync
+    @Environment(WorkTaskSyncService.self) private var workTaskSync
+    @Environment(MaintenanceLogSyncService.self) private var maintenanceLogSync
+    @Environment(YieldEstimationSessionSyncService.self) private var yieldSessionSync
+    @Environment(DamageRecordSyncService.self) private var damageRecordSync
+    @Environment(HistoricalYieldRecordSyncService.self) private var historicalYieldSync
     @Environment(\.scenePhase) private var scenePhase
     @State private var selectedTab: Int = 0
 
@@ -68,6 +73,11 @@ struct NewMainTabView: View {
             fuelPurchaseSync.configure(store: store, auth: auth)
             operatorCategorySync.configure(store: store, auth: auth)
             growthStageImageSync.configure(store: store, auth: auth)
+            workTaskSync.configure(store: store, auth: auth)
+            maintenanceLogSync.configure(store: store, auth: auth)
+            yieldSessionSync.configure(store: store, auth: auth)
+            damageRecordSync.configure(store: store, auth: auth)
+            historicalYieldSync.configure(store: store, auth: auth)
         }
         .task(id: store.selectedVineyardId) {
             await accessControl.refresh(for: store.selectedVineyardId, auth: auth)
@@ -83,6 +93,11 @@ struct NewMainTabView: View {
             await fuelPurchaseSync.syncForSelectedVineyard()
             await operatorCategorySync.syncForSelectedVineyard()
             await growthStageImageSync.syncForSelectedVineyard()
+            await workTaskSync.syncForSelectedVineyard()
+            await maintenanceLogSync.syncForSelectedVineyard()
+            await yieldSessionSync.syncForSelectedVineyard()
+            await damageRecordSync.syncForSelectedVineyard()
+            await historicalYieldSync.syncForSelectedVineyard()
         }
         .onChange(of: scenePhase) { _, newPhase in
             if newPhase == .active {
@@ -99,6 +114,11 @@ struct NewMainTabView: View {
                     await fuelPurchaseSync.syncForSelectedVineyard()
                     await operatorCategorySync.syncForSelectedVineyard()
                     await growthStageImageSync.syncForSelectedVineyard()
+                    await workTaskSync.syncForSelectedVineyard()
+                    await maintenanceLogSync.syncForSelectedVineyard()
+                    await yieldSessionSync.syncForSelectedVineyard()
+                    await damageRecordSync.syncForSelectedVineyard()
+                    await historicalYieldSync.syncForSelectedVineyard()
                 }
             }
         }
